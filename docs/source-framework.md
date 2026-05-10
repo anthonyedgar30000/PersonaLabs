@@ -1,6 +1,6 @@
 # PersonaLabs Source Framework
 
-PersonaLabs uses deterministic word and phrase analysis as a local, explainable observability aid. The dictionaries are heuristic signal categories. They are not clinical instruments, truth classifiers, or claims about a user's character, intent, health, or beliefs.
+PersonaLabs uses deterministic word and phrase analysis as a local, explainable media observability aid. The dictionaries are heuristic media-environment signal categories. They are not clinical instruments, truth classifiers, or claims about a user's character, intent, health, or beliefs.
 
 This document records the source concepts that should guide the scoring architecture, UI behavior, documentation, and future governance reviews.
 
@@ -39,7 +39,7 @@ Relevant concepts:
 
 How PersonaLabs applies these concepts:
 
-- Use confidence labels and buddy-tone explanations.
+- Use confidence labels and calm explanations.
 - Let users switch modes, continue, snooze, or enter Bare Metal.
 - Keep prompts non-blocking and recoverable.
 - Explain scores with observed lexical/duration signals.
@@ -78,7 +78,7 @@ Required boundaries:
 
 Acceptable framing:
 
-- "This may be drifting from Study Mode."
+- "Your recent browsing trajectory appears less aligned with your declared Study mode."
 - "Observed signals: Shorts format, clickbait wording, low evidence density."
 - "Confidence: medium."
 - "Want to continue, switch modes, enter Bare Metal, or snooze?"
@@ -140,9 +140,9 @@ Dictionary matches are local heuristic indicators. They are signals used to esti
     - Examples: always, never, everyone, no one, totally, unbelievable, worst.
     - Intended signal: content may use strong certainty or emotional amplification.
 
-12. **Doomscroll trigger language**
+12. **Novelty intensity language**
     - Examples: urgent, breaking, must watch, can't stop watching, everything is collapsing.
-    - Intended signal: content may invite compulsive checking or escalating novelty.
+    - Intended signal: content may invite rapid checking, urgency, or escalating novelty.
 
 13. **Speculation / low-evidence terms**
    - Examples: rumor, allegedly, theory, what if, could be, maybe, anonymous source.
@@ -161,7 +161,7 @@ The deterministic hierarchy should generally prioritize:
 3. content type and Shorts/novelty risk
 4. duration bonuses
 
-Long-form does not necessarily mean low-conflict. A long video with dense outrage, humiliation, panic, or doomscroll trigger language should score lower in Chill Mode than a shorter low-conflict video. Emotional volatility can outweigh duration when signals are severe.
+Long-form does not necessarily mean low-conflict. A long video with dense outrage, humiliation, panic, or novelty-intensity language should score lower in Chill Mode than a shorter low-conflict video. Emotional volatility can outweigh duration when signals are severe.
 
 Drift detection is based on trajectory and signal density, not political alignment. PersonaLabs should not classify an ideology, party, topic, or current-events category as inherently good or bad. It should only flag observed lexical and behavioral signals relative to the user's selected mode.
 
@@ -177,7 +177,7 @@ Thumbnail text is a major attention-signal surface on video platforms. For the c
 
 This is not OCR and not image understanding. OCR, multimodal image analysis, or model-based thumbnail interpretation are future roadmap items that require separate governance review. The current implementation must not call external APIs or send thumbnail data off-device.
 
-Thumbnail lexical signals are still heuristic indicators. Outrage, humiliation, panic, or doomscroll terms appearing in thumbnail-accessible text may carry higher weight because thumbnails are designed as rapid attention surfaces. This weighting must target emotional manipulation/framing signals, not viewpoint, ideology, or political topic.
+Thumbnail lexical signals are still heuristic indicators. Outrage, humiliation, panic, or novelty-intensity terms appearing in thumbnail-accessible text may carry higher weight because thumbnails are designed as rapid attention surfaces. This weighting must target emotional framing signals, not viewpoint, ideology, or political topic.
 
 When thumbnail text is unavailable, scoring must continue using title and metadata. Explanations should explicitly say that thumbnail text was unavailable rather than failing or silently pretending it was analyzed.
 
@@ -194,7 +194,7 @@ Scores must not be presented as:
 - content truth ratings
 - health or diagnosis ratings
 - moral judgments
-- productivity judgments
+- generic worth or value judgments
 - claims about user intent
 
 For Study modes, alignment is relative to the declared study persona. Educational content is not automatically aligned with every study goal. A Kubernetes YAML tutorial may align with Study - Cloud/DevOps, while an LLM agents explanation may align with Study - AI/ML and a SOC detection lab may align with Study - Cybersecurity.
@@ -206,8 +206,9 @@ Every score should expose:
 - score
 - mode
 - classification: aligned, neutral, or misaligned
-- top positive observed signals
-- top negative observed signals
+- alignment signals
+- evidence signals
+- media environment signals
 - emotional volatility estimate
 - title signals
 - thumbnail signals
@@ -219,7 +220,24 @@ Every score should expose:
 - topic continuity bonus
 - strongest positive and negative contributors
 - confidence level
-- short buddy-tone explanation
+- short calm explanation
+
+## Media observability framing
+
+PersonaLabs should feel closer to a media-bias or source-analysis panel than a behavioral correction system. It evaluates heuristic media-environment signals relative to a user-declared intent:
+
+- Alignment Signals
+- Evidence Signals
+- Emotional Volatility
+- Novelty Intensity
+- Topic Continuity
+- Session Drift
+- Cognitive Load Indicators
+- Intentionality Alignment
+- Exploratory Research Signals
+- Media Environment Signals
+
+Personas are user-authored and should remain editable as the product matures. The system emphasizes observability over coercion: explain the signals, show uncertainty, preserve override controls, and keep Bare Metal available.
 
 Explanations should use cautious language:
 

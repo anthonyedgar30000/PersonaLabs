@@ -1,8 +1,8 @@
 # PersonaLabs
 
-PersonaLabs is a cognitive observability and intentionality support platform.
+PersonaLabs is an explainable media observability and intentionality alignment platform.
 
-The system helps users notice when digital media consumption patterns drift away from their stated goals, modes, schedules, or values using explainable AI, behavioral telemetry, and human-centered observability principles.
+The system helps users inspect whether digital media environment signals align with their stated goals, modes, schedules, or values using explainable local telemetry and human-centered observability principles.
 
 ## Core Principles
 
@@ -12,7 +12,7 @@ The system helps users notice when digital media consumption patterns drift away
 - Human-in-the-loop control
 - Calm, non-judgmental interaction design
 - Privacy-aware architecture
-- Behavioral observability over coercive filtering
+- Media observability over coercive filtering
 - Bare Metal mode always available
 
 ## MVP Goals
@@ -45,17 +45,17 @@ To try it:
 
 The extension stores mode, aggregate session telemetry, and schedule-ready configuration locally with `chrome.storage.local`. It has no backend, account system, cloud sync, or AI API integration.
 
-The deterministic scoring architecture is documented in [`docs/source-framework.md`](docs/source-framework.md), including source concepts, heuristic dictionary categories, explanation requirements, and clinical/truth-judgment boundaries.
+The deterministic scoring architecture is documented in [`docs/source-framework.md`](docs/source-framework.md), including source concepts, heuristic media-signal categories, explanation requirements, and clinical/truth-judgment boundaries.
 
 Study scoring is persona-specific: PersonaLabs evaluates alignment relative to a declared intent, not generic "good content."
 
-Recent scoring refinements prioritize emotional volatility and outrage framing over long-form duration, so extended commentary is not treated as low-conflict simply because it is long. Drift prompts are based on signal density and trajectory relative to the selected mode, not political alignment.
+Recent scoring refinements prioritize Emotional Volatility and framing signals over long-form duration, so extended commentary is not treated as low-conflict simply because it is long. Session Drift prompts are based on signal density and trajectory relative to the selected mode, not political alignment.
 
 The extension also checks accessible thumbnail-related text where available. This is heuristic and local-only; OCR or multimodal thumbnail analysis is future roadmap work and is not part of the current MVP.
 
 ## Example Prompt
 
-"Looks like your activity drifted away from Study Mode.
+"Your recent browsing trajectory appears less aligned with Study Mode.
 Would you like to:
 - Continue Study Mode
 - Switch to Chill Mode

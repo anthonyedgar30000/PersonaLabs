@@ -1,20 +1,20 @@
 # Persona Labs Chrome Extension MVP
 
-This is a local-only Manifest V3 Chrome extension demo for explainable cognitive observability on YouTube. Persona Labs helps users notice when media browsing patterns may be drifting away from a stated mode or intent. It flags; it does not block.
+This is a local-only Manifest V3 Chrome extension demo for explainable media observability on YouTube. Persona Labs helps users inspect whether media environment signals align with a stated mode or intent. It flags; it does not block.
 
 There is no AI service, backend, telemetry upload, account system, or network integration.
 
 ## Features
 
 - Detects common YouTube video card renderers on Home, Search, channel grids, playlists, and sidebars.
-- Applies mock Persona alignment scores with color-coded borders:
+- Applies mock Persona alignment signals with color-coded borders:
   - Green: aligned
   - Yellow: neutral
   - Red: misaligned
-- Adds a score badge to each decorated card with classification, confidence, top scoring reasons, and a hover tooltip.
+- Adds a signal badge to each decorated card with classification, confidence, media signals, and a hover observability panel.
 - Uses deterministic, explainable scoring profiles for each mode.
 - Tracks lightweight session aggregates locally in `chrome.storage.local`.
-- Shows a small non-blocking drift prompt when session patterns appear misaligned with the active mode.
+- Shows a small non-blocking session drift prompt when media-environment patterns appear less aligned with the active mode.
 - Popup mode selector:
   - Study - Cybersecurity
   - Study - AI/ML
@@ -29,11 +29,11 @@ There is no AI service, backend, telemetry upload, account system, or network in
 
 ## Product framing
 
-Persona Labs is a cognitive observability and intentionality support layer. The goal is not to judge content or determine truth. The goal is to make browsing patterns visible enough that users can choose whether to continue, change modes, or step out of overlays.
+Persona Labs is an explainable media observability layer, intentionality alignment assistant, and local cognitive telemetry system. The goal is not to judge content or determine truth. The goal is to make media-environment signals visible enough that users can choose whether to continue, change modes, or step out of overlays.
 
 Tone principles:
 
-- Calm buddy-tone prompts.
+- Calm, non-nagging prompts.
 - No shaming or nagging.
 - User agency first.
 - Explain all scores.
@@ -104,11 +104,12 @@ Hides overlays and suppresses drift prompts. It is always available.
 
 Scoring is deterministic and heuristic-based. Each card receives:
 
-- score
+- final alignment score
 - mode
 - classification: aligned, neutral, or misaligned
-- top positive signals
-- top negative signals
+- Alignment Signals
+- Evidence Signals
+- Media Environment Signals
 - confidence level
 - `EMOTIONAL_VOLATILITY_SCORE`
 - title signals
@@ -119,33 +120,35 @@ Scoring is deterministic and heuristic-based. Each card receives:
 - educational format signals
 - long-form duration bonus
 - topic continuity bonus
-- strongest positive and negative contributors
-- short buddy-tone explanation
+- primary supporting and friction signals
+- short calm explanation
 
 Example tooltip shape:
 
 ```text
-Study 84 - aligned
+AI/ML 84 - aligned
+Media Observability Panel
+Intentionality Alignment: aligned
+Final Alignment Score: 84
 Selected study persona: Study - AI/ML
 Matched topic keywords: llm, agents
 Educational format signals: explained
-Confidence: high
-EMOTIONAL_VOLATILITY_SCORE: 0/100
-Long-form bonus: +14
-Continuity bonus: +8
-Strongest positive contributor: long-form duration: 20+ minutes
-Strongest negative contributor: no strong negative signals
+Signals:
++ long-form analysis
++ evidence-oriented language
+- elevated emotional framing
+Continuity: High
+Volatility: Low (0/100)
+Confidence: High
+Primary supporting signal: long-form duration: 20+ minutes
+Primary friction signal: no strong friction signals
+Evidence Signals:
 Title signals:
 - educational/study-positive: study
 Thumbnail signals:
 - technical/cyber/AI: python, api
 Metadata/duration signals:
 - no metadata dictionary signals
-Top positive signals:
-+ long-form duration: 20+ minutes
-+ technical terminology: python, api
-Top negative signals:
-- no strong negative signals
 Looks aligned with this mode. Study Mode is tuned for calm, long-form learning and technical depth.
 ```
 
@@ -154,6 +157,8 @@ The model is intentionally transparent and limited. It does not diagnose, infer 
 The lexical dictionaries are heuristic signal categories, not clinical or truth judgments. See [`../docs/source-framework.md`](../docs/source-framework.md) for the source concepts, dictionary categories, explanation requirements, and governance boundaries.
 
 PersonaLabs evaluates alignment relative to a specific declared intent, not generic "good content." An educational Kubernetes tutorial can be aligned with Study - Cloud/DevOps while being less aligned with Study - AI/ML or Study - Cybersecurity.
+
+Personas are intended to be user-authored and editable as the product matures. The current MVP ships deterministic starter personas so the media observability loop is inspectable and demoable.
 
 Long-form does not necessarily mean low-conflict. The scoring hierarchy prioritizes emotional volatility and outrage framing first, then topic continuity, content type/Shorts signals, and finally duration bonuses. This keeps extended outrage/commentary videos from being treated as relaxing simply because they are long.
 
@@ -173,10 +178,10 @@ The extension keeps aggregate counters for the current local session:
 - aligned/neutral/misaligned counts
 - per-mode versions of the same counters
 
-When the active mode accumulates enough evidence of drift, a small non-blocking prompt appears:
+When the active mode accumulates enough session drift evidence, a small non-blocking prompt appears:
 
 ```text
-Looks like your activity may be drifting away from Study Mode.
+Your recent browsing trajectory appears less aligned with your declared Research mode.
 Want to continue, switch modes, enter Bare Metal, or snooze?
 ```
 

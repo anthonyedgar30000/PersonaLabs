@@ -83,7 +83,7 @@
    * educational/study-positive, technical/cyber/AI, evidence/grounding,
    * calm/low-conflict, clickbait/urgency, outrage/rage-bait,
    * outrage escalation, humiliation framing, tribal conflict language,
-   * panic/fear framing, absolutist/emotional wording, doomscroll triggers,
+   * panic/fear framing, absolutist/emotional wording, novelty intensity,
    * speculation/low-evidence, and short-form/novelty-risk terms.
    * Scores are local-first deterministic alignment estimates. Explanations
    * must show observed signals and uncertainty; Bare Metal and user override
@@ -432,10 +432,9 @@
       "unbelievable",
       "worst"
     ],
-    doomscrollTriggerLanguage: [
+    noveltyIntensityLanguage: [
       "breaking",
       "can't stop watching",
-      "doom",
       "end of",
       "everything is collapsing",
       "must watch",
@@ -1199,7 +1198,7 @@
       { key: "tribalConflictLanguage", label: "tribal conflict" },
       { key: "panicFearFraming", label: "panic/fear" },
       { key: "absolutistEmotionalWording", label: "absolutist/emotional" },
-      { key: "doomscrollTriggerLanguage", label: "doomscroll trigger" },
+      { key: "noveltyIntensityLanguage", label: "novelty intensity" },
       { key: "shortFormNoveltyRisk", label: "short-form/novelty" }
     ];
 
@@ -1219,7 +1218,7 @@
       { key: "tribalConflictLanguage", label: "tribal conflict language", weight: 16, cap: 28, thumbnailWeight: 22, thumbnailCap: 36 },
       { key: "panicFearFraming", label: "panic/fear framing", weight: 18, cap: 32, thumbnailWeight: 28, thumbnailCap: 44 },
       { key: "absolutistEmotionalWording", label: "absolutist/emotional wording", weight: 12, cap: 24, thumbnailWeight: 18, thumbnailCap: 34 },
-      { key: "doomscrollTriggerLanguage", label: "doomscroll trigger language", weight: 16, cap: 30, thumbnailWeight: 26, thumbnailCap: 42 },
+      { key: "noveltyIntensityLanguage", label: "novelty intensity language", weight: 16, cap: 30, thumbnailWeight: 26, thumbnailCap: 42 },
       { key: "outrageRageBait", label: "outrage/rage-bait terms", weight: 16, cap: 30, thumbnailWeight: 26, thumbnailCap: 42 },
       { key: "clickbaitUrgency", label: "clickbait/urgency terms", weight: 12, cap: 24, thumbnailWeight: 22, thumbnailCap: 36 },
       { key: "emotional", label: "emotional wording", weight: 8, cap: 18, thumbnailWeight: 14, thumbnailCap: 28 },
@@ -1361,11 +1360,11 @@
     return calculateEmotionalVolatility(context).score > 0;
   }
 
-  function buildResult(rawScore, positiveSignals, negativeSignals, buddyContext, metrics = {}) {
+  function buildResult(rawScore, positiveSignals, negativeSignals, explanationContext, metrics = {}) {
     const score = clampScore(rawScore);
     const classification = classifyScore(score);
     const confidence = confidenceFor(positiveSignals, negativeSignals);
-    const buddyExplanation = buddyExplanationFor(classification, buddyContext);
+    const calmExplanation = calmExplanationFor(classification, explanationContext);
     const normalizedMetrics = {
       continuityBonus: Number(metrics.continuityBonus) || 0,
       durationBonus: Number(metrics.durationBonus) || 0,
@@ -1380,7 +1379,7 @@
     };
 
     return {
-      buddyExplanation,
+      calmExplanation,
       classification,
       confidence,
       metrics: normalizedMetrics,
@@ -1403,7 +1402,7 @@
     return "low";
   }
 
-  function buddyExplanationFor(classification, context) {
+  function calmExplanationFor(classification, context) {
     if (classification === "aligned") {
       return `Looks aligned with this mode. ${context}`;
     }
@@ -1412,7 +1411,7 @@
       return `Some signals fit and some do not. ${context}`;
     }
 
-    return `This may be drifting from your current intent. Nothing is blocked; just a gentle flag. ${context}`;
+    return `This media environment appears less aligned with your declared intent. Nothing is blocked; this is an observability signal. ${context}`;
   }
 
   function classifyScore(score) {
@@ -1506,24 +1505,27 @@
   function summarizeSignals(result) {
     const positive = result.positiveSignals[0] ? `+ ${result.positiveSignals[0]}` : "";
     const negative = result.negativeSignals[0] ? `- ${result.negativeSignals[0]}` : "";
-    return [positive, negative].filter(Boolean).join(" | ") || result.buddyExplanation;
+    return [positive, negative].filter(Boolean).join(" | ") || result.calmExplanation;
   }
 
   function tooltipFor(modeLabel, result) {
     const positive = result.positiveSignals.length
       ? result.positiveSignals.map((signal) => `+ ${signal}`).join("\n")
-      : "+ no strong positive signals";
+      : "+ no strong supporting signals";
     const negative = result.negativeSignals.length
       ? result.negativeSignals.map((signal) => `- ${signal}`).join("\n")
-      : "- no strong negative signals";
+      : "- no strong friction signals";
     const volatilitySignals = result.metrics.volatilitySignals.length
       ? result.metrics.volatilitySignals.map((signal) => `- ${signal}`).join("\n")
       : "- no outrage/escalation signals detected";
+    const continuityLevel = levelFromBonus(result.metrics.continuityBonus, 12, 6);
+    const volatilityLevel = levelFromScore(result.metrics.emotionalVolatilityScore, 60, 35);
 
     return [
       `${modeLabel} ${result.score} - ${result.classification}`,
-      `Final alignment score: ${result.score}`,
-      `Confidence: ${result.confidence}`,
+      "Media Observability Panel",
+      `Intentionality Alignment: ${result.classification}`,
+      `Final Alignment Score: ${result.score}`,
       result.metrics.selectedStudyPersona ? `Selected study persona: ${result.metrics.selectedStudyPersona}` : "",
       result.metrics.matchedTopicKeywords.length
         ? `Matched topic keywords: ${formatMatches(result.metrics.matchedTopicKeywords)}`
@@ -1535,11 +1537,16 @@
         : result.metrics.selectedStudyPersona
           ? "Educational format signals: none"
           : "",
-      `EMOTIONAL_VOLATILITY_SCORE: ${result.metrics.emotionalVolatilityScore}/100`,
-      `Long-form bonus: +${result.metrics.durationBonus}`,
-      `Continuity bonus: +${result.metrics.continuityBonus}`,
-      `Strongest positive contributor: ${result.metrics.strongestPositiveContributor}`,
-      `Strongest negative contributor: ${result.metrics.strongestNegativeContributor}`,
+      "Signals:",
+      positive,
+      negative,
+      `Continuity: ${continuityLevel} (+${result.metrics.continuityBonus})`,
+      `Volatility: ${volatilityLevel} (${result.metrics.emotionalVolatilityScore}/100)`,
+      `Confidence: ${capitalize(result.confidence)}`,
+      `Long-form Analysis Signal: +${result.metrics.durationBonus}`,
+      `Primary supporting signal: ${result.metrics.strongestPositiveContributor}`,
+      `Primary friction signal: ${result.metrics.strongestNegativeContributor}`,
+      "Evidence Signals:",
       "Title signals:",
       formatSourceSignals(result.metrics.sourceSignals.title, "no title dictionary signals"),
       "Thumbnail signals:",
@@ -1548,14 +1555,39 @@
         : "Thumbnail text unavailable; score based on title/metadata only.",
       "Metadata/duration signals:",
       formatSourceSignals(result.metrics.sourceSignals.metadata, "no metadata dictionary signals"),
-      "Outrage/escalation signals detected:",
+      "Emotional Volatility Signals:",
       volatilitySignals,
-      "Top positive signals:",
-      positive,
-      "Top negative signals:",
-      negative,
-      result.buddyExplanation
+      result.calmExplanation
     ].filter(Boolean).join("\n");
+  }
+
+  function levelFromBonus(value, highThreshold, mediumThreshold) {
+    if (value >= highThreshold) {
+      return "High";
+    }
+
+    if (value >= mediumThreshold) {
+      return "Moderate";
+    }
+
+    return "Low";
+  }
+
+  function levelFromScore(value, highThreshold, mediumThreshold) {
+    if (value >= highThreshold) {
+      return "High";
+    }
+
+    if (value >= mediumThreshold) {
+      return "Moderate";
+    }
+
+    return "Low";
+  }
+
+  function capitalize(value) {
+    const text = String(value || "");
+    return text ? `${text.charAt(0).toUpperCase()}${text.slice(1)}` : text;
   }
 
   function formatSourceSignals(signals, fallback) {
@@ -1675,22 +1707,22 @@
 
   function driftReason(modeStats, misalignedRatio, highVolatilityRatio) {
     if (activeMode === "chill" && modeStats.highEmotionalVolatilityItems >= 2 && highVolatilityRatio >= 0.25) {
-      return "Repeated high-volatility signals are showing up during Chill Mode.";
+      return "Recent media environment signals show elevated emotional volatility during Chill Mode.";
     }
 
     if (isStudyMode(activeMode) && modeStats.shortsDetected >= 3) {
-      return "A few Shorts showed up during a focus-oriented mode.";
+      return "Short-form novelty signals are appearing during a focus-oriented mode.";
     }
 
     if (activeMode === "project" && modeStats.shortsDetected >= 3) {
-      return "Short-form novelty is showing up during Project Mode.";
+      return "Short-form novelty signals are appearing during Project Mode.";
     }
 
     if (sessionState.rapidSwitchEstimate >= 2) {
-      return "You seem to be switching around quickly.";
+      return "Recent navigation patterns suggest higher switching intensity.";
     }
 
-    return `${Math.round(misalignedRatio * 100)}% of recent scanned cards look misaligned.`;
+    return `${Math.round(misalignedRatio * 100)}% of recent scanned cards show lower alignment with this mode.`;
   }
 
   function showDriftPrompt(reason) {
@@ -1706,7 +1738,7 @@
     prompt.innerHTML = [
       '<button class="persona-labs-drift-close" type="button" aria-label="Dismiss">x</button>',
       '<p class="persona-labs-drift-kicker">Persona Labs</p>',
-      `<p class="persona-labs-drift-message">Looks like your activity may be drifting away from ${modeLabel} Mode.</p>`,
+      `<p class="persona-labs-drift-message">Your recent browsing trajectory appears less aligned with your declared ${modeLabel} mode.</p>`,
       `<p class="persona-labs-drift-reason">${escapeHtml(reason)}</p>`,
       '<div class="persona-labs-drift-actions">',
       '<button type="button" data-persona-action="continue">Continue current mode</button>',
