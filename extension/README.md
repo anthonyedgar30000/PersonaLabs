@@ -94,6 +94,9 @@ Scoring is deterministic and heuristic-based. Each card receives:
 - top negative signals
 - confidence level
 - `EMOTIONAL_VOLATILITY_SCORE`
+- title signals
+- thumbnail signals
+- metadata/duration signals
 - long-form duration bonus
 - topic continuity bonus
 - strongest positive and negative contributors
@@ -109,6 +112,12 @@ Long-form bonus: +14
 Continuity bonus: +8
 Strongest positive contributor: long-form duration: 20+ minutes
 Strongest negative contributor: no strong negative signals
+Title signals:
+- educational/study-positive: study
+Thumbnail signals:
+- technical/cyber/AI: python, api
+Metadata/duration signals:
+- no metadata dictionary signals
 Top positive signals:
 + long-form duration: 20+ minutes
 + technical terminology: python, api
@@ -122,6 +131,8 @@ The model is intentionally transparent and limited. It does not diagnose, infer 
 The lexical dictionaries are heuristic signal categories, not clinical or truth judgments. See [`../docs/source-framework.md`](../docs/source-framework.md) for the source concepts, dictionary categories, explanation requirements, and governance boundaries.
 
 Long-form does not necessarily mean low-conflict. The scoring hierarchy prioritizes emotional volatility and outrage framing first, then topic continuity, content type/Shorts signals, and finally duration bonuses. This keeps extended outrage/commentary videos from being treated as relaxing simply because they are long.
+
+Thumbnail text is a major attention-signal surface. The MVP analyzes accessible thumbnail-related text only: image alt text, ARIA labels, title attributes, nearby thumbnail container text, and card metadata. It does not perform OCR, image recognition, or multimodal analysis yet. If thumbnail text is unavailable, tooltips say: "Thumbnail text unavailable; score based on title/metadata only."
 
 ## Drift detection logic
 

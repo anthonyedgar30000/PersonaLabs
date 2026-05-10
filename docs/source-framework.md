@@ -165,6 +165,22 @@ Long-form does not necessarily mean low-conflict. A long video with dense outrag
 
 Drift detection is based on trajectory and signal density, not political alignment. PersonaLabs should not classify an ideology, party, topic, or current-events category as inherently good or bad. It should only flag observed lexical and behavioral signals relative to the user's selected mode.
 
+## Thumbnail signal layer
+
+Thumbnail text is a major attention-signal surface on video platforms. For the current local MVP, PersonaLabs may analyze only accessible text tied to the card or thumbnail:
+
+- image alt text
+- ARIA labels
+- title attributes
+- nearby thumbnail container text
+- accessible card metadata
+
+This is not OCR and not image understanding. OCR, multimodal image analysis, or model-based thumbnail interpretation are future roadmap items that require separate governance review. The current implementation must not call external APIs or send thumbnail data off-device.
+
+Thumbnail lexical signals are still heuristic indicators. Outrage, humiliation, panic, or doomscroll terms appearing in thumbnail-accessible text may carry higher weight because thumbnails are designed as rapid attention surfaces. This weighting must target emotional manipulation/framing signals, not viewpoint, ideology, or political topic.
+
+When thumbnail text is unavailable, scoring must continue using title and metadata. Explanations should explicitly say that thumbnail text was unavailable rather than failing or silently pretending it was analyzed.
+
 ## Score interpretation
 
 Scores estimate alignment with the current user-selected mode:
@@ -191,6 +207,9 @@ Every score should expose:
 - top positive observed signals
 - top negative observed signals
 - emotional volatility estimate
+- title signals
+- thumbnail signals
+- metadata/duration signals
 - long-form duration bonus
 - topic continuity bonus
 - strongest positive and negative contributors

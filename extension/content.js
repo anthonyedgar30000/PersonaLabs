@@ -253,7 +253,7 @@
       "urgent",
       "watch now",
       "you need to see",
-      "you \u2019t believe"
+      "you won't believe"
     ],
     outrageRageBait: [
       "cancelled",
@@ -332,6 +332,21 @@
       "you won't believe",
       "you won\u2019t believe"
     ],
+    thumbnailHighImpact: [
+      "annihilates",
+      "destroyed",
+      "disaster",
+      "exposed",
+      "humiliated",
+      "it's over",
+      "it\u2019s over",
+      "its over",
+      "lied",
+      "meltdown",
+      "no way",
+      "panic",
+      "shocking"
+    ],
     speculationLowEvidence: [
       "allegedly",
       "anonymous source",
@@ -350,8 +365,6 @@
       "fight",
       "humiliates",
       "owns",
-      "political",
-      "politics",
       "political war",
       "war on"
     ],
@@ -569,7 +582,10 @@
     const title = String(textTitle || ariaTitle || "").trim();
     const durationText = getDurationText(card);
     const durationSeconds = parseDuration(durationText) || parseDuration(ariaTitle || "");
-    const searchText = [title, ariaTitle, card.getAttribute("aria-label")].filter(Boolean).join(" ").toLowerCase();
+    const titleText = normalizeWhitespace([title, ariaTitle]);
+    const thumbnailText = getThumbnailText(card);
+    const metadataText = getMetadataText(card, ariaTitle, durationText);
+    const searchText = normalizeText([titleText, thumbnailText, metadataText]);
     const isShort =
       card.matches("ytd-reel-item-renderer") ||
       String(href || "").includes("/shorts/") ||
@@ -580,9 +596,88 @@
       href: href || "",
       isShort,
       key: `${href || title}-${durationSeconds || "unknown"}`,
+      metadataText,
       searchText,
-      title
+      thumbnailText,
+      title,
+      titleText
     };
+  }
+
+  function getThumbnailText(card) {
+    const selectors = [
+      "ytd-thumbnail",
+      "a#thumbnail",
+      "#thumbnail",
+      "yt-thumbnail-view-model",
+      "yt-image",
+      "ytd-thumbnail img",
+      "a#thumbnail img",
+      "#thumbnail img",
+      "img"
+    ];
+    const values = [];
+
+    selectors.forEach((selector) => {
+      const node = card.querySelector(selector);
+      if (node) {
+        values.push(collectAccessibleText(node));
+      }
+    });
+
+    if (typeof card.querySelectorAll === "function") {
+      card.querySelectorAll("img").forEach((node) => {
+        values.push(collectAccessibleText(node));
+      });
+    }
+
+    return normalizeWhitespace(values);
+  }
+
+  function getMetadataText(card, ariaTitle, durationText) {
+    const selectors = [
+      "#metadata-line",
+      "ytd-video-meta-block",
+      "#byline",
+      "#channel-name",
+      "ytd-badge-supported-renderer",
+      "ytd-thumbnail-overlay-time-status-renderer"
+    ];
+    const values = [ariaTitle, card.getAttribute("aria-label"), durationText];
+
+    selectors.forEach((selector) => {
+      const node = card.querySelector(selector);
+      if (node) {
+        values.push(collectAccessibleText(node));
+      }
+    });
+
+    return normalizeWhitespace(values);
+  }
+
+  function collectAccessibleText(node) {
+    if (!node) {
+      return "";
+    }
+
+    return normalizeWhitespace([
+      node.getAttribute && node.getAttribute("alt"),
+      node.getAttribute && node.getAttribute("aria-label"),
+      node.getAttribute && node.getAttribute("title"),
+      node.textContent
+    ]);
+  }
+
+  function normalizeWhitespace(values) {
+    return values
+      .filter(Boolean)
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function normalizeText(values) {
+    return normalizeWhitespace(values).toLowerCase();
   }
 
   function getDurationText(card) {
@@ -624,23 +719,23 @@
   }
 
   function scoreCard(context, mode) {
+    let result;
+
     if (mode === "study") {
-      return scoreStudyMode(context);
+      result = scoreStudyMode(context);
+    } else if (mode === "research") {
+      result = scoreResearchMode(context);
+    } else if (mode === "chill") {
+      result = scoreChillMode(context);
+    } else if (mode === "project") {
+      result = scoreProjectMode(context);
+    } else {
+      result = buildResult(50, [], [], "No active mode scoring.");
     }
 
-    if (mode === "research") {
-      return scoreResearchMode(context);
-    }
-
-    if (mode === "chill") {
-      return scoreChillMode(context);
-    }
-
-    if (mode === "project") {
-      return scoreProjectMode(context);
-    }
-
-    return buildResult(50, [], [], "No active mode scoring.");
+    result.metrics.sourceSignals = buildSourceSignalSummary(context);
+    result.metrics.thumbnailTextAvailable = Boolean(context.thumbnailText);
+    return result;
   }
 
   function scoreStudyMode(context) {
@@ -659,6 +754,27 @@
     score += addSignal(positives, education, "educational keywords", 7, 22);
     score += addSignal(positives, tutorial, "tutorial/walkthrough indicators", 9, 18);
     score += addSignal(positives, technical, "technical terminology", 6, 24);
+    score += addThumbnailSignal(
+      positives,
+      findMatches(context.thumbnailText, HEURISTIC_SIGNAL_DICTIONARIES.educationalStudyPositive),
+      "educational/study-positive text",
+      5,
+      12
+    );
+    score += addThumbnailSignal(
+      positives,
+      findMatches(context.thumbnailText, HEURISTIC_SIGNAL_DICTIONARIES.tutorial),
+      "tutorial/walkthrough text",
+      5,
+      12
+    );
+    score += addThumbnailSignal(
+      positives,
+      findMatches(context.thumbnailText, HEURISTIC_SIGNAL_DICTIONARIES.technicalCyberAi),
+      "technical/cyber/AI text",
+      4,
+      12
+    );
     score += durationBonus;
 
     if ((education.length || tutorial.length) && technical.length && !context.isShort) {
@@ -678,6 +794,11 @@
     score -= addSignal(negatives, entertainment, "unrelated entertainment", 9, 18);
     score -= addManipulationPenalties(context, negatives);
 
+    if (volatility.thumbnailSignalCount) {
+      score -= Math.min(32, volatility.thumbnailSignalCount * 12);
+      negatives.push("thumbnail emotional framing carries extra Study Mode penalty");
+    }
+
     if (volatility.score >= 70) {
       score -= 18;
       negatives.push("severe emotional volatility can outweigh study continuity");
@@ -687,6 +808,7 @@
       continuityBonus,
       durationBonus,
       emotionalVolatilityScore: volatility.score,
+      thumbnailVolatilitySignalCount: volatility.thumbnailSignalCount,
       volatilitySignals: volatility.signals
     });
   }
@@ -708,6 +830,20 @@
     score += addSignal(positives, complexity, "high-complexity topic", 6, 18);
     score += addSignal(positives, viewpoints, "opposing viewpoints or critique", 6, 14);
     score += addSignal(positives, currentEvents, "current events context", 4, 10);
+    score += addThumbnailSignal(
+      positives,
+      findMatches(context.thumbnailText, HEURISTIC_SIGNAL_DICTIONARIES.evidenceGrounding),
+      "evidence/grounding text",
+      6,
+      14
+    );
+    score += addThumbnailSignal(
+      positives,
+      findMatches(context.thumbnailText, HEURISTIC_SIGNAL_DICTIONARIES.technicalCyberAi),
+      "technical/cyber/AI text",
+      4,
+      10
+    );
 
     if ((complexity.length || currentEvents.length) && (evidence.length || viewpoints.length)) {
       continuityBonus = 6;
@@ -742,6 +878,7 @@
       continuityBonus,
       durationBonus,
       emotionalVolatilityScore: volatility.score,
+      thumbnailVolatilitySignalCount: volatility.thumbnailSignalCount,
       volatilitySignals: volatility.signals
     });
   }
@@ -809,6 +946,7 @@
       continuityBonus,
       durationBonus,
       emotionalVolatilityScore: volatility.score,
+      thumbnailVolatilitySignalCount: volatility.thumbnailSignalCount,
       volatilitySignals: volatility.signals
     });
   }
@@ -853,39 +991,104 @@
       continuityBonus,
       durationBonus,
       emotionalVolatilityScore: volatility.score,
+      thumbnailVolatilitySignalCount: volatility.thumbnailSignalCount,
       volatilitySignals: volatility.signals
     });
   }
 
+  function buildSourceSignalSummary(context) {
+    return {
+      metadata: summarizeTextSignals(context.metadataText),
+      thumbnail: summarizeTextSignals(context.thumbnailText),
+      title: summarizeTextSignals(context.titleText)
+    };
+  }
+
+  function summarizeTextSignals(text) {
+    if (!text) {
+      return [];
+    }
+
+    const categories = [
+      { key: "educationalStudyPositive", label: "educational/study-positive" },
+      { key: "tutorial", label: "tutorial/walkthrough" },
+      { key: "technicalCyberAi", label: "technical/cyber/AI" },
+      { key: "evidenceGrounding", label: "evidence/grounding" },
+      { key: "calmLowConflict", label: "calm/low-conflict" },
+      { key: "clickbaitUrgency", label: "clickbait/urgency" },
+      { key: "outrageRageBait", label: "outrage/rage-bait" },
+      { key: "outrageEscalation", label: "outrage escalation" },
+      { key: "humiliationFraming", label: "humiliation framing" },
+      { key: "tribalConflictLanguage", label: "tribal conflict" },
+      { key: "panicFearFraming", label: "panic/fear" },
+      { key: "absolutistEmotionalWording", label: "absolutist/emotional" },
+      { key: "doomscrollTriggerLanguage", label: "doomscroll trigger" },
+      { key: "shortFormNoveltyRisk", label: "short-form/novelty" }
+    ];
+
+    return categories
+      .map((category) => {
+        const matches = findMatches(text, HEURISTIC_SIGNAL_DICTIONARIES[category.key]);
+        return matches.length ? `${category.label}: ${formatMatches(matches)}` : "";
+      })
+      .filter(Boolean)
+      .slice(0, 6);
+  }
+
   function calculateEmotionalVolatility(context) {
     const categories = [
-      { key: "outrageEscalation", label: "outrage/escalation signals", weight: 20, cap: 34 },
-      { key: "humiliationFraming", label: "humiliation framing", weight: 18, cap: 30 },
-      { key: "tribalConflictLanguage", label: "tribal conflict language", weight: 16, cap: 28 },
-      { key: "panicFearFraming", label: "panic/fear framing", weight: 18, cap: 32 },
-      { key: "absolutistEmotionalWording", label: "absolutist/emotional wording", weight: 12, cap: 24 },
-      { key: "doomscrollTriggerLanguage", label: "doomscroll trigger language", weight: 16, cap: 30 },
-      { key: "outrageRageBait", label: "outrage/rage-bait terms", weight: 16, cap: 30 },
-      { key: "clickbaitUrgency", label: "clickbait/urgency terms", weight: 12, cap: 24 },
-      { key: "emotional", label: "emotional wording", weight: 8, cap: 18 },
-      { key: "conflict", label: "conflict language", weight: 8, cap: 18 }
+      { key: "outrageEscalation", label: "outrage/escalation signals", weight: 20, cap: 34, thumbnailWeight: 30, thumbnailCap: 48 },
+      { key: "humiliationFraming", label: "humiliation framing", weight: 18, cap: 30, thumbnailWeight: 28, thumbnailCap: 44 },
+      { key: "tribalConflictLanguage", label: "tribal conflict language", weight: 16, cap: 28, thumbnailWeight: 22, thumbnailCap: 36 },
+      { key: "panicFearFraming", label: "panic/fear framing", weight: 18, cap: 32, thumbnailWeight: 28, thumbnailCap: 44 },
+      { key: "absolutistEmotionalWording", label: "absolutist/emotional wording", weight: 12, cap: 24, thumbnailWeight: 18, thumbnailCap: 34 },
+      { key: "doomscrollTriggerLanguage", label: "doomscroll trigger language", weight: 16, cap: 30, thumbnailWeight: 26, thumbnailCap: 42 },
+      { key: "outrageRageBait", label: "outrage/rage-bait terms", weight: 16, cap: 30, thumbnailWeight: 26, thumbnailCap: 42 },
+      { key: "clickbaitUrgency", label: "clickbait/urgency terms", weight: 12, cap: 24, thumbnailWeight: 22, thumbnailCap: 36 },
+      { key: "emotional", label: "emotional wording", weight: 8, cap: 18, thumbnailWeight: 14, thumbnailCap: 28 },
+      { key: "conflict", label: "conflict language", weight: 8, cap: 18, thumbnailWeight: 12, thumbnailCap: 24 }
     ];
     let score = 0;
     const signals = [];
+    let thumbnailSignalCount = 0;
 
     categories.forEach((category) => {
       const matches = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES[category.key]);
+      const thumbnailMatches = findMatches(context.thumbnailText, HEURISTIC_SIGNAL_DICTIONARIES[category.key]);
       if (!matches.length) {
-        return;
+        if (!thumbnailMatches.length) {
+          return;
+        }
       }
 
-      score += Math.min(category.cap, matches.length * category.weight);
-      signals.push(`${category.label}: ${formatMatches(matches)}`);
+      if (matches.length) {
+        score += Math.min(category.cap, matches.length * category.weight);
+        signals.push(`${category.label}: ${formatMatches(matches)}`);
+      }
+
+      if (thumbnailMatches.length) {
+        thumbnailSignalCount += thumbnailMatches.length;
+        score += Math.min(category.thumbnailCap, thumbnailMatches.length * category.thumbnailWeight);
+        signals.push(`thumbnail ${category.label}: ${formatMatches(thumbnailMatches)}`);
+      }
     });
+
+    const highImpactThumbnail = findMatches(context.thumbnailText, HEURISTIC_SIGNAL_DICTIONARIES.thumbnailHighImpact);
+    if (highImpactThumbnail.length) {
+      thumbnailSignalCount += highImpactThumbnail.length;
+      score += Math.min(54, highImpactThumbnail.length * 28);
+      signals.push(`thumbnail high-impact text: ${formatMatches(highImpactThumbnail)}`);
+    }
 
     if (hasAllCapsSignal(context.title)) {
       score += 8;
       signals.push("all-caps emphasis");
+    }
+
+    if (hasThumbnailEmphasisSignal(context.thumbnailText)) {
+      thumbnailSignalCount += 1;
+      score += 18;
+      signals.push("thumbnail all-caps/emphasis signal");
     }
 
     if (/!!|\?\?/.test(context.title)) {
@@ -895,7 +1098,8 @@
 
     return {
       score: Math.min(100, score),
-      signals
+      signals,
+      thumbnailSignalCount
     };
   }
 
@@ -906,6 +1110,16 @@
 
     const points = Math.min(cap, matches.length * pointsPerMatch);
     target.push(`${label}: ${formatMatches(matches)}`);
+    return points;
+  }
+
+  function addThumbnailSignal(target, matches, label, pointsPerMatch, cap) {
+    if (!matches.length) {
+      return 0;
+    }
+
+    const points = Math.min(cap, matches.length * pointsPerMatch);
+    target.push(`thumbnail ${label}: ${formatMatches(matches)}`);
     return points;
   }
 
@@ -981,6 +1195,7 @@
       emotionalVolatilityScore: Number(metrics.emotionalVolatilityScore) || 0,
       strongestNegativeContributor: negativeSignals[0] || "no strong negative signals",
       strongestPositiveContributor: positiveSignals[0] || "no strong positive signals",
+      thumbnailVolatilitySignalCount: Number(metrics.thumbnailVolatilitySignalCount) || 0,
       volatilitySignals: metrics.volatilitySignals || []
     };
 
@@ -1044,6 +1259,12 @@
   function hasAllCapsSignal(title) {
     const words = String(title || "").match(/\b[A-Z]{3,}\b/g) || [];
     return words.length >= 2;
+  }
+
+  function hasThumbnailEmphasisSignal(text) {
+    const value = String(text || "");
+    const words = value.match(/\b[A-Z]{4,}\b/g) || [];
+    return words.length >= 1 || /!!|\?\?/.test(value);
   }
 
   function clampScore(score) {
@@ -1117,12 +1338,21 @@
 
     return [
       `${modeLabel} ${result.score} - ${result.classification}`,
+      `Final alignment score: ${result.score}`,
       `Confidence: ${result.confidence}`,
       `EMOTIONAL_VOLATILITY_SCORE: ${result.metrics.emotionalVolatilityScore}/100`,
       `Long-form bonus: +${result.metrics.durationBonus}`,
       `Continuity bonus: +${result.metrics.continuityBonus}`,
       `Strongest positive contributor: ${result.metrics.strongestPositiveContributor}`,
       `Strongest negative contributor: ${result.metrics.strongestNegativeContributor}`,
+      "Title signals:",
+      formatSourceSignals(result.metrics.sourceSignals.title, "no title dictionary signals"),
+      "Thumbnail signals:",
+      result.metrics.thumbnailTextAvailable
+        ? formatSourceSignals(result.metrics.sourceSignals.thumbnail, "no thumbnail dictionary signals")
+        : "Thumbnail text unavailable; score based on title/metadata only.",
+      "Metadata/duration signals:",
+      formatSourceSignals(result.metrics.sourceSignals.metadata, "no metadata dictionary signals"),
       "Outrage/escalation signals detected:",
       volatilitySignals,
       "Top positive signals:",
@@ -1131,6 +1361,10 @@
       negative,
       result.buddyExplanation
     ].join("\n");
+  }
+
+  function formatSourceSignals(signals, fallback) {
+    return signals && signals.length ? signals.map((signal) => `- ${signal}`).join("\n") : fallback;
   }
 
   function recordCardTelemetry(context, result, alignment, isVisible) {

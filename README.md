@@ -46,6 +46,8 @@ The deterministic scoring architecture is documented in [`docs/source-framework.
 
 Recent scoring refinements prioritize emotional volatility and outrage framing over long-form duration, so extended commentary is not treated as low-conflict simply because it is long. Drift prompts are based on signal density and trajectory relative to the selected mode, not political alignment.
 
+The extension also checks accessible thumbnail-related text where available. This is heuristic and local-only; OCR or multimodal thumbnail analysis is future roadmap work and is not part of the current MVP.
+
 ## Example Prompt
 
 "Looks like your activity drifted away from Study Mode.
