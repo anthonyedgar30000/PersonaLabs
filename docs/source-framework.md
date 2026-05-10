@@ -154,6 +154,45 @@ Dictionary matches are local heuristic indicators. They are signals used to esti
 
 ## Scoring hierarchy
 
+The deterministic architecture separates observable dimensions before assigning a final alignment classification:
+
+1. Evidence Signals
+   - source/reputation indicators
+   - analytical terminology
+   - citations/references
+   - specificity
+   - opposing viewpoints
+   - low speculation framing
+   - long-form analysis
+
+2. Emotional Volatility
+   - outrage language
+   - humiliation framing
+   - panic wording
+   - emotionally amplified thumbnails
+
+3. Novelty Pressure
+   - breaking/urgent framing
+   - must-watch-now language
+   - shocking/rapid novelty cues
+
+4. Cognitive Load / Fragmentation
+   - Shorts
+   - hyper-short clips
+   - fragmented browsing behavior
+   - high stimulation density
+
+5. Intentional Alignment
+   - fit relative to the current persona or mode
+
+6. Exploratory Diversity
+   - opposing viewpoints
+   - analytical debate
+   - critical discussion
+   - broader perspective exploration
+
+These dimensions prevent emotional intensity from being treated as identical to low evidence. A major geopolitical event can show high Evidence Signals, moderate Emotional Volatility, and high Research value. A clickbait segment can show low Evidence Signals, high Emotional Volatility, and high Novelty Pressure.
+
 The deterministic hierarchy should generally prioritize:
 
 1. emotional volatility / outrage framing
@@ -161,9 +200,9 @@ The deterministic hierarchy should generally prioritize:
 3. content type and Shorts/novelty risk
 4. duration bonuses
 
-Long-form does not necessarily mean low-conflict. A long video with dense outrage, humiliation, panic, or novelty-intensity language should score lower in Chill Mode than a shorter low-conflict video. Emotional volatility can outweigh duration when signals are severe.
+Long-form does not necessarily mean low-conflict. A long video with dense outrage, humiliation, panic, or novelty-intensity language should score lower in Chill Mode than a shorter low-conflict video. Emotional volatility can outweigh duration when signals are severe, but high Evidence Signals can still support Research alignment.
 
-Drift detection is based on trajectory and signal density, not political alignment. PersonaLabs should not classify an ideology, party, topic, or current-events category as inherently good or bad. It should only flag observed lexical and behavioral signals relative to the user's selected mode.
+Drift detection is based on trajectory and signal density, not political alignment. PersonaLabs should not classify conflict, politics, military topics, ideology, parties, or current-events categories as inherently good or bad. It should evaluate how the content is framed and only flag observed lexical and behavioral signals relative to the user's selected mode.
 
 ## Thumbnail signal layer
 
@@ -185,9 +224,10 @@ When thumbnail text is unavailable, scoring must continue using title and metada
 
 Scores estimate alignment with the current user-selected mode:
 
-- Green / aligned: observed signals mostly support the mode.
-- Yellow / neutral: observed signals are mixed or weak.
-- Red / misaligned: observed signals appear to drift from the mode.
+- Green / aligned: Intentional Alignment is strong and negative dimensions are low.
+- Yellow / neutral: observed signals are limited or weak.
+- Orange / mixed: Evidence/Research value and friction signals coexist.
+- Red / misaligned: multiple strong negative dimensions appear with weak Intentional Alignment.
 
 Scores must not be presented as:
 
@@ -209,7 +249,11 @@ Every score should expose:
 - alignment signals
 - evidence signals
 - media environment signals
+- Evidence Signals dimension
 - emotional volatility estimate
+- novelty pressure estimate
+- cognitive load / fragmentation estimate
+- exploratory diversity estimate
 - title signals
 - thumbnail signals
 - metadata/duration signals

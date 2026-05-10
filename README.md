@@ -51,6 +51,8 @@ Study scoring is persona-specific: PersonaLabs evaluates alignment relative to a
 
 Recent scoring refinements prioritize Emotional Volatility and framing signals over long-form duration, so extended commentary is not treated as low-conflict simply because it is long. Session Drift prompts are based on signal density and trajectory relative to the selected mode, not political alignment.
 
+The latest scoring model is multi-axis: Evidence Signals, Emotional Volatility, Novelty Pressure, Cognitive Load / Fragmentation, Intentionality Alignment, and Exploratory Diversity are inspected separately before a final border classification is shown.
+
 The extension also checks accessible thumbnail-related text where available. This is heuristic and local-only; OCR or multimodal thumbnail analysis is future roadmap work and is not part of the current MVP.
 
 ## Example Prompt

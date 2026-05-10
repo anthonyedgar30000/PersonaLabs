@@ -88,6 +88,14 @@
    * Scores are local-first deterministic alignment estimates. Explanations
    * must show observed signals and uncertainty; Bare Metal and user override
    * must remain available.
+   *
+   * Multi-axis observability note:
+   * Evidence, emotional volatility, novelty pressure, cognitive load,
+   * exploratory diversity, and intentional alignment are deliberately
+   * separated. Emotional intensity is not treated as low evidence by itself,
+   * and high-evidence conflict/current-events content can remain appropriate
+   * for Research mode. These axes are heuristic media-environment indicators,
+   * not truth verification, ideology classification, or clinical profiling.
    */
   const HEURISTIC_SIGNAL_DICTIONARIES = {
     educationalStudyPositive: [
@@ -259,7 +267,10 @@
     ],
     evidenceGrounding: [
       "analysis",
+      "analyst",
       "case study",
+      "confirmed",
+      "corroborated",
       "data",
       "documentary",
       "evidence",
@@ -267,9 +278,15 @@
       "interview",
       "paper",
       "report",
+      "reported",
+      "reporting",
       "review",
       "source",
-      "study"
+      "sources",
+      "specifics",
+      "study",
+      "timeline",
+      "verified"
     ],
     researchComplexity: [
       "climate",
@@ -628,6 +645,7 @@
   function createAlignmentCounts() {
     return {
       aligned: 0,
+      mixed: 0,
       neutral: 0,
       misaligned: 0
     };
@@ -636,6 +654,7 @@
   function normalizeAlignmentCounts(counts) {
     return {
       aligned: Number(counts && counts.aligned) || 0,
+      mixed: Number(counts && counts.mixed) || 0,
       neutral: Number(counts && counts.neutral) || 0,
       misaligned: Number(counts && counts.misaligned) || 0
     };
@@ -683,7 +702,7 @@
 
     const context = getCardContext(card);
     const result = scoreCard(context, activeMode);
-    const color = colorForScore(result.score);
+    const color = colorForResult(result);
 
     card.dataset.personaLabsScore = String(result.score);
     card.dataset.personaLabsAlignment = color.alignment;
@@ -1362,9 +1381,7 @@
 
   function buildResult(rawScore, positiveSignals, negativeSignals, explanationContext, metrics = {}) {
     const score = clampScore(rawScore);
-    const classification = classifyScore(score);
     const confidence = confidenceFor(positiveSignals, negativeSignals);
-    const calmExplanation = calmExplanationFor(classification, explanationContext);
     const normalizedMetrics = {
       continuityBonus: Number(metrics.continuityBonus) || 0,
       durationBonus: Number(metrics.durationBonus) || 0,
@@ -1372,21 +1389,93 @@
       emotionalVolatilityScore: Number(metrics.emotionalVolatilityScore) || 0,
       matchedTopicKeywords: metrics.matchedTopicKeywords || [],
       selectedStudyPersona: metrics.selectedStudyPersona || "",
-      strongestNegativeContributor: negativeSignals[0] || "no strong negative signals",
-      strongestPositiveContributor: positiveSignals[0] || "no strong positive signals",
+      strongestNegativeContributor: negativeSignals[0] || "no strong friction signals",
+      strongestPositiveContributor: positiveSignals[0] || "no strong supporting signals",
       thumbnailVolatilitySignalCount: Number(metrics.thumbnailVolatilitySignalCount) || 0,
       volatilitySignals: metrics.volatilitySignals || []
     };
+    const dimensions = calculateDimensions(score, positiveSignals, negativeSignals, normalizedMetrics);
+    const classification = classifyDimensions(dimensions);
+    const calmExplanation = calmExplanationFor(classification, explanationContext);
 
     return {
       calmExplanation,
       classification,
       confidence,
+      dimensions,
       metrics: normalizedMetrics,
       negativeSignals,
       positiveSignals,
       score
     };
+  }
+
+  function calculateDimensions(score, positiveSignals, negativeSignals, metrics) {
+    const evidenceSignals = positiveSignals.filter((signal) =>
+      /evidence|source|report|analysis|analytical|opposing|critique|viewpoint|interview|data|technical/i.test(signal)
+    ).length;
+    const lowEvidenceSignals = negativeSignals.filter((signal) =>
+      /low evidence|speculation|without grounding/i.test(signal)
+    ).length;
+    const noveltySignals = negativeSignals.filter((signal) =>
+      /novelty|clickbait|urgency|urgent|breaking|short-form|Shorts/i.test(signal)
+    ).length + metrics.thumbnailVolatilitySignalCount;
+    const cognitiveLoadSignals = negativeSignals.filter((signal) =>
+      /Shorts|short duration|short-form|switching|fragment/i.test(signal)
+    ).length;
+    const diversitySignals = positiveSignals.filter((signal) =>
+      /opposing|critique|viewpoint|debate|panel|roundtable|conversation/i.test(signal)
+    ).length;
+
+    const evidence = clampDimension(
+      35 + evidenceSignals * 14 + metrics.durationBonus + metrics.continuityBonus - lowEvidenceSignals * 18
+    );
+    const volatility = clampDimension(metrics.emotionalVolatilityScore);
+    const noveltyPressure = clampDimension(10 + noveltySignals * 18 + (metrics.thumbnailVolatilitySignalCount ? 20 : 0));
+    const cognitiveLoad = clampDimension(
+      15 + cognitiveLoadSignals * 22 + (noveltyPressure >= 70 ? 12 : 0)
+    );
+    const exploratoryDiversity = clampDimension(20 + diversitySignals * 22);
+    const continuity = clampDimension(25 + metrics.continuityBonus * 4);
+    const intentionalAlignment = clampDimension(score + Math.round(evidence * 0.08) - Math.round(Math.max(0, noveltyPressure - 70) * 0.12));
+
+    return {
+      cognitiveLoad,
+      continuity,
+      emotionalVolatility: volatility,
+      evidence,
+      exploratoryDiversity,
+      intentionalAlignment,
+      noveltyPressure
+    };
+  }
+
+  function classifyDimensions(dimensions) {
+    const strongNegativeCount = [
+      dimensions.emotionalVolatility >= 75,
+      dimensions.noveltyPressure >= 70,
+      dimensions.cognitiveLoad >= 75,
+      dimensions.evidence <= 30
+    ].filter(Boolean).length;
+    const hasResearchLikeValue = dimensions.evidence >= 65 || dimensions.exploratoryDiversity >= 60;
+
+    if (dimensions.intentionalAlignment >= 70 && strongNegativeCount === 0) {
+      return "aligned";
+    }
+
+    if (strongNegativeCount >= 2 && dimensions.intentionalAlignment < 60 && !hasResearchLikeValue) {
+      return "misaligned";
+    }
+
+    if (dimensions.intentionalAlignment >= 55 || hasResearchLikeValue) {
+      return "mixed";
+    }
+
+    return "neutral";
+  }
+
+  function clampDimension(value) {
+    return Math.max(0, Math.min(100, Math.round(value)));
   }
 
   function confidenceFor(positiveSignals, negativeSignals) {
@@ -1407,23 +1496,15 @@
       return `Looks aligned with this mode. ${context}`;
     }
 
+    if (classification === "mixed") {
+      return `This is a mixed-signal media item: some observability dimensions support the declared mode while others add friction. ${context}`;
+    }
+
     if (classification === "neutral") {
-      return `Some signals fit and some do not. ${context}`;
+      return `Signals are limited or ambiguous relative to this mode. ${context}`;
     }
 
     return `This media environment appears less aligned with your declared intent. Nothing is blocked; this is an observability signal. ${context}`;
-  }
-
-  function classifyScore(score) {
-    if (score >= 70) {
-      return "aligned";
-    }
-
-    if (score >= 45) {
-      return "neutral";
-    }
-
-    return "misaligned";
   }
 
   function findMatches(text, terms) {
@@ -1454,8 +1535,8 @@
     return Math.max(5, Math.min(95, Math.round(score)));
   }
 
-  function colorForScore(score) {
-    const classification = classifyScore(score);
+  function colorForResult(result) {
+    const classification = result.classification;
 
     if (classification === "aligned") {
       return {
@@ -1470,6 +1551,14 @@
         alignment: "neutral",
         border: "#eab308",
         glow: "rgba(234, 179, 8, 0.2)"
+      };
+    }
+
+    if (classification === "mixed") {
+      return {
+        alignment: "mixed",
+        border: "#f97316",
+        glow: "rgba(249, 115, 22, 0.2)"
       };
     }
 
@@ -1519,7 +1608,11 @@
       ? result.metrics.volatilitySignals.map((signal) => `- ${signal}`).join("\n")
       : "- no outrage/escalation signals detected";
     const continuityLevel = levelFromBonus(result.metrics.continuityBonus, 12, 6);
-    const volatilityLevel = levelFromScore(result.metrics.emotionalVolatilityScore, 60, 35);
+    const volatilityLevel = levelFromScore(result.dimensions.emotionalVolatility, 60, 35);
+    const evidenceLevel = levelFromScore(result.dimensions.evidence, 65, 45);
+    const noveltyLevel = levelFromScore(result.dimensions.noveltyPressure, 65, 35);
+    const cognitiveLoadLevel = levelFromScore(result.dimensions.cognitiveLoad, 65, 35);
+    const diversityLevel = levelFromScore(result.dimensions.exploratoryDiversity, 65, 35);
 
     return [
       `${modeLabel} ${result.score} - ${result.classification}`,
@@ -1540,8 +1633,12 @@
       "Signals:",
       positive,
       negative,
-      `Continuity: ${continuityLevel} (+${result.metrics.continuityBonus})`,
-      `Volatility: ${volatilityLevel} (${result.metrics.emotionalVolatilityScore}/100)`,
+      `Evidence: ${evidenceLevel} (${result.dimensions.evidence}/100)`,
+      `Volatility: ${volatilityLevel} (${result.dimensions.emotionalVolatility}/100)`,
+      `Novelty Pressure: ${noveltyLevel} (${result.dimensions.noveltyPressure}/100)`,
+      `Cognitive Load / Fragmentation: ${cognitiveLoadLevel} (${result.dimensions.cognitiveLoad}/100)`,
+      `Continuity: ${continuityLevel} (${result.dimensions.continuity}/100)`,
+      `Exploratory Diversity: ${diversityLevel} (${result.dimensions.exploratoryDiversity}/100)`,
       `Confidence: ${capitalize(result.confidence)}`,
       `Long-form Analysis Signal: +${result.metrics.durationBonus}`,
       `Primary supporting signal: ${result.metrics.strongestPositiveContributor}`,

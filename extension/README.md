@@ -10,6 +10,7 @@ There is no AI service, backend, telemetry upload, account system, or network in
 - Applies mock Persona alignment signals with color-coded borders:
   - Green: aligned
   - Yellow: neutral
+  - Orange: mixed-signal ambiguity
   - Red: misaligned
 - Adds a signal badge to each decorated card with classification, confidence, media signals, and a hover observability panel.
 - Uses deterministic, explainable scoring profiles for each mode.
@@ -106,10 +107,16 @@ Scoring is deterministic and heuristic-based. Each card receives:
 
 - final alignment score
 - mode
-- classification: aligned, neutral, or misaligned
+- classification: aligned, neutral, mixed, or misaligned
 - Alignment Signals
 - Evidence Signals
 - Media Environment Signals
+- Evidence
+- Emotional Volatility
+- Novelty Pressure
+- Cognitive Load / Fragmentation
+- Topic Continuity
+- Exploratory Diversity
 - confidence level
 - `EMOTIONAL_VOLATILITY_SCORE`
 - title signals
@@ -137,8 +144,12 @@ Signals:
 + long-form analysis
 + evidence-oriented language
 - elevated emotional framing
+Evidence: High (82/100)
+Volatility: Moderate (44/100)
+Novelty Pressure: Low (18/100)
+Cognitive Load / Fragmentation: Low (15/100)
 Continuity: High
-Volatility: Low (0/100)
+Exploratory Diversity: Moderate (48/100)
 Confidence: High
 Primary supporting signal: long-form duration: 20+ minutes
 Primary friction signal: no strong friction signals
@@ -156,11 +167,15 @@ The model is intentionally transparent and limited. It does not diagnose, infer 
 
 The lexical dictionaries are heuristic signal categories, not clinical or truth judgments. See [`../docs/source-framework.md`](../docs/source-framework.md) for the source concepts, dictionary categories, explanation requirements, and governance boundaries.
 
+The scoring architecture is multi-axis. Evidence Signals, Emotional Volatility, Novelty Pressure, Cognitive Load / Fragmentation, Intentionality Alignment, and Exploratory Diversity are evaluated separately before the final border classification is assigned. This lets a high-evidence major world event remain valuable in Research mode even if it carries moderate emotional intensity.
+
 PersonaLabs evaluates alignment relative to a specific declared intent, not generic "good content." An educational Kubernetes tutorial can be aligned with Study - Cloud/DevOps while being less aligned with Study - AI/ML or Study - Cybersecurity.
 
 Personas are intended to be user-authored and editable as the product matures. The current MVP ships deterministic starter personas so the media observability loop is inspectable and demoable.
 
 Long-form does not necessarily mean low-conflict. The scoring hierarchy prioritizes emotional volatility and outrage framing first, then topic continuity, content type/Shorts signals, and finally duration bonuses. This keeps extended outrage/commentary videos from being treated as relaxing simply because they are long.
+
+Border colors primarily reflect Intentionality Alignment. Red requires multiple strong negative dimensions, while yellow/orange indicate limited or mixed evidence where the user may want to inspect the panel.
 
 Thumbnail text is a major attention-signal surface. The MVP analyzes accessible thumbnail-related text only: image alt text, ARIA labels, title attributes, nearby thumbnail container text, and card metadata. It does not perform OCR, image recognition, or multimodal analysis yet. If thumbnail text is unavailable, tooltips say: "Thumbnail text unavailable; score based on title/metadata only."
 
