@@ -1,60 +1,38 @@
 # PersonaLabs
 
-PersonaLabs is a cognitive observability and intentionality support platform.
+PersonaLabs is currently a simple Chill Mode Chrome extension MVP for YouTube.
 
-The system helps users notice when digital media consumption patterns drift away from their stated goals, modes, schedules, or values using explainable AI, behavioral telemetry, and human-centered observability principles.
+The extension adds lightweight overlays to YouTube cards and classifies each
+card from its visible title only. The goal is reliable local feedback without
+multi-mode scoring, transcript assumptions, telemetry, or AI calls.
 
-## Core Principles
+## Current MVP
 
-- Flag, do not block
-- User agency first
-- Explainable AI outputs
-- Human-in-the-loop control
-- Calm, non-judgmental interaction design
-- Privacy-aware architecture
-- Behavioral observability over coercive filtering
-- Bare Metal mode always available
+- Chrome extension shell
+- YouTube card detection
+- Title-based Chill Mode classification
+- Color-coded overlays
+- Hover tooltips explaining matched title keywords
+- Bare Metal toggle to hide all overlays
 
-## MVP Goals
+## Out of scope for this MVP
 
-- Chrome extension overlay for YouTube
-- Persona modes:
-  - Study
-  - Chill
-  - Research
-  - Bare Metal
-- Color-coded alignment borders
-- Lightweight telemetry signals
-- Explainable scoring summaries
-- Adaptive schedule renegotiation prompts
+- Study Mode
+- Research Mode
+- evidence scoring
+- exploratory scoring
+- persona weighting
+- transcript analysis
+- backend services
+- telemetry
 
-## Example Prompt
+## Classification labels
 
-"Looks like your activity drifted away from Study Mode.
-Would you like to:
-- Continue Study Mode
-- Switch to Chill Mode
-- Enter Bare Metal Mode
-- Snooze prompts for 30 mins"
+- **Chill fit**: relaxed entertainment signals in the title.
+- **Maybe chill**: both relaxed and focused title signals.
+- **No clear signal**: no keyword match in the title.
+- **Focus content**: study, news, analysis, or learning signals.
+- **Not chill**: high-intensity title signals.
 
-## Development Model
-
-PersonaLabs is being developed using governed AI-assisted iterative development.
-
-Agent roles include:
-- Product Architect
-- Frontend Builder
-- AI Scoring Engineer
-- Security/Governance Reviewer
-- QA/Test Agent
-- Documentation Agent
-
-All AI-generated outputs require:
-- feature validation
-- governance review
-- hallucination mitigation review
-- human approval
-
-## Vision
-
-AI helping people notice when they are no longer acting intentionally.
+See [`extension/README.md`](extension/README.md) for local installation and
+popup controls.
