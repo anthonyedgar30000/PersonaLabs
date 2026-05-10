@@ -51,8 +51,28 @@
     ]
   };
 
-  const TERMS = {
-    education: [
+  /*
+   * Lexical scoring architecture
+   *
+   * These dictionaries are research-informed heuristic signal categories,
+   * not clinical, diagnostic, identity, or truth-judgment models. They are
+   * grounded in source concepts from AI governance (NIST AI RMF), human-AI
+   * interaction guidance (Microsoft HAI Guidelines), and usability/cognitive
+   * load principles (Nielsen Norman Group): make system behavior observable,
+   * explain uncertainty, preserve user control, reduce interruption, and keep
+   * recovery paths clear.
+   *
+   * The dictionaries only observe words/phrases that may indicate alignment
+   * with the user's current mode. Core categories include:
+   * educational/study-positive, technical/cyber/AI, evidence/grounding,
+   * calm/low-conflict, clickbait/urgency, outrage/rage-bait,
+   * speculation/low-evidence, and short-form/novelty-risk terms.
+   * Scores are local-first deterministic alignment estimates. Explanations
+   * must show observed signals and uncertainty; Bare Metal and user override
+   * must remain available.
+   */
+  const HEURISTIC_SIGNAL_DICTIONARIES = {
+    educationalStudyPositive: [
       "academic",
       "basics",
       "beginner",
@@ -88,13 +108,16 @@
       "tutorial",
       "walkthrough"
     ],
-    technical: [
+    technicalCyberAi: [
+      "ai",
       "api",
       "architecture",
       "algorithm",
       "aws",
       "backend",
       "compiler",
+      "cyber",
+      "cybersecurity",
       "css",
       "database",
       "data structure",
@@ -120,7 +143,7 @@
       "terminal",
       "typescript"
     ],
-    researchEvidence: [
+    evidenceGrounding: [
       "analysis",
       "case study",
       "data",
@@ -163,7 +186,7 @@
       "update",
       "weekly"
     ],
-    chill: [
+    calmLowConflict: [
       "ambient",
       "calm",
       "cozy",
@@ -217,7 +240,17 @@
       "unbelievable",
       "worst"
     ],
-    outrage: [
+    clickbaitUrgency: [
+      "before it's deleted",
+      "breaking",
+      "limited time",
+      "must watch",
+      "secret",
+      "shocking",
+      "urgent",
+      "you won't believe"
+    ],
+    outrageRageBait: [
       "cancelled",
       "canceled",
       "destroyed",
@@ -225,14 +258,21 @@
       "exposed",
       "gone wrong",
       "meltdown",
-      "must watch",
       "scandal",
-      "secret",
-      "shocking",
       "slammed",
       "they lied",
       "truth about",
-      "you won't believe"
+      "woke mob"
+    ],
+    speculationLowEvidence: [
+      "allegedly",
+      "anonymous source",
+      "could be",
+      "maybe",
+      "rumor",
+      "theory",
+      "unconfirmed",
+      "what if"
     ],
     conflict: [
       "attack",
@@ -247,7 +287,7 @@
       "political war",
       "war on"
     ],
-    rapidNovelty: [
+    shortFormNoveltyRisk: [
       "compilation",
       "random",
       "shorts",
@@ -533,11 +573,11 @@
     let score = 42;
     const positives = [];
     const negatives = [];
-    const education = findMatches(context.searchText, TERMS.education);
-    const tutorial = findMatches(context.searchText, TERMS.tutorial);
-    const technical = findMatches(context.searchText, TERMS.technical);
-    const entertainment = findMatches(context.searchText, TERMS.entertainment);
-    const novelty = findMatches(context.searchText, TERMS.rapidNovelty);
+    const education = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.educationalStudyPositive);
+    const tutorial = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.tutorial);
+    const technical = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.technicalCyberAi);
+    const entertainment = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.entertainment);
+    const novelty = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.shortFormNoveltyRisk);
 
     score += addSignal(positives, education, "educational keywords", 7, 22);
     score += addSignal(positives, tutorial, "tutorial/walkthrough indicators", 9, 18);
@@ -567,10 +607,11 @@
     let score = 50;
     const positives = [];
     const negatives = [];
-    const evidence = findMatches(context.searchText, TERMS.researchEvidence);
-    const complexity = findMatches(context.searchText, TERMS.researchComplexity);
-    const viewpoints = findMatches(context.searchText, TERMS.viewpoints);
-    const currentEvents = findMatches(context.searchText, TERMS.currentEvents);
+    const evidence = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.evidenceGrounding);
+    const complexity = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.researchComplexity);
+    const viewpoints = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.viewpoints);
+    const currentEvents = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.currentEvents);
+    const speculation = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.speculationLowEvidence);
 
     score += addSignal(positives, evidence, "evidence or source density", 8, 24);
     score += addSignal(positives, complexity, "high-complexity topic", 6, 18);
@@ -580,6 +621,11 @@
     if ((currentEvents.length || complexity.length) && !evidence.length) {
       score -= 12;
       negatives.push("low evidence density for a complex/current topic");
+    }
+
+    if (speculation.length && !evidence.length) {
+      score -= 12;
+      negatives.push(`speculation/low-evidence terms without grounding: ${formatMatches(speculation)}`);
     }
 
     if (context.durationSeconds >= 600) {
@@ -601,9 +647,9 @@
     let score = 55;
     const positives = [];
     const negatives = [];
-    const chill = findMatches(context.searchText, TERMS.chill);
-    const conflict = findMatches(context.searchText, TERMS.conflict);
-    const outrage = findMatches(context.searchText, TERMS.outrage);
+    const chill = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.calmLowConflict);
+    const conflict = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.conflict);
+    const outrage = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.outrageRageBait);
 
     score += addSignal(positives, chill, "calming or light content", 8, 24);
 
@@ -619,7 +665,7 @@
 
     score -= addSignal(negatives, conflict, "conflict-heavy framing", 9, 20);
     score -= addSignal(negatives, outrage, "outrage-heavy language", 9, 24);
-    score -= addSignal(negatives, findMatches(context.searchText, TERMS.currentEvents), "news/current events during chill", 5, 10);
+    score -= addSignal(negatives, findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.currentEvents), "news/current events during chill", 5, 10);
     score -= addEmotionalPenalties(context, negatives);
 
     return buildResult(score, positives, negatives, "Chill Mode is for recovery, low-conflict browsing, and light entertainment.");
@@ -629,10 +675,10 @@
     let score = 48;
     const positives = [];
     const negatives = [];
-    const project = findMatches(context.searchText, TERMS.project);
-    const technical = findMatches(context.searchText, TERMS.technical);
-    const tutorial = findMatches(context.searchText, TERMS.tutorial);
-    const entertainment = findMatches(context.searchText, TERMS.entertainment);
+    const project = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.project);
+    const technical = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.technicalCyberAi);
+    const tutorial = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.tutorial);
+    const entertainment = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.entertainment);
 
     score += addSignal(positives, project, "project execution language", 8, 24);
     score += addSignal(positives, technical, "technical implementation terms", 6, 20);
@@ -701,7 +747,8 @@
   function addManipulationPenalties(context, negatives) {
     let penalty = 0;
     penalty += addEmotionalPenalties(context, negatives);
-    penalty += addSignal(negatives, findMatches(context.searchText, TERMS.outrage), "rage/clickbait/outrage wording", 8, 24);
+    penalty += addSignal(negatives, findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.clickbaitUrgency), "clickbait/urgency wording", 7, 18);
+    penalty += addSignal(negatives, findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.outrageRageBait), "rage/outrage wording", 8, 24);
 
     if (hasAllCapsSignal(context.title)) {
       penalty += 6;
@@ -717,13 +764,14 @@
   }
 
   function addEmotionalPenalties(context, negatives) {
-    return addSignal(negatives, findMatches(context.searchText, TERMS.emotional), "high emotional language", 6, 18);
+    return addSignal(negatives, findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.emotional), "high emotional language", 6, 18);
   }
 
   function hasEmotionalVolatility(context) {
     return (
-      findMatches(context.searchText, TERMS.emotional).length > 0 ||
-      findMatches(context.searchText, TERMS.outrage).length > 0 ||
+      findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.emotional).length > 0 ||
+      findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.clickbaitUrgency).length > 0 ||
+      findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.outrageRageBait).length > 0 ||
       hasAllCapsSignal(context.title) ||
       /!!|\?\?/.test(context.title)
     );

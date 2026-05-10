@@ -42,6 +42,8 @@ To try it:
 
 The extension stores mode, aggregate session telemetry, and schedule-ready configuration locally with `chrome.storage.local`. It has no backend, account system, cloud sync, or AI API integration.
 
+The deterministic scoring architecture is documented in [`docs/source-framework.md`](docs/source-framework.md), including source concepts, heuristic dictionary categories, explanation requirements, and clinical/truth-judgment boundaries.
+
 ## Example Prompt
 
 "Looks like your activity drifted away from Study Mode.

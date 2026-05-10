@@ -110,6 +110,8 @@ Looks aligned with this mode. Study Mode is tuned for calm, long-form learning a
 
 The model is intentionally transparent and limited. It does not diagnose, infer mental health state, or claim whether content is true.
 
+The lexical dictionaries are heuristic signal categories, not clinical or truth judgments. See [`../docs/source-framework.md`](../docs/source-framework.md) for the source concepts, dictionary categories, explanation requirements, and governance boundaries.
+
 ## Drift detection logic
 
 The extension keeps aggregate counters for the current local session:
@@ -177,6 +179,8 @@ The MVP stores aggregate counters and mode configuration only. It does not use a
 - Avoid nagging or shaming tone.
 - Local-first storage.
 - No cloud/API integration yet.
+
+The scoring architecture is grounded in the repository source framework: NIST AI RMF concepts for governance and trustworthy measurement, Microsoft Human-AI Interaction Guidelines for user control and uncertainty handling, Nielsen Norman Group usability/cognitive load principles for subtle UI, and explicit medical/behavioral boundaries.
 
 ## Capstone relevance
 

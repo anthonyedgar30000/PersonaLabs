@@ -1,0 +1,192 @@
+# PersonaLabs Source Framework
+
+PersonaLabs uses deterministic word and phrase analysis as a local, explainable observability aid. The dictionaries are heuristic signal categories. They are not clinical instruments, truth classifiers, or claims about a user's character, intent, health, or beliefs.
+
+This document records the source concepts that should guide the scoring architecture, UI behavior, documentation, and future governance reviews.
+
+## Reference categories
+
+### 1. NIST AI RMF / NIST AI Risk Management Framework
+
+Relevant concepts:
+
+- governance and accountability
+- risk identification and risk management
+- measurement and monitoring
+- transparency and documentation
+- trustworthy AI characteristics
+- human oversight and contestability
+
+How PersonaLabs applies these concepts:
+
+- Keep deterministic scoring rules documented and inspectable.
+- Treat scores as risk/fit estimates relative to a user-selected mode.
+- Show observed positive and negative signals behind each score.
+- Preserve user agency through override actions and Bare Metal mode.
+- Avoid hidden cloud processing in the MVP.
+
+### 2. Microsoft Human-AI Interaction Guidelines
+
+Relevant concepts:
+
+- make clear what the system can do
+- make clear how well the system can do it
+- support efficient invocation and dismissal
+- show contextually relevant explanations
+- support uncertainty handling
+- allow graceful recovery and correction
+- keep the user in control
+
+How PersonaLabs applies these concepts:
+
+- Use confidence labels and buddy-tone explanations.
+- Let users switch modes, continue, snooze, or enter Bare Metal.
+- Keep prompts non-blocking and recoverable.
+- Explain scores with observed lexical/duration signals.
+- Avoid overclaiming model ability.
+
+### 3. Nielsen Norman Group usability and cognitive load principles
+
+Relevant concepts:
+
+- minimize cognitive load
+- use clear status indicators
+- avoid unnecessary interruption
+- keep interfaces subtle and scannable
+- support recognition over recall
+- provide feedback without overwhelming the user
+
+How PersonaLabs applies these concepts:
+
+- Use simple green/yellow/red alignment states.
+- Keep badges short and make details available through hover tooltips.
+- Use a small drift prompt only after aggregate evidence accumulates.
+- Avoid blocking, modal lock-in, repeated nagging, or shame language.
+
+### 4. Medical and behavioral boundary guidance
+
+PersonaLabs is not a medical, diagnostic, treatment, or clinical profiling tool.
+
+Required boundaries:
+
+- Do not diagnose, treat, or clinically profile users.
+- Do not infer mental health conditions.
+- Do not make addiction, attention, disorder, or pathology claims.
+- Do not claim a user is irrational, manipulated, or unwell.
+- Do not truth-police content or assert that a video is true or false.
+- Support reflection, intentionality, and observability only.
+
+Acceptable framing:
+
+- "This may be drifting from Study Mode."
+- "Observed signals: Shorts format, clickbait wording, low evidence density."
+- "Confidence: medium."
+- "Want to continue, switch modes, enter Bare Metal, or snooze?"
+
+Avoid:
+
+- "This content is false."
+- "You are addicted."
+- "This proves you are distracted."
+- "This is medically risky for you."
+
+## Lexical scoring plan
+
+Dictionary matches are local heuristic indicators. They are signals used to estimate alignment with the current mode. They are not truth claims, clinical judgments, or judgments about the user.
+
+### Deterministic dictionary categories
+
+1. **Educational / study-positive terms**
+   - Examples: lecture, course, fundamentals, study, lesson, tutorial, walkthrough, guide.
+   - Intended signal: content may support Study Mode.
+
+2. **Technical / cyber / AI terms**
+   - Examples: programming, python, api, database, security, machine learning, system design, linux.
+   - Intended signal: content may support Study, Research, or Project modes when paired with educational or build context.
+
+3. **Evidence and grounding terms**
+   - Examples: evidence, data, report, source, case study, expert, paper, interview, analysis.
+   - Intended signal: content may support Research Mode or reduce low-evidence concern.
+
+4. **Calm / low-conflict terms**
+   - Examples: calm, ambient, lofi, nature, meditation, cozy, cooking, travel.
+   - Intended signal: content may support Chill Mode.
+
+5. **Clickbait / urgency terms**
+   - Examples: must watch, secret, shocking, breaking, urgent, you won't believe.
+   - Intended signal: content may be optimized for urgency or impulse, depending on mode.
+
+6. **Outrage / rage-bait terms**
+   - Examples: exposed, destroyed, meltdown, slammed, they lied, humiliates, culture war.
+   - Intended signal: content may be high-conflict or emotionally activating.
+
+7. **Speculation / low-evidence terms**
+   - Examples: rumor, allegedly, theory, what if, could be, maybe, anonymous source.
+   - Intended signal: content may need lower Research confidence unless grounded by evidence terms.
+
+8. **Short-form / novelty-risk terms**
+   - Examples: Shorts, TikTok, viral, compilation, top 10, random.
+   - Intended signal: content may be rapid novelty or low-context browsing, especially in Study or Project modes.
+
+## Score interpretation
+
+Scores estimate alignment with the current user-selected mode:
+
+- Green / aligned: observed signals mostly support the mode.
+- Yellow / neutral: observed signals are mixed or weak.
+- Red / misaligned: observed signals appear to drift from the mode.
+
+Scores must not be presented as:
+
+- content truth ratings
+- health or diagnosis ratings
+- moral judgments
+- productivity judgments
+- claims about user intent
+
+## Explanation requirements
+
+Every score should expose:
+
+- score
+- mode
+- classification: aligned, neutral, or misaligned
+- top positive observed signals
+- top negative observed signals
+- confidence level
+- short buddy-tone explanation
+
+Explanations should use cautious language:
+
+- "may"
+- "appears"
+- "observed signals"
+- "relative to this mode"
+- "confidence"
+
+## User agency requirements
+
+The interface must preserve:
+
+- user override
+- Continue current mode
+- mode switching
+- Snooze
+- Bare Metal mode
+- no blocking
+
+Bare Metal must remain available as an explicit opt-out from overlays and prompts.
+
+## Local-first implementation requirements
+
+For the current MVP:
+
+- no external API calls
+- no backend
+- no AI API calls
+- no account system
+- no telemetry upload
+- deterministic scoring only
+- storage limited to `chrome.storage.local`
+
+Future AI or cloud features must be reviewed against this framework before implementation.
