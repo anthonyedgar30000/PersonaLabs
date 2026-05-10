@@ -89,7 +89,7 @@ Flags rage framing, low evidence density for complex/current topics, Shorts form
 
 Rewards calming, low-conflict content such as bunny/nature/sleep ambience, aquarium videos, relaxing piano, soft music, meditation, lofi, gentle rain, forest/bird ambience, and casual recovery browsing.
 
-Flags outrage-heavy framing, conflict-heavy titles, panic/fear language, humiliation framing, disturbing/violent subject matter, and high cognitive fragmentation. Low emotional tone is not treated as low emotional impact: a restrained title such as "Military strike hits convoy in Lebanon" can still reduce Chill alignment because the subject matter is psychologically heavy. Political or current-events content is not treated as inherently bad, but rage framing, disturbing subject matter, or fragmented live-update formats can outweigh long-form duration in Chill Mode.
+Flags conflict-framed attention capture patterns: tribal/domination framing, owning/humiliation language, revenge/punishment framing, collapse/catastrophe framing, disturbing/violent subject matter, and high cognitive fragmentation. Low emotional tone is not treated as low emotional impact: a restrained title such as "Military strike hits convoy in Lebanon" can still reduce Chill alignment because the subject matter is psychologically heavy. Political or current-events content is not treated as inherently bad, but tribal domination framing, disturbing subject matter, rage framing, or fragmented live-update formats can outweigh long-form duration in Chill Mode.
 
 ### Project
 
@@ -105,10 +105,11 @@ Hides overlays and suppresses drift prompts. It is always available.
 
 Scoring is deterministic and heuristic-based. Each card is first separated into deterministic signal layers, then weighted against the selected persona:
 
-1. **Emotional Tone** - ragebait/escalation framing such as insane, destroyed, humiliated, meltdown, panic, shocking, exposed, outrage, furious, obliterated, disaster, or owned.
-2. **Subject Matter** - disturbing/heavy themes such as attacked, murder, war footage, bombing, dead, injured, hostage, terror, military strike, airstrike, massacre, raid, gore, or burning alive.
-3. **Cognitive Load** - attentional complexity and fragmentation such as debate, analysis, politics, breaking news, investigation, controversy, drama, reaction, argument, live coverage, multi-topic, or rapid updates.
-4. **Persona Alignment** - persona-specific weighting over the observed layers and mode-positive signals.
+1. **Calm / Ambient Signals** - recovery-oriented signals such as bunny, aquarium, relaxing music, sleep ambience, nature, rain, birds, meditation, and lofi.
+2. **Violence / Disturbing Subject Matter** - disturbing/heavy themes such as attacked, murder, war footage, bombing, dead, injured, hostage, terror, military strike, airstrike, massacre, raid, gore, or burning alive.
+3. **Tribal Domination Framing** - conflict/dominance attention patterns such as owned, destroyed, revenge, humiliated, meltdown, obliterated, crushed, slams, exposed, collapse, disastrous, final note, bombshell, cringe, caught lying, takedown, or backfires badly.
+4. **Cognitive Load** - attentional complexity and fragmentation such as debate, analysis, politics, breaking news, investigation, controversy, drama, reaction, argument, live coverage, multi-topic, or rapid updates.
+5. **Persona Alignment** - persona-specific weighting over the observed layers and mode-positive signals.
 
 Each card receives objective dimension scores, a persona-weighted intent alignment score, mode, classification, alignment signals, evidence signals, media environment signals, title/thumbnail/metadata provenance, confidence level, selected study persona where applicable, matched topic keywords, long-form and continuity bonuses, primary supporting/friction signals, and a short calm explanation.
 
@@ -117,7 +118,9 @@ Objective dimensions are measured independently from persona alignment:
 - `emotionalVolatility`
 - `emotionalTone`
 - `subjectMatterImpact`
+- `tribalDomination`
 - `calmAmbient`
+- `driftRisk`
 - `educationalDepth`
 - `exploratoryValue`
 - `continuityAlignment`
@@ -125,7 +128,7 @@ Objective dimensions are measured independently from persona alignment:
 - `cognitiveLoad`
 - `intentAlignment`
 
-Persona profiles weight those dimensions differently. For example, Study personas weight educational depth, continuity, and low emotional volatility; Research weights evidence quality and exploratory value; Chill strongly weights low disturbing subject matter, low rage/escalation framing, low cognitive fragmentation, and calm ambient support. Bare Metal disables alignment scoring and overlays.
+Persona profiles weight those dimensions differently. For example, Study personas weight educational depth, continuity, and low emotional volatility; Research weights evidence quality and exploratory value; Chill strongly weights calm ambient support, low disturbing subject matter, low tribal/domination framing, and low cognitive fragmentation. Bare Metal disables alignment scoring and overlays.
 
 Example tooltip shape:
 
@@ -137,23 +140,28 @@ Final Alignment Score: 84
 Selected study persona: Study - AI/ML
 Matched topic keywords: llm, agents
 Educational format signals: explained
-Signals:
-+ long-form analysis
-+ evidence-oriented language
-- elevated emotional framing
-Emotional Tone:
-Rage/escalation framing: Low (0/100)
-Subject Matter:
+Calm / Ambient Signals:
+Calm ambient support: Low (0/100)
+Violence / Disturbing Subject Matter:
 Disturbing/heavy subject matter: Low (0/100)
+Tribal Domination Framing:
+Tribal/conflict framing: Low (0/100)
 Cognitive Load:
 Cognitive load / fragmentation: Low (15/100)
 Persona Alignment:
 Intent alignment: aligned (84/100)
+Drift risk: Low (18/100)
+Signals:
++ long-form analysis
++ evidence-oriented language
+- no strong friction signals
 evidenceQuality: High (82/100)
 educationalDepth: High (76/100)
 emotionalVolatility: Moderate (44/100)
 subjectMatterImpact: Low (0/100)
+tribalDomination: Low (0/100)
 calmAmbient: Low (0/100)
+driftRisk: Low (18/100)
 noveltyPressure: Low (18/100)
 cognitiveLoad: Low (15/100)
 continuityAlignment: High (73/100)
@@ -177,19 +185,19 @@ Signal Provenance:
 Looks aligned with this mode. Study Mode is tuned for calm, long-form learning and technical depth.
 ```
 
-The model is intentionally transparent and limited. It does not diagnose, infer mental health state, or claim whether content is true.
+The model is intentionally transparent and limited. It does not diagnose, infer mental health state, or claim whether content is true. PersonaLabs models attentional friction and intentional alignment, not political correctness or objective truth.
 
 The lexical dictionaries are heuristic signal categories, not clinical or truth judgments. See [`../docs/source-framework.md`](../docs/source-framework.md) for the source concepts, dictionary categories, explanation requirements, and governance boundaries.
 
-The scoring architecture is multi-axis. Evidence Signals, Emotional Tone, Subject Matter, Novelty Pressure, Cognitive Load / Fragmentation, Intentionality Alignment, Calm Ambient support, and Exploratory Diversity are evaluated separately before the final border classification is assigned. This lets a high-evidence major world event remain valuable in Research mode even if it carries disturbing subject matter, while preventing restrained violent content from being treated as Chill-aligned.
+The scoring architecture is multi-axis. Evidence Signals, Calm / Ambient Signals, Violence / Disturbing Subject Matter, Tribal Domination Framing, Novelty Pressure, Cognitive Load / Fragmentation, Intentionality Alignment, Drift Risk, and Exploratory Diversity are evaluated separately before the final border classification is assigned. This lets a high-evidence major world event remain valuable in Research mode even if it carries disturbing subject matter, while preventing restrained violent content or domination-framed commentary from being treated as Chill-aligned.
 
-High volatility, low evidence, disturbing subject matter, and educational/opinion framing are separate dimensions. PersonaLabs does not treat emotional intensity as the same thing as low evidence, and it does not treat conflict, politics, military topics, or serious world events as inherently negative. The model estimates fit relative to a declared intent, not objective truth, morality, misinformation, or viewpoint correctness.
+High volatility, low evidence, disturbing subject matter, tribal domination framing, and educational/opinion framing are separate dimensions. PersonaLabs does not treat emotional intensity as the same thing as low evidence, and it does not treat conflict, politics, military topics, or serious world events as inherently negative. The model estimates fit relative to a declared intent, not objective truth, morality, misinformation, political correctness, or viewpoint correctness.
 
 PersonaLabs evaluates alignment relative to a specific declared intent, not generic "good content." An educational Kubernetes tutorial can be aligned with Study - Cloud/DevOps while being less aligned with Study - AI/ML or Study - Cybersecurity.
 
 Personas are intended to be user-authored and editable as the product matures. The current MVP ships deterministic starter personas so the media observability loop is inspectable and demoable.
 
-Long-form does not necessarily mean low-conflict. The scoring hierarchy prioritizes emotional volatility and outrage framing first, then topic continuity, content type/Shorts signals, and finally duration bonuses. This keeps extended outrage/commentary videos from being treated as relaxing simply because they are long.
+Long-form does not necessarily mean low-conflict. The scoring hierarchy prioritizes tribal/domination framing, disturbing subject matter, emotional volatility, and cognitive fragmentation before topic continuity, content type/Shorts signals, and duration bonuses. This keeps extended outrage/commentary videos from being treated as relaxing simply because they are long.
 
 Border colors primarily reflect Intentionality Alignment. Red requires multiple strong negative dimensions, while yellow/orange indicate limited or mixed evidence where the user may want to inspect the panel.
 
@@ -243,7 +251,7 @@ Prompt actions:
 
 The prompt never blocks content. Continue/dismiss briefly quiets the prompt; Snooze quiets it for 30 minutes.
 
-Drift detection is based on trajectory and signal density, not political alignment. Repeated high-volatility signals during Chill Mode increase prompt likelihood even when videos are long-form.
+Drift detection is based on trajectory and signal density, not political alignment. Repeated high drift-risk signals during Chill Mode, including tribal/domination framing or disturbing subject matter, increase prompt likelihood even when videos are long-form.
 
 ## Schedule-ready structure
 
@@ -302,4 +310,4 @@ This MVP demonstrates a small but complete human-centered observability loop:
 - `popup.html`, `popup.css`, and `popup.js` own mode selection.
 - All scoring is deterministic and explainable.
 - Long-form technical tutorials should normally land in the aligned range in Study Mode unless Shorts, clickbait, or high-emotion penalties apply.
-- Run `node extension/scoring-validation.js` from the repository root to validate representative scoring cases for Chill ambience, violent/disturbing subject matter, ragebait framing, analytical long-form content, and Research-mode conflict coverage.
+- Run `node extension/scoring-validation.js` from the repository root to validate representative scoring cases for Chill ambience, calm educational content, violent/disturbing subject matter, tribal/domination framing, outrage thumbnails, analytical long-form content, and Research-mode conflict coverage.

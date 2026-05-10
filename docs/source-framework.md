@@ -124,47 +124,51 @@ Dictionary matches are local heuristic indicators. They are signals used to esti
    - Examples: debate, analysis, politics, breaking news, investigation, controversy, drama, reaction, argument, live coverage, multi-topic, rapid updates.
    - Intended signal: content may increase mental processing burden, switching cost, or attentional fragmentation.
 
-8. **Calm / low-conflict terms**
+8. **Tribal domination framing terms**
+   - Examples: owned, destroyed, humiliated, revenge, meltdown, obliterated, crushed, wrecked, slams, annihilates, exposed, collapse, disastrous, panic, losing minds, unhinged, final note, bombshell, cringe, fails badly, disaster, destroys, embarrassed, caught lying, takedown, rage, backfires badly.
+   - Intended signal: content may use conflict-framed attention capture patterns such as enemies vs allies, winners vs losers, humiliation vs dominance, revenge vs punishment, or collapse vs catastrophe.
+
+9. **Calm / low-conflict terms**
    - Examples: calm, ambient, lofi, nature, meditation, cozy, cooking, travel.
    - Intended signal: content may support Chill Mode.
 
-9. **Clickbait / urgency terms**
+10. **Clickbait / urgency terms**
    - Examples: must watch, secret, shocking, breaking, urgent, you won't believe.
    - Intended signal: content may be optimized for urgency or impulse, depending on mode.
 
-10. **Outrage / rage-bait terms**
+11. **Outrage / rage-bait terms**
    - Examples: exposed, destroyed, meltdown, slammed, they lied, humiliates, culture war.
    - Intended signal: content may be high-conflict or emotionally activating.
 
-11. **Outrage escalation terms**
+12. **Outrage escalation terms**
    - Examples: destroyed, annihilates, obliterated, crushed, panic mode, total disaster.
    - Intended signal: content may use escalating emotional conflict framing.
 
-12. **Humiliation framing terms**
+13. **Humiliation framing terms**
    - Examples: humiliated, humiliates, owned, shuts down, smoked, embarrassed.
    - Intended signal: content may be framed around interpersonal or tribal dominance.
 
-13. **Tribal conflict language**
+14. **Tribal conflict language**
    - Examples: culture war, us vs them, enemy, traitor, mob, war on.
    - Intended signal: content may invite group conflict rather than low-conflict reflection.
 
-14. **Panic/fear framing**
+15. **Panic/fear framing**
     - Examples: panic, freakout, disaster, catastrophe, crisis, losing their minds, complete shock.
     - Intended signal: content may be emotionally activating or fear-forward.
 
-15. **Absolutist/emotional wording**
+16. **Absolutist/emotional wording**
     - Examples: always, never, everyone, no one, totally, unbelievable, worst.
     - Intended signal: content may use strong certainty or emotional amplification.
 
-16. **Novelty intensity language**
+17. **Novelty intensity language**
     - Examples: urgent, breaking, must watch, can't stop watching, everything is collapsing.
     - Intended signal: content may invite rapid checking, urgency, or escalating novelty.
 
-17. **Speculation / low-evidence terms**
+18. **Speculation / low-evidence terms**
    - Examples: rumor, allegedly, theory, what if, could be, maybe, anonymous source.
    - Intended signal: content may need lower Research confidence unless grounded by evidence terms.
 
-18. **Short-form / novelty-risk terms**
+19. **Short-form / novelty-risk terms**
    - Examples: Shorts, TikTok, viral, compilation, top 10, random.
    - Intended signal: content may be rapid novelty or low-context browsing, especially in Study or Project modes.
 
@@ -172,25 +176,31 @@ Dictionary matches are local heuristic indicators. They are signals used to esti
 
 The deterministic architecture separates observable dimensions before assigning a final alignment classification:
 
-1. Emotional Tone
-   - ragebait wording
-   - escalation framing
-   - humiliation/dominance framing
-   - panic/fear-forward wording
+1. Calm / Ambient Signals
+   - nature/sleep/music ambience
+   - gentle animal/aquarium content
+   - low-friction recovery signals
 
-2. Subject Matter
+2. Violence / Disturbing Subject Matter
    - violent or disturbing event terms
    - crisis/heavy themes
    - psychologically intense subjects
    - restrained-language descriptions of violence
 
-3. Cognitive Load
+3. Tribal Domination Framing
+   - enemies vs allies framing
+   - winners vs losers framing
+   - humiliation vs dominance framing
+   - revenge/punishment framing
+   - collapse/catastrophe framing
+
+4. Cognitive Load
    - debate/argument framing
    - live coverage and rapid updates
    - multi-topic formats
    - short-form or highly fragmented formats
 
-4. Evidence Signals
+5. Evidence Signals
    - source/reputation indicators
    - analytical terminology
    - citations/references
@@ -199,43 +209,43 @@ The deterministic architecture separates observable dimensions before assigning 
    - low speculation framing
    - long-form analysis
 
-5. Novelty Pressure
+6. Novelty Pressure
    - breaking/urgent framing
    - must-watch-now language
    - shocking/rapid novelty cues
 
-6. Calm Ambient Support
-   - nature/sleep/music ambience
-   - gentle animal/aquarium content
-   - low-friction recovery signals
-
 7. Intentional Alignment
    - fit relative to the current persona or mode
 
-8. Exploratory Value
+8. Drift Risk
+   - aggregate friction from tribal domination, disturbing subject matter, emotional volatility, novelty pressure, and cognitive load
+   - used for local trajectory prompts, never blocking
+
+9. Exploratory Value
    - opposing viewpoints
    - analytical debate
    - critical discussion
    - broader perspective exploration
 
-These dimensions prevent emotional tone from being treated as identical to subject matter or low evidence. A major geopolitical event can show high Evidence Signals, low rage framing, high disturbing subject matter, and high Research value. A clickbait segment can show low Evidence Signals, high Emotional Tone, and high Novelty Pressure.
+These dimensions prevent speaking style, subject matter, domination framing, and low evidence from being collapsed into one score. A major geopolitical event can show high Evidence Signals, low rage framing, high disturbing subject matter, and high Research value. A conflict-framed commentary item can show low disturbing subject matter but high Tribal Domination Framing and high Drift Risk.
 
-PersonaLabs separates objective measurable signals from user-defined subjective intent alignment. Objective dimensions describe observed properties of a card. `intentAlignment` estimates fit against the user's currently declared persona and its local dimension weights. This means the system estimates "how aligned this content is with my current intent," not whether the content is true, moral, healthy, politically correct, misinformation, or allowed.
+PersonaLabs separates objective measurable signals from user-defined subjective intent alignment. Objective dimensions describe observed properties of a card. `intentAlignment` estimates fit against the user's currently declared persona and its local dimension weights. This means the system estimates "how aligned this content is with my current intent," not whether the content is true, moral, healthy, politically correct, misinformation, or allowed. PersonaLabs models attentional friction and intentional alignment, not political correctness or objective truth.
 
-High volatility, disturbing subject matter, low evidence, and educational/opinion framing are separate dimensions. A high-volatility item may still have strong evidence quality. A low-volatility item may still discuss violent or disturbing subject matter. Educational formatting is not the same as truth verification.
+High volatility, disturbing subject matter, tribal domination framing, low evidence, and educational/opinion framing are separate dimensions. A high-volatility item may still have strong evidence quality. A low-volatility item may still discuss violent or disturbing subject matter. A calm speaker may still frame reality as enemies vs allies, winners vs losers, humiliation vs dominance, revenge vs punishment, or collapse vs catastrophe. Educational formatting is not the same as truth verification.
 
 The deterministic hierarchy should generally prioritize:
 
-1. emotional tone / outrage framing
+1. tribal domination / conflict framing
 2. disturbing subject matter
-3. cognitive load / fragmentation
-4. topic continuity
-5. content type and Shorts/novelty risk
-6. duration bonuses
+3. emotional volatility
+4. cognitive load / fragmentation
+5. topic continuity
+6. content type and Shorts/novelty risk
+7. duration bonuses
 
-Long-form does not necessarily mean low-conflict. A long video with dense outrage, humiliation, panic, novelty-intensity language, disturbing subject matter, or rapid-update complexity should score lower in Chill Mode than a shorter low-conflict video. Emotional tone, disturbing subject matter, and cognitive load can outweigh duration when signals are severe, but high Evidence Signals can still support Research alignment.
+Long-form does not necessarily mean low-conflict. A long video with dense domination framing, outrage, humiliation, panic, novelty-intensity language, disturbing subject matter, or rapid-update complexity should score lower in Chill Mode than a shorter low-conflict video. Tribal domination framing, disturbing subject matter, emotional volatility, and cognitive load can outweigh duration when signals are severe, but high Evidence Signals can still support Research alignment.
 
-Drift detection is based on trajectory and signal density, not political alignment. PersonaLabs should not classify conflict, politics, military topics, ideology, parties, or current-events categories as inherently good or bad. It should evaluate observed tone, subject matter, cognitive-load, and behavioral signals relative to the user's selected mode.
+Drift detection is based on trajectory and signal density, not political alignment. PersonaLabs should not classify conflict, politics, military topics, ideology, parties, or current-events categories as inherently good or bad. It should evaluate observed tribal/domination framing, subject matter, cognitive-load, and behavioral signals relative to the user's selected mode.
 
 ## Thumbnail signal layer
 
@@ -249,7 +259,7 @@ Thumbnail text is a major attention-signal surface on video platforms. For the c
 
 This is not OCR and not image understanding. OCR, multimodal image analysis, or model-based thumbnail interpretation are future roadmap items that require separate governance review. The current implementation must not call external APIs or send thumbnail data off-device.
 
-Thumbnail lexical signals are still heuristic indicators. Outrage, humiliation, panic, or novelty-intensity terms appearing in thumbnail-accessible text may carry higher weight because thumbnails are designed as rapid attention surfaces. This weighting must target emotional framing signals, not viewpoint, ideology, or political topic.
+Thumbnail lexical signals are still heuristic indicators. Outrage, humiliation, domination, revenge, panic, or novelty-intensity terms appearing in thumbnail-accessible text may carry higher weight because thumbnails are designed as rapid attention surfaces. This weighting must target attention-capture framing signals, not viewpoint, ideology, or political topic.
 
 When thumbnail text is unavailable, scoring must continue using title and metadata. Explanations should explicitly say that thumbnail text was unavailable rather than failing or silently pretending it was analyzed.
 
@@ -279,8 +289,9 @@ Every score should expose:
 - score
 - mode
 - classification: aligned, neutral, mixed, or misaligned
-- Emotional Tone signals
-- Subject Matter signals
+- Calm / Ambient signals
+- Violence / Disturbing Subject Matter signals
+- Tribal Domination Framing signals
 - Cognitive Load signals
 - Persona Alignment notes
 - alignment signals
@@ -289,6 +300,8 @@ Every score should expose:
 - Evidence Signals dimension
 - emotional tone / rage-framing estimate
 - disturbing subject matter estimate
+- tribal domination framing estimate
+- drift risk estimate
 - novelty pressure estimate
 - cognitive load / fragmentation estimate
 - calm ambient support estimate
@@ -335,7 +348,7 @@ The thumbnail layer currently uses accessible text only; no OCR or image model i
 - excessive arrows/circles
 - rage expressions
 
-These signals should influence Emotional Volatility, Novelty Pressure, and Cognitive Load / Fragmentation. They should not directly determine Evidence Quality or topic value.
+These signals should influence Tribal Domination Framing, Emotional Volatility, Novelty Pressure, Drift Risk, and Cognitive Load / Fragmentation. They should not directly determine Evidence Quality or topic value.
 
 ## Local survey/persona foundation
 

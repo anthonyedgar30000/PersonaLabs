@@ -63,52 +63,57 @@
   const PERSONA_DIMENSION_WEIGHTS = {
     study: {
       educationalDepth: 0.35,
-      continuityAlignment: 0.22,
+      continuityAlignment: 0.19,
       evidenceQuality: 0.15,
       exploratoryValue: 0.05,
       lowCognitiveLoad: 0.1,
       lowEmotionalVolatility: 0.08,
       lowDisturbingSubjectMatter: 0.05,
+      lowTribalDomination: 0.03,
       calmAmbient: 0
     },
     chill: {
       educationalDepth: 0,
-      continuityAlignment: 0.1,
-      evidenceQuality: 0.02,
-      exploratoryValue: 0.02,
-      lowCognitiveLoad: 0.2,
-      lowEmotionalVolatility: 0.2,
-      lowDisturbingSubjectMatter: 0.28,
-      calmAmbient: 0.18
+      continuityAlignment: 0.08,
+      evidenceQuality: 0.01,
+      exploratoryValue: 0.01,
+      lowCognitiveLoad: 0.17,
+      lowEmotionalVolatility: 0.15,
+      lowDisturbingSubjectMatter: 0.21,
+      lowTribalDomination: 0.2,
+      calmAmbient: 0.17
     },
     research: {
       educationalDepth: 0.1,
-      continuityAlignment: 0.15,
+      continuityAlignment: 0.13,
       evidenceQuality: 0.35,
       exploratoryValue: 0.25,
       lowCognitiveLoad: 0.05,
       lowEmotionalVolatility: 0.08,
       lowDisturbingSubjectMatter: 0.02,
+      lowTribalDomination: 0.02,
       calmAmbient: 0
     },
     project: {
       educationalDepth: 0.2,
-      continuityAlignment: 0.28,
+      continuityAlignment: 0.25,
       evidenceQuality: 0.15,
       exploratoryValue: 0.05,
       lowCognitiveLoad: 0.2,
       lowEmotionalVolatility: 0.08,
       lowDisturbingSubjectMatter: 0.04,
+      lowTribalDomination: 0.03,
       calmAmbient: 0
     },
     custom: {
       educationalDepth: 0.2,
-      continuityAlignment: 0.2,
+      continuityAlignment: 0.18,
       evidenceQuality: 0.2,
       exploratoryValue: 0.15,
       lowCognitiveLoad: 0.15,
       lowEmotionalVolatility: 0.07,
       lowDisturbingSubjectMatter: 0.03,
+      lowTribalDomination: 0.02,
       calmAmbient: 0
     }
   };
@@ -218,6 +223,38 @@
     "rapid updates"
   ]);
 
+  const TRIBAL_DOMINATION_FRAMING_SIGNALS = Object.freeze([
+    "owned",
+    "destroyed",
+    "humiliated",
+    "humiliates",
+    "revenge",
+    "meltdown",
+    "obliterated",
+    "crushed",
+    "wrecked",
+    "slams",
+    "annihilates",
+    "exposed",
+    "collapse",
+    "disastrous",
+    "panic",
+    "losing minds",
+    "losing their minds",
+    "unhinged",
+    "final note",
+    "bombshell",
+    "cringe",
+    "fails badly",
+    "disaster",
+    "destroys",
+    "embarrassed",
+    "caught lying",
+    "takedown",
+    "rage",
+    "backfires badly"
+  ]);
+
   /*
    * Lexical scoring architecture
    *
@@ -233,9 +270,9 @@
    * with the user's current mode. Core categories include:
    * educational/study-positive, technical/cyber/AI, evidence/grounding,
    * calm/low-conflict, calm ambience, clickbait/urgency, outrage/rage-bait,
-   * outrage escalation, humiliation framing, tribal conflict language,
-   * panic/fear framing, absolutist/emotional wording, disturbing subject
-   * matter, novelty intensity, speculation/low-evidence, and
+   * tribal/domination framing, outrage escalation, humiliation framing,
+   * tribal conflict language, panic/fear framing, absolutist/emotional
+   * wording, disturbing subject matter, novelty intensity, speculation/low-evidence, and
    * short-form/novelty-risk terms.
    * Scores are local-first deterministic alignment estimates. Explanations
    * must show observed signals and uncertainty; Bare Metal and user override
@@ -502,6 +539,7 @@
     VIOLENCE_DISTURBING_SIGNALS,
     CALM_AMBIENT_SIGNALS,
     COGNITIVE_LOAD_SIGNALS,
+    TRIBAL_DOMINATION_FRAMING_SIGNALS,
     project: [
       "bug",
       "build",
@@ -1342,11 +1380,14 @@
     const outrage = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.outrageRageBait);
     const emotionalTonePenalty = Math.min(75, Math.round(signalLayers.emotionalTone.score * 0.78));
     const subjectMatterPenalty = Math.min(82, Math.round(signalLayers.subjectMatter.score * 0.88));
+    const tribalDominationPenalty = Math.min(84, Math.round(signalLayers.tribalDomination.score * 0.92));
     const cognitiveLoadPenalty = Math.min(52, Math.round(signalLayers.cognitiveLoad.score * 0.5));
     const severeEmotionalTone = signalLayers.emotionalTone.score >= 60;
     const elevatedEmotionalTone = signalLayers.emotionalTone.score >= 35;
     const disturbingSubjectMatter = signalLayers.subjectMatter.score >= 25;
     const heavySubjectMatter = signalLayers.subjectMatter.score >= 55;
+    const elevatedTribalDomination = signalLayers.tribalDomination.score >= 25;
+    const severeTribalDomination = signalLayers.tribalDomination.score >= 55;
     const highCognitiveLoad = signalLayers.cognitiveLoad.score >= 55;
     let continuityBonus = 0;
     let durationBonus = 0;
@@ -1361,6 +1402,11 @@
       negatives.push(`disturbing subject matter estimate: ${signalLayers.subjectMatter.score}/100`);
     }
 
+    if (tribalDominationPenalty > 0) {
+      score -= tribalDominationPenalty;
+      negatives.push(`tribal/conflict framing detected: ${formatMatches(signalLayers.tribalDomination.matches)}`);
+    }
+
     if (cognitiveLoadPenalty > 0) {
       score -= cognitiveLoadPenalty;
       negatives.push(`cognitive load / fragmentation estimate: ${signalLayers.cognitiveLoad.score}/100`);
@@ -1368,10 +1414,12 @@
 
     score += addSignal(positives, chill, "calm ambient or light content", 9, 30);
 
-    if (chill.length && !elevatedEmotionalTone && !disturbingSubjectMatter && !highCognitiveLoad) {
+    if (chill.length && !elevatedEmotionalTone && !disturbingSubjectMatter && !elevatedTribalDomination && !highCognitiveLoad) {
       continuityBonus = 12;
       score += continuityBonus;
       positives.push("Chill Mode topic continuity with low-friction ambience");
+    } else if (chill.length && elevatedTribalDomination) {
+      negatives.push("calming terms are outweighed by tribal/conflict domination framing");
     } else if (chill.length && elevatedEmotionalTone) {
       negatives.push("calming terms are outweighed by rage/escalation framing");
     } else if (chill.length && disturbingSubjectMatter) {
@@ -1383,13 +1431,14 @@
     if (
       signalLayers.emotionalTone.score === 0 &&
       signalLayers.subjectMatter.score === 0 &&
+      signalLayers.tribalDomination.score === 0 &&
       signalLayers.cognitiveLoad.score < 35 &&
       !conflict.length &&
       !outrage.length &&
       !hasEmotionalVolatility(context)
     ) {
       score += 8;
-      positives.push("low rage framing and low disturbing subject matter");
+      positives.push("low domination framing, low rage framing, and low disturbing subject matter");
     } else if (signalLayers.emotionalTone.score === 0 && signalLayers.subjectMatter.score > 0) {
       negatives.push("low rage framing detected, but disturbing subject matter reduced Chill alignment");
     }
@@ -1398,12 +1447,13 @@
       context.durationSeconds >= 1200 &&
       !elevatedEmotionalTone &&
       !disturbingSubjectMatter &&
+      !elevatedTribalDomination &&
       signalLayers.cognitiveLoad.score < 35
     ) {
       durationBonus = 8;
       score += durationBonus;
       positives.push("stable long-form duration with low-friction signals");
-    } else if (context.durationSeconds >= 1200 && (elevatedEmotionalTone || disturbingSubjectMatter || highCognitiveLoad)) {
+    } else if (context.durationSeconds >= 1200 && (elevatedEmotionalTone || disturbingSubjectMatter || elevatedTribalDomination || highCognitiveLoad)) {
       negatives.push("long-form duration does not erase tone, subject matter, or cognitive-load friction");
     }
 
@@ -1416,15 +1466,18 @@
     score -= addSignal(negatives, outrage, "outrage-heavy language", 15, 38);
     score -= addSignal(negatives, findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.currentEvents), "news/current events during chill", 5, 10);
 
-    if (heavySubjectMatter) {
+    if (severeTribalDomination) {
+      score = Math.min(score, 34);
+      negatives.push("tribal/domination framing overrides duration and calm tone bonuses in Chill Mode");
+    } else if (heavySubjectMatter) {
       score = Math.min(score, 34);
       negatives.push("disturbing subject matter overrides duration and calm tone bonuses in Chill Mode");
     } else if (severeEmotionalTone) {
       score = Math.min(score, 34);
       negatives.push("severe rage/escalation framing overrides duration and continuity bonuses");
-    } else if (disturbingSubjectMatter || elevatedEmotionalTone || highCognitiveLoad) {
+    } else if (disturbingSubjectMatter || elevatedEmotionalTone || elevatedTribalDomination || highCognitiveLoad) {
       score = Math.min(score, 49);
-      negatives.push("Chill Mode prioritizes low-disturbance, low-rage, low-fragmentation media");
+      negatives.push("Chill Mode prioritizes low-disturbance, low-domination, low-fragmentation media");
     }
 
     return buildResult(score, positives, negatives, "Chill Mode is for recovery, low-conflict browsing, and light entertainment.", {
@@ -1527,10 +1580,17 @@
   function analyzeSignalLayers(context) {
     const primaryText = normalizeText([context.titleText, context.metadataText]);
     const thumbnailText = context.thumbnailText || "";
+    const sourceTexts = {
+      metadata: context.metadataText || "",
+      thumbnail: thumbnailText,
+      title: context.titleText || "",
+      transcript: context.transcriptText || ""
+    };
     const emotionalTone = buildSignalLayer({
       label: "rage/escalation framing",
       text: primaryText,
       thumbnailText,
+      sourceTexts,
       dictionary: HEURISTIC_SIGNAL_DICTIONARIES.EMOTIONAL_TONE_SIGNALS,
       textWeight: 20,
       thumbnailWeight: 28,
@@ -1541,6 +1601,7 @@
       label: "disturbing subject matter",
       text: primaryText,
       thumbnailText,
+      sourceTexts,
       dictionary: HEURISTIC_SIGNAL_DICTIONARIES.VIOLENCE_DISTURBING_SIGNALS,
       textWeight: 26,
       thumbnailWeight: 30,
@@ -1551,6 +1612,7 @@
       label: "calm ambient content",
       text: primaryText,
       thumbnailText,
+      sourceTexts,
       dictionary: HEURISTIC_SIGNAL_DICTIONARIES.CALM_AMBIENT_SIGNALS,
       textWeight: 16,
       thumbnailWeight: 18,
@@ -1561,11 +1623,23 @@
       label: "cognitive load / fragmentation",
       text: primaryText,
       thumbnailText,
+      sourceTexts,
       dictionary: HEURISTIC_SIGNAL_DICTIONARIES.COGNITIVE_LOAD_SIGNALS,
       textWeight: 16,
       thumbnailWeight: 18,
       textCap: 68,
       thumbnailCap: 72
+    });
+    const tribalDomination = buildSignalLayer({
+      label: "tribal/conflict framing detected",
+      text: primaryText,
+      thumbnailText,
+      sourceTexts,
+      dictionary: HEURISTIC_SIGNAL_DICTIONARIES.TRIBAL_DOMINATION_FRAMING_SIGNALS,
+      textWeight: 24,
+      thumbnailWeight: 34,
+      textCap: 76,
+      thumbnailCap: 88
     });
 
     if (context.isShort) {
@@ -1589,33 +1663,57 @@
       calmAmbient,
       cognitiveLoad,
       emotionalTone,
-      subjectMatter
+      subjectMatter,
+      tribalDomination
     };
   }
 
   function buildSignalLayer(config) {
     const textMatches = findMatches(config.text, config.dictionary);
     const thumbnailMatches = findMatches(config.thumbnailText, config.dictionary);
-    const matches = uniqueMatches(textMatches.concat(thumbnailMatches));
+    const sourceMatches = buildLayerSourceMatches(config.sourceTexts, config.dictionary);
+    const matches = uniqueMatches(
+      textMatches.concat(thumbnailMatches, sourceMatches.title, sourceMatches.thumbnail, sourceMatches.transcript, sourceMatches.metadata)
+    );
     const signals = [];
     let score = 0;
 
-    if (textMatches.length) {
-      score += Math.min(config.textCap, textMatches.length * config.textWeight);
-      signals.push(`${config.label}: ${formatMatches(textMatches)}`);
+    const primaryMatches = uniqueMatches(
+      (sourceMatches.title || []).concat(sourceMatches.metadata || [], sourceMatches.transcript || [])
+    );
+    const primaryCount = primaryMatches.length || textMatches.length;
+
+    if (primaryCount) {
+      score += Math.min(config.textCap, primaryCount * config.textWeight);
     }
 
     if (thumbnailMatches.length) {
       score += Math.min(config.thumbnailCap, thumbnailMatches.length * config.thumbnailWeight);
-      signals.push(`thumbnail ${config.label}: ${formatMatches(thumbnailMatches)}`);
     }
+
+    Object.keys(sourceMatches).forEach((source) => {
+      if (sourceMatches[source].length) {
+        signals.push(`${source} ${config.label}: ${formatMatches(sourceMatches[source])}`);
+      }
+    });
 
     return {
       matches,
+      sourceMatches,
       score: clampDimension(score),
       signals,
       thumbnailMatches,
       textMatches
+    };
+  }
+
+  function buildLayerSourceMatches(sourceTexts, dictionary) {
+    const sources = sourceTexts || {};
+    return {
+      title: findMatches(sources.title, dictionary),
+      thumbnail: findMatches(sources.thumbnail, dictionary),
+      transcript: findMatches(sources.transcript, dictionary),
+      metadata: findMatches(sources.metadata, dictionary)
     };
   }
 
@@ -1720,6 +1818,7 @@
       { key: "EMOTIONAL_TONE_SIGNALS", label: "emotional tone/rage framing" },
       { key: "VIOLENCE_DISTURBING_SIGNALS", label: "disturbing subject matter" },
       { key: "COGNITIVE_LOAD_SIGNALS", label: "cognitive load" },
+      { key: "TRIBAL_DOMINATION_FRAMING_SIGNALS", label: "tribal/domination framing" },
       { key: "clickbaitUrgency", label: "clickbait/urgency" },
       { key: "outrageRageBait", label: "outrage/rage-bait" },
       { key: "outrageEscalation", label: "outrage escalation" },
@@ -1734,6 +1833,7 @@
 
   function calculateEmotionalVolatility(context) {
     const categories = [
+      { key: "TRIBAL_DOMINATION_FRAMING_SIGNALS", label: "tribal/domination framing", weight: 24, cap: 46, thumbnailWeight: 34, thumbnailCap: 58 },
       { key: "EMOTIONAL_TONE_SIGNALS", label: "emotional tone/rage framing", weight: 20, cap: 38, thumbnailWeight: 30, thumbnailCap: 50 },
       { key: "outrageEscalation", label: "outrage/escalation signals", weight: 20, cap: 34, thumbnailWeight: 30, thumbnailCap: 48 },
       { key: "humiliationFraming", label: "humiliation framing", weight: 18, cap: 30, thumbnailWeight: 28, thumbnailCap: 44 },
@@ -1883,6 +1983,13 @@
         "rage/escalation tone",
         8,
         24
+      ) +
+      addSignal(
+        negatives,
+        findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.TRIBAL_DOMINATION_FRAMING_SIGNALS),
+        "tribal/domination framing",
+        9,
+        28
       )
     );
   }
@@ -1914,6 +2021,7 @@
       strongestPositiveContributor: positiveSignals[0] || "no strong supporting signals",
       subjectMatterImpactScore: signalLayers.subjectMatter.score,
       thumbnailVolatilitySignalCount: Number(metrics.thumbnailVolatilitySignalCount) || 0,
+      tribalDominationScore: signalLayers.tribalDomination.score,
       volatilitySignals: metrics.volatilitySignals || []
     };
     const dimensions = calculateDimensions(score, positiveSignals, negativeSignals, normalizedMetrics);
@@ -1937,6 +2045,12 @@
     const emptyLayer = {
       matches: [],
       score: 0,
+      sourceMatches: {
+        metadata: [],
+        thumbnail: [],
+        title: [],
+        transcript: []
+      },
       signals: [],
       textMatches: [],
       thumbnailMatches: []
@@ -1946,7 +2060,8 @@
       calmAmbient: normalizeSignalLayer(signalLayers && signalLayers.calmAmbient, emptyLayer),
       cognitiveLoad: normalizeSignalLayer(signalLayers && signalLayers.cognitiveLoad, emptyLayer),
       emotionalTone: normalizeSignalLayer(signalLayers && signalLayers.emotionalTone, emptyLayer),
-      subjectMatter: normalizeSignalLayer(signalLayers && signalLayers.subjectMatter, emptyLayer)
+      subjectMatter: normalizeSignalLayer(signalLayers && signalLayers.subjectMatter, emptyLayer),
+      tribalDomination: normalizeSignalLayer(signalLayers && signalLayers.tribalDomination, emptyLayer)
     };
   }
 
@@ -1954,6 +2069,7 @@
     return {
       matches: layer && layer.matches ? layer.matches : fallback.matches,
       score: clampDimension(layer && layer.score ? layer.score : fallback.score),
+      sourceMatches: layer && layer.sourceMatches ? layer.sourceMatches : fallback.sourceMatches,
       signals: layer && layer.signals ? layer.signals : fallback.signals,
       textMatches: layer && layer.textMatches ? layer.textMatches : fallback.textMatches,
       thumbnailMatches: layer && layer.thumbnailMatches ? layer.thumbnailMatches : fallback.thumbnailMatches
@@ -1985,7 +2101,8 @@
     const weights = metrics.personaWeights || PERSONA_DIMENSION_WEIGHTS.custom;
     const subjectMatterImpact = clampDimension(metrics.subjectMatterImpactScore);
     const calmAmbient = clampDimension(metrics.calmAmbientScore);
-    const emotionalTone = clampDimension(Math.max(metrics.emotionalVolatilityScore, metrics.emotionalToneScore));
+    const tribalDomination = clampDimension(metrics.tribalDominationScore);
+    const emotionalTone = clampDimension(Math.max(metrics.emotionalVolatilityScore, metrics.emotionalToneScore, tribalDomination));
 
     const evidenceQuality = clampDimension(
       35 + evidenceSignals * 14 + metrics.durationBonus + metrics.continuityBonus - lowEvidenceSignals * 18
@@ -1993,7 +2110,14 @@
     const emotionalVolatility = emotionalTone;
     const noveltyPressure = clampDimension(10 + noveltySignals * 18 + (metrics.thumbnailVolatilitySignalCount ? 20 : 0));
     const cognitiveLoad = clampDimension(
-      Math.max(metrics.cognitiveLoadScore, 15 + cognitiveLoadSignals * 22 + (noveltyPressure >= 70 ? 12 : 0))
+      Math.max(
+        metrics.cognitiveLoadScore,
+        Math.round(tribalDomination * 0.65),
+        15 + cognitiveLoadSignals * 22 + (noveltyPressure >= 70 ? 12 : 0)
+      )
+    );
+    const driftRisk = clampDimension(
+      Math.max(emotionalTone, subjectMatterImpact, cognitiveLoad, noveltyPressure, Math.round(tribalDomination * 1.1))
     );
     const exploratoryValue = clampDimension(20 + diversitySignals * 22 + Math.max(0, evidenceSignals - 1) * 8);
     const continuityAlignment = clampDimension(25 + metrics.continuityBonus * 4);
@@ -2006,13 +2130,16 @@
         (100 - cognitiveLoad) * (weights.lowCognitiveLoad || 0) +
         (100 - emotionalVolatility) * (weights.lowEmotionalVolatility || 0) +
         (100 - subjectMatterImpact) * (weights.lowDisturbingSubjectMatter || 0) +
+        (100 - tribalDomination) * (weights.lowTribalDomination || 0) +
         calmAmbient * (weights.calmAmbient || 0) -
         Math.max(0, noveltyPressure - 75) * 0.15
     );
 
     return {
+      alignmentScore: score,
       calmAmbient,
       cognitiveLoad,
+      cognitivePressure: cognitiveLoad,
       continuity: continuityAlignment,
       continuityAlignment,
       educationalDepth,
@@ -2025,7 +2152,9 @@
       intentAlignment,
       intentionalAlignment: intentAlignment,
       noveltyPressure,
-      subjectMatterImpact
+      subjectMatterImpact,
+      tribalDomination,
+      driftRisk
     };
   }
 
@@ -2033,6 +2162,7 @@
     const strongNegativeCount = [
       dimensions.emotionalVolatility >= 75,
       dimensions.subjectMatterImpact >= 75,
+      dimensions.tribalDomination >= 75,
       dimensions.noveltyPressure >= 70,
       dimensions.cognitiveLoad >= 75,
       dimensions.evidenceQuality <= 30
@@ -2043,7 +2173,18 @@
       return "aligned";
     }
 
+    if (
+      dimensions.alignmentScore <= 34 &&
+      (dimensions.tribalDomination >= 35 || dimensions.subjectMatterImpact >= 55 || dimensions.emotionalVolatility >= 55)
+    ) {
+      return "misaligned";
+    }
+
     if (dimensions.emotionalVolatility >= 75 && dimensions.intentAlignment < 60 && !hasResearchLikeValue) {
+      return "misaligned";
+    }
+
+    if (dimensions.tribalDomination >= 75 && dimensions.intentAlignment < 60 && !hasResearchLikeValue) {
       return "misaligned";
     }
 
@@ -2215,13 +2356,14 @@
       : "- no outrage/escalation signals detected";
     const continuityLevel = levelFromBonus(result.metrics.continuityBonus, 12, 6);
     const volatilityLevel = levelFromScore(result.dimensions.emotionalVolatility, 60, 35);
-    const emotionalToneLevel = levelFromScore(result.dimensions.emotionalTone, 60, 35);
     const subjectMatterLevel = levelFromScore(result.dimensions.subjectMatterImpact, 60, 35);
     const evidenceLevel = levelFromScore(result.dimensions.evidenceQuality, 65, 45);
     const educationalDepthLevel = levelFromScore(result.dimensions.educationalDepth, 65, 45);
     const noveltyLevel = levelFromScore(result.dimensions.noveltyPressure, 65, 35);
     const cognitiveLoadLevel = levelFromScore(result.dimensions.cognitiveLoad, 65, 35);
     const calmAmbientLevel = levelFromScore(result.dimensions.calmAmbient, 65, 35);
+    const tribalDominationLevel = levelFromScore(result.dimensions.tribalDomination, 60, 35);
+    const driftRiskLevel = levelFromScore(result.dimensions.driftRisk, 70, 40);
     const diversityLevel = levelFromScore(result.dimensions.exploratoryValue, 65, 35);
 
     return [
@@ -2240,19 +2382,21 @@
         : result.metrics.selectedStudyPersona
           ? "Educational format signals: none"
           : "",
-      "Emotional Tone:",
-      `Rage/escalation framing: ${emotionalToneLevel} (${result.dimensions.emotionalTone}/100)`,
-      formatLayerSignals(result.metrics.signalLayers.emotionalTone, "low rage/escalation framing detected"),
-      "Subject Matter:",
+      "Calm / Ambient Signals:",
+      `Calm ambient support: ${calmAmbientLevel} (${result.dimensions.calmAmbient}/100)`,
+      formatLayerSignals(result.metrics.signalLayers.calmAmbient, "no calm ambient signals detected"),
+      "Violence / Disturbing Subject Matter:",
       `Disturbing/heavy subject matter: ${subjectMatterLevel} (${result.dimensions.subjectMatterImpact}/100)`,
       formatLayerSignals(result.metrics.signalLayers.subjectMatter, "no disturbing subject-matter signals detected"),
+      "Tribal Domination Framing:",
+      `Tribal/conflict framing: ${tribalDominationLevel} (${result.dimensions.tribalDomination}/100)`,
+      formatLayerSignals(result.metrics.signalLayers.tribalDomination, "no tribal/conflict framing detected"),
       "Cognitive Load:",
-      `Cognitive load / fragmentation: ${cognitiveLoadLevel} (${result.dimensions.cognitiveLoad}/100)`,
+      `Cognitive pressure / fragmentation: ${cognitiveLoadLevel} (${result.dimensions.cognitiveLoad}/100)`,
       formatLayerSignals(result.metrics.signalLayers.cognitiveLoad, "low cognitive-fragmentation signals detected"),
       "Persona Alignment:",
       `Intent alignment: ${result.classification} (${result.dimensions.intentAlignment}/100)`,
-      `Calm ambient support: ${calmAmbientLevel} (${result.dimensions.calmAmbient}/100)`,
-      formatLayerSignals(result.metrics.signalLayers.calmAmbient, "no calm ambient signals detected"),
+      `Drift risk: ${driftRiskLevel} (${result.dimensions.driftRisk}/100)`,
       formatPersonaAlignmentNote(result),
       "Signals:",
       positive,
@@ -2261,7 +2405,9 @@
       `educationalDepth: ${educationalDepthLevel} (${result.dimensions.educationalDepth}/100)`,
       `emotionalVolatility: ${volatilityLevel} (${result.dimensions.emotionalVolatility}/100)`,
       `subjectMatterImpact: ${subjectMatterLevel} (${result.dimensions.subjectMatterImpact}/100)`,
+      `tribalDomination: ${tribalDominationLevel} (${result.dimensions.tribalDomination}/100)`,
       `calmAmbient: ${calmAmbientLevel} (${result.dimensions.calmAmbient}/100)`,
+      `driftRisk: ${driftRiskLevel} (${result.dimensions.driftRisk}/100)`,
       `noveltyPressure: ${noveltyLevel} (${result.dimensions.noveltyPressure}/100)`,
       `cognitiveLoad: ${cognitiveLoadLevel} (${result.dimensions.cognitiveLoad}/100)`,
       `continuityAlignment: ${continuityLevel} (${result.dimensions.continuityAlignment}/100)`,
@@ -2297,6 +2443,10 @@
   }
 
   function formatPersonaAlignmentNote(result) {
+    if (result.metrics.activeMode === "chill" && result.dimensions.tribalDomination >= 25) {
+      return `- Chill alignment reduced due to conflict/dominance framing signals: ${formatMatches(result.metrics.signalLayers.tribalDomination.matches)}.`;
+    }
+
     if (
       result.metrics.activeMode === "chill" &&
       result.dimensions.emotionalTone < 20 &&
@@ -2390,6 +2540,7 @@
       `lowCognitiveLoad ${weights.lowCognitiveLoad}`,
       `lowEmotionalVolatility ${weights.lowEmotionalVolatility}`,
       `lowDisturbingSubjectMatter ${weights.lowDisturbingSubjectMatter || 0}`,
+      `lowTribalDomination ${weights.lowTribalDomination || 0}`,
       `calmAmbient ${weights.calmAmbient || 0}`
     ].join(" | ");
   }
@@ -2406,10 +2557,14 @@
     modeStats.cardsScanned += 1;
     sessionState.alignmentCounts[alignment] += 1;
     modeStats.alignmentCounts[alignment] += 1;
-    sessionState.emotionalVolatilityScoreTotal += result.metrics.emotionalVolatilityScore;
-    modeStats.emotionalVolatilityScoreTotal += result.metrics.emotionalVolatilityScore;
+    const driftRiskScore =
+      result.dimensions && Number.isFinite(result.dimensions.driftRisk)
+        ? result.dimensions.driftRisk
+        : result.metrics.emotionalVolatilityScore;
+    sessionState.emotionalVolatilityScoreTotal += driftRiskScore;
+    modeStats.emotionalVolatilityScoreTotal += driftRiskScore;
 
-    if (result.metrics.emotionalVolatilityScore >= 60) {
+    if (driftRiskScore >= 60) {
       sessionState.highEmotionalVolatilityItems += 1;
       modeStats.highEmotionalVolatilityItems += 1;
     }
@@ -2507,7 +2662,7 @@
 
   function driftReason(modeStats, misalignedRatio, highVolatilityRatio) {
     if (activeMode === "chill" && modeStats.highEmotionalVolatilityItems >= 2 && highVolatilityRatio >= 0.25) {
-      return "Recent media environment signals show elevated emotional volatility during Chill Mode.";
+      return "Recent media environment signals show elevated drift risk during Chill Mode.";
     }
 
     if (isStudyMode(activeMode) && modeStats.shortsDetected >= 3) {
