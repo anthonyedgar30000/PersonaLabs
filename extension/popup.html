@@ -11,7 +11,7 @@
       <header class="popup-header">
         <p class="eyebrow">Persona Labs</p>
         <h1>YouTube Overlay</h1>
-        <p class="description">Choose an intent mode. Video cards get local mock alignment scores.</p>
+        <p class="description">Choose an intent mode. Persona Labs flags drift gently and keeps everything local.</p>
       </header>
 
       <section class="mode-list" aria-label="Persona mode">
@@ -27,11 +27,17 @@
           <span class="mode-title">Research</span>
           <span class="mode-copy">Favor analysis, interviews, documentaries, and reviews.</span>
         </button>
+        <button class="mode-card" type="button" data-mode="project">
+          <span class="mode-title">Project</span>
+          <span class="mode-copy">Support building, debugging, implementation, and shipping.</span>
+        </button>
         <button class="mode-card" type="button" data-mode="bareMetal">
           <span class="mode-title">Bare Metal</span>
           <span class="mode-copy">Hide Persona styling and browse without overlays.</span>
         </button>
       </section>
+
+      <p class="privacy-note">Local-only MVP. No account, backend, cloud sync, or AI API calls.</p>
 
       <footer class="legend">
         <span><i class="dot green"></i>Aligned</span>

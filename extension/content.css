@@ -68,3 +68,86 @@
 .persona-labs-bare-metal .persona-labs-badge {
   display: none !important;
 }
+
+.persona-labs-drift-prompt {
+  background: rgba(15, 23, 42, 0.96);
+  border: 1px solid rgba(147, 197, 253, 0.45);
+  border-radius: 18px;
+  bottom: 20px;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.38);
+  color: #e5e7eb;
+  font-family: Inter, Roboto, Arial, sans-serif;
+  max-width: 360px;
+  padding: 16px;
+  position: fixed;
+  right: 20px;
+  z-index: 2147483647;
+}
+
+.persona-labs-drift-kicker {
+  color: #93c5fd;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  margin: 0 24px 8px 0;
+  text-transform: uppercase;
+}
+
+.persona-labs-drift-message {
+  color: #f8fafc;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.35;
+  margin: 0 24px 6px 0;
+}
+
+.persona-labs-drift-reason {
+  color: #cbd5e1;
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 0 0 12px;
+}
+
+.persona-labs-drift-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.persona-labs-drift-actions button,
+.persona-labs-drift-close {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 999px;
+  color: #f8fafc;
+  cursor: pointer;
+  font: inherit;
+}
+
+.persona-labs-drift-actions button {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 10px;
+}
+
+.persona-labs-drift-actions button:hover,
+.persona-labs-drift-close:hover {
+  background: #334155;
+}
+
+.persona-labs-drift-close {
+  align-items: center;
+  display: inline-flex;
+  font-size: 13px;
+  height: 24px;
+  justify-content: center;
+  padding: 0;
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  width: 24px;
+}
+
+.persona-labs-bare-metal .persona-labs-drift-prompt {
+  display: none !important;
+}

@@ -22,6 +22,7 @@ The system helps users notice when digital media consumption patterns drift away
   - Study
   - Chill
   - Research
+  - Project
   - Bare Metal
 - Color-coded alignment borders
 - Lightweight telemetry signals
@@ -30,7 +31,7 @@ The system helps users notice when digital media consumption patterns drift away
 
 ## Chrome Extension MVP
 
-The current demo lives in [`extension/`](extension/). It is a local-only Chrome extension that detects YouTube video cards and applies green, yellow, or red borders from mock scoring data. Study Mode uses transparent heuristics for educational technical content, and the popup supports Study, Chill, Research, and Bare Metal modes.
+The current demo lives in [`extension/`](extension/). It is a local-only Chrome extension that detects YouTube video cards and applies green, yellow, or red borders from deterministic scoring heuristics. It now includes lightweight session observability, drift prompts, a schedule-ready local config, and Study, Chill, Research, Project, and Bare Metal modes.
 
 To try it:
 
@@ -38,6 +39,8 @@ To try it:
 2. Enable **Developer mode**.
 3. Click **Load unpacked** and choose the `extension` directory.
 4. Visit YouTube and switch modes from the Persona Labs popup.
+
+The extension stores mode, aggregate session telemetry, and schedule-ready configuration locally with `chrome.storage.local`. It has no backend, account system, cloud sync, or AI API integration.
 
 ## Example Prompt
 
