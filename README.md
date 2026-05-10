@@ -30,7 +30,7 @@ The system helps users notice when digital media consumption patterns drift away
 
 ## Chrome Extension MVP
 
-The current demo lives in [`extension/`](extension/). It is a local-only Chrome extension that detects YouTube video cards and applies green, yellow, orange, or red borders from mock scoring data. The popup supports Study, Chill, Research, and Bare Metal modes.
+The current demo lives in [`extension/`](extension/). It is a local-only Chrome extension that detects YouTube video cards and applies green, yellow, or red borders from mock scoring data. Study Mode uses transparent heuristics for educational technical content, and the popup supports Study, Chill, Research, and Bare Metal modes.
 
 To try it:
 

@@ -14,21 +14,29 @@
   align-items: center;
   background: rgba(17, 24, 39, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 999px;
+  border-radius: 12px;
   color: #f9fafb;
-  display: inline-flex;
+  cursor: help;
+  display: flex;
+  flex-direction: column;
   font-family: Inter, Roboto, Arial, sans-serif;
   font-size: 11px;
   font-weight: 700;
-  gap: 5px;
+  gap: 3px;
   left: 8px;
   letter-spacing: 0.01em;
   line-height: 1;
   padding: 6px 8px;
-  pointer-events: none;
+  pointer-events: auto;
   position: absolute;
   top: 8px;
   z-index: 30;
+}
+
+.persona-labs-badge-main {
+  align-items: center;
+  display: inline-flex;
+  gap: 5px;
 }
 
 .persona-labs-badge-dot {
@@ -37,6 +45,19 @@
   display: inline-block;
   height: 8px;
   width: 8px;
+}
+
+.persona-labs-badge-details {
+  color: #cbd5e1;
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.25;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .persona-labs-bare-metal .persona-labs-card {

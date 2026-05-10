@@ -6,11 +6,11 @@ This is a local-only Manifest V3 Chrome extension demo. It detects YouTube video
 
 - Detects common YouTube video card renderers on Home, Search, channel grids, playlists, and sidebars.
 - Applies mock Persona alignment scores with color-coded borders:
-  - Green: high fit
-  - Yellow: good fit
-  - Orange: mixed fit
-  - Red: low fit
-- Adds a small score badge to each decorated card.
+  - Green: aligned
+  - Yellow: neutral
+  - Red: misaligned
+- Adds a score badge to each decorated card with top scoring reasons and a hover tooltip.
+- Uses a transparent Study Mode heuristic with educational keywords, tutorial indicators, long-form duration, low emotional language, technical terminology, Shorts detection, and outrage/clickbait penalties.
 - Popup mode selector:
   - Study
   - Chill
@@ -40,4 +40,5 @@ This is a local-only Manifest V3 Chrome extension demo. It detects YouTube video
 - `content.js` owns all card detection and mock scoring.
 - `content.css` owns card borders and badges.
 - `popup.html`, `popup.css`, and `popup.js` own mode selection.
-- Mock scoring uses local title keyword matching plus deterministic jitter so the demo feels varied without external calls.
+- Study Mode scoring is deterministic and explainable; Chill and Research remain lightweight mock keyword modes.
+- In Study Mode, long-form technical tutorials should normally land in the aligned range unless Shorts, clickbait, or high-emotion penalties apply.
