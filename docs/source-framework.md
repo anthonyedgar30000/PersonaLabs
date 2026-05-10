@@ -185,13 +185,17 @@ The deterministic architecture separates observable dimensions before assigning 
 5. Intentional Alignment
    - fit relative to the current persona or mode
 
-6. Exploratory Diversity
+6. Exploratory Value
    - opposing viewpoints
    - analytical debate
    - critical discussion
    - broader perspective exploration
 
 These dimensions prevent emotional intensity from being treated as identical to low evidence. A major geopolitical event can show high Evidence Signals, moderate Emotional Volatility, and high Research value. A clickbait segment can show low Evidence Signals, high Emotional Volatility, and high Novelty Pressure.
+
+PersonaLabs separates objective measurable signals from user-defined subjective intent alignment. Objective dimensions describe observed properties of a card. `intentAlignment` estimates fit against the user's currently declared persona and its local dimension weights. This means the system estimates "how aligned this content is with my current intent," not whether the content is true, moral, healthy, or allowed.
+
+High volatility, low evidence, and educational/opinion framing are separate dimensions. A high-volatility item may still have strong evidence quality. A low-volatility item may still be low evidence. Educational formatting is not the same as truth verification.
 
 The deterministic hierarchy should generally prioritize:
 
@@ -253,7 +257,7 @@ Every score should expose:
 - emotional volatility estimate
 - novelty pressure estimate
 - cognitive load / fragmentation estimate
-- exploratory diversity estimate
+- exploratory value estimate
 - title signals
 - thumbnail signals
 - metadata/duration signals
@@ -267,6 +271,49 @@ Every score should expose:
 - short calm explanation
 
 Topic classification is not the same as framing analysis, cognitive environment analysis, evidence assessment, or intentional alignment. A video may discuss serious geopolitical, conflict, or military topics while still being analytically framed, lower volatility, long-form, educational, and appropriate for Research mode.
+
+## Provenance and card-local isolation
+
+Each video card must be analyzed independently. Signal extraction should be scoped to the current card/video only:
+
+- title analysis: card-local title node and title ARIA text
+- thumbnail OCR/accessibility text: current card thumbnail alt/title/ARIA/container text only
+- visible metadata: current card metadata only
+- channel metadata: current card channel/byline text only, explicitly marked as channel-level
+- duration: current card duration overlay or accessible duration text
+- transcript: unavailable until a future local/transcript pipeline exists
+- browsing continuity/session: aggregate session telemetry, never copied into a card's topic labels
+
+Avoid page-level keyword contamination, neighboring-card leakage, cached/shared card classifications, or implicit channel-wide topic inheritance. Channel metadata can be displayed as provenance, but it must not silently become a topic match unless explicitly modeled as channel-level evidence.
+
+Tooltip and debug output should expose exact matched terms and their source. This is both an explainability feature and a debugging safeguard against topic leakage.
+
+## Future thumbnail hooks
+
+The thumbnail layer currently uses accessible text only; no OCR or image model is used. Future local/governed hooks may include:
+
+- thumbnail OCR
+- thumbnail emotional intensity analysis
+- thumbnail typography analysis
+- color saturation/emergency cue detection
+- sensational framing detection
+- excessive arrows/circles
+- rage expressions
+
+These signals should influence Emotional Volatility, Novelty Pressure, and Cognitive Load / Fragmentation. They should not directly determine Evidence Quality or topic value.
+
+## Local survey/persona foundation
+
+The popup includes a local survey foundation for:
+
+- user goals
+- preferred learning domains
+- stress/drift triggers
+- desired exploration level
+- tolerance for volatility
+- preferred cognitive mode
+
+These preferences are stored locally and prepare for user-authored/editable personas. They should remain reversible, transparent, and inspectable.
 
 ## Media observability framing
 

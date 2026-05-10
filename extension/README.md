@@ -105,7 +105,8 @@ Hides overlays and suppresses drift prompts. It is always available.
 
 Scoring is deterministic and heuristic-based. Each card receives:
 
-- final alignment score
+- objective dimension scores
+- persona-weighted intent alignment score
 - mode
 - classification: aligned, neutral, mixed, or misaligned
 - Alignment Signals
@@ -130,12 +131,24 @@ Scoring is deterministic and heuristic-based. Each card receives:
 - primary supporting and friction signals
 - short calm explanation
 
+Objective dimensions are measured independently from persona alignment:
+
+- `emotionalVolatility`
+- `educationalDepth`
+- `exploratoryValue`
+- `continuityAlignment`
+- `evidenceQuality`
+- `cognitiveLoad`
+- `intentAlignment`
+
+Persona profiles weight those dimensions differently. For example, Study personas weight educational depth, continuity, and low emotional volatility; Research weights evidence quality and exploratory value; Chill weights low emotional volatility and low cognitive load. Bare Metal disables alignment scoring and overlays.
+
 Example tooltip shape:
 
 ```text
 AI/ML 84 - aligned
 Media Observability Panel
-Intentionality Alignment: aligned
+intentAlignment: aligned
 Final Alignment Score: 84
 Selected study persona: Study - AI/ML
 Matched topic keywords: llm, agents
@@ -144,12 +157,13 @@ Signals:
 + long-form analysis
 + evidence-oriented language
 - elevated emotional framing
-Evidence: High (82/100)
-Volatility: Moderate (44/100)
-Novelty Pressure: Low (18/100)
-Cognitive Load / Fragmentation: Low (15/100)
-Continuity: High
-Exploratory Diversity: Moderate (48/100)
+evidenceQuality: High (82/100)
+educationalDepth: High (76/100)
+emotionalVolatility: Moderate (44/100)
+noveltyPressure: Low (18/100)
+cognitiveLoad: Low (15/100)
+continuityAlignment: High (73/100)
+exploratoryValue: Moderate (48/100)
 Confidence: High
 Primary supporting signal: long-form duration: 20+ minutes
 Primary friction signal: no strong friction signals
@@ -160,6 +174,12 @@ Thumbnail signals:
 - technical/cyber/AI: python, api
 Metadata/duration signals:
 - no metadata dictionary signals
+Signal Provenance:
+- title: "study"
+- thumbnail OCR: "python", "api"
+- duration: long-form (20m)
+- channel metadata: none
+- transcript: unavailable
 Looks aligned with this mode. Study Mode is tuned for calm, long-form learning and technical depth.
 ```
 
@@ -168,6 +188,8 @@ The model is intentionally transparent and limited. It does not diagnose, infer 
 The lexical dictionaries are heuristic signal categories, not clinical or truth judgments. See [`../docs/source-framework.md`](../docs/source-framework.md) for the source concepts, dictionary categories, explanation requirements, and governance boundaries.
 
 The scoring architecture is multi-axis. Evidence Signals, Emotional Volatility, Novelty Pressure, Cognitive Load / Fragmentation, Intentionality Alignment, and Exploratory Diversity are evaluated separately before the final border classification is assigned. This lets a high-evidence major world event remain valuable in Research mode even if it carries moderate emotional intensity.
+
+High volatility, low evidence, and educational/opinion framing are separate dimensions. PersonaLabs does not treat emotional intensity as the same thing as low evidence, and it does not treat conflict, politics, military topics, or serious world events as inherently negative.
 
 PersonaLabs evaluates alignment relative to a specific declared intent, not generic "good content." An educational Kubernetes tutorial can be aligned with Study - Cloud/DevOps while being less aligned with Study - AI/ML or Study - Cybersecurity.
 
@@ -178,6 +200,23 @@ Long-form does not necessarily mean low-conflict. The scoring hierarchy prioriti
 Border colors primarily reflect Intentionality Alignment. Red requires multiple strong negative dimensions, while yellow/orange indicate limited or mixed evidence where the user may want to inspect the panel.
 
 Thumbnail text is a major attention-signal surface. The MVP analyzes accessible thumbnail-related text only: image alt text, ARIA labels, title attributes, nearby thumbnail container text, and card metadata. It does not perform OCR, image recognition, or multimodal analysis yet. If thumbnail text is unavailable, tooltips say: "Thumbnail text unavailable; score based on title/metadata only."
+
+## Signal provenance and debug mode
+
+Extraction is card-local. Title, thumbnail-accessible text, visible metadata, channel metadata, and duration are collected from the current card only. Channel metadata is shown separately and is not used as an inherited topic label.
+
+Tooltip provenance lists exact matched terms by source:
+
+- title
+- thumbnail OCR/accessibility text
+- duration
+- channel metadata
+- transcript
+- browsing continuity/session
+
+Developer debug mode can be toggled from the popup. It shows a local debug panel with raw extracted card fields, dimension scores, strongest contributors, matched dictionaries, and the final persona weighting path. This is local-only and intended for inspecting signal provenance.
+
+The onboarding survey foundation stores local persona preferences for goals, learning domains, stress/drift triggers, desired exploration level, volatility tolerance, and preferred cognitive mode. These preferences are stored locally and provide the base for future user-authored/editable personas.
 
 ## Drift detection logic
 

@@ -2,6 +2,8 @@
   const MODE_STORAGE_KEY = "personaLabsMode";
   const SESSION_STORAGE_KEY = "personaLabsSessionTelemetry";
   const SCHEDULE_STORAGE_KEY = "personaLabsScheduleConfig";
+  const DEBUG_STORAGE_KEY = "personaLabsDebugMode";
+  const PERSONA_PREFS_STORAGE_KEY = "personaLabsPersonaPreferences";
   const DEFAULT_MODE = "studyGeneral";
   const SCAN_INTERVAL_MS = 1500;
   const DRIFT_SNOOZE_MS = 30 * 60 * 1000;
@@ -48,9 +50,56 @@
       label: "Project",
       intent: "building and execution"
     },
+    custom: {
+      label: "Custom",
+      intent: "user-defined local persona"
+    },
     bareMetal: {
       label: "Bare Metal",
       intent: "unmediated browsing"
+    }
+  };
+
+  const PERSONA_DIMENSION_WEIGHTS = {
+    study: {
+      educationalDepth: 0.35,
+      continuityAlignment: 0.25,
+      evidenceQuality: 0.15,
+      exploratoryValue: 0.05,
+      lowCognitiveLoad: 0.1,
+      lowEmotionalVolatility: 0.1
+    },
+    chill: {
+      educationalDepth: 0.05,
+      continuityAlignment: 0.15,
+      evidenceQuality: 0.05,
+      exploratoryValue: 0.05,
+      lowCognitiveLoad: 0.35,
+      lowEmotionalVolatility: 0.35
+    },
+    research: {
+      educationalDepth: 0.1,
+      continuityAlignment: 0.15,
+      evidenceQuality: 0.35,
+      exploratoryValue: 0.25,
+      lowCognitiveLoad: 0.05,
+      lowEmotionalVolatility: 0.1
+    },
+    project: {
+      educationalDepth: 0.2,
+      continuityAlignment: 0.3,
+      evidenceQuality: 0.15,
+      exploratoryValue: 0.05,
+      lowCognitiveLoad: 0.2,
+      lowEmotionalVolatility: 0.1
+    },
+    custom: {
+      educationalDepth: 0.2,
+      continuityAlignment: 0.2,
+      evidenceQuality: 0.2,
+      exploratoryValue: 0.15,
+      lowCognitiveLoad: 0.15,
+      lowEmotionalVolatility: 0.1
     }
   };
 
@@ -65,6 +114,17 @@
       { name: "recovery time", suggestedModes: ["chill", "bareMetal"], days: "configurable", start: "22:30", end: "23:30" },
       { name: "intentional news window", suggestedModes: ["research"], days: "configurable", start: "12:00", end: "12:30" }
     ]
+  };
+
+  const DEFAULT_PERSONA_PREFERENCES = {
+    version: 1,
+    onboardingComplete: false,
+    goals: [],
+    preferredLearningDomains: [],
+    stressDriftTriggers: [],
+    desiredExplorationLevel: "balanced",
+    volatilityTolerance: "medium",
+    preferredCognitiveMode: "research"
   };
 
   /*
@@ -520,18 +580,24 @@
   let telemetryFlushTimer = null;
   let seenCardKeys = new Set();
   let recentNavigationTimes = [];
+  let debugMode = false;
+  let latestDebugPayload = null;
 
   init();
 
   async function init() {
     const items = await getLocal({
+      [DEBUG_STORAGE_KEY]: false,
       [MODE_STORAGE_KEY]: DEFAULT_MODE,
+      [PERSONA_PREFS_STORAGE_KEY]: null,
       [SESSION_STORAGE_KEY]: null,
       [SCHEDULE_STORAGE_KEY]: null
     });
 
     activeMode = normalizeMode(items[MODE_STORAGE_KEY]);
+    debugMode = Boolean(items[DEBUG_STORAGE_KEY]);
     sessionState = normalizeSession(items[SESSION_STORAGE_KEY], activeMode);
+    await ensurePersonaPreferences(items[PERSONA_PREFS_STORAGE_KEY]);
     await ensureScheduleConfig(items[SCHEDULE_STORAGE_KEY]);
     persistTelemetrySoon();
 
@@ -541,21 +607,28 @@
 
     if (chrome.storage && chrome.storage.onChanged) {
       chrome.storage.onChanged.addListener((changes, areaName) => {
-        if (areaName !== "local" || !changes[MODE_STORAGE_KEY]) {
+        if (areaName !== "local") {
           return;
         }
 
-        const nextMode = normalizeMode(changes[MODE_STORAGE_KEY].newValue);
-        if (nextMode !== activeMode) {
-          activeMode = nextMode;
-          seenCardKeys = new Set();
-          recordModeChange(nextMode);
+        if (changes[DEBUG_STORAGE_KEY]) {
+          debugMode = Boolean(changes[DEBUG_STORAGE_KEY].newValue);
+          updateDebugPanel();
         }
 
-        applyModeClass();
-        hideDriftPrompt();
-        clearDecorations();
-        scanCards();
+        if (changes[MODE_STORAGE_KEY]) {
+          const nextMode = normalizeMode(changes[MODE_STORAGE_KEY].newValue);
+          if (nextMode !== activeMode) {
+            activeMode = nextMode;
+            seenCardKeys = new Set();
+            recordModeChange(nextMode);
+          }
+
+          applyModeClass();
+          hideDriftPrompt();
+          clearDecorations();
+          scanCards();
+        }
       });
     }
   }
@@ -589,12 +662,32 @@
     return mode === "studyCyber" || mode === "studyAi" || mode === "studyCloud" || mode === "studyGeneral";
   }
 
+  function personaProfileForMode(mode) {
+    if (isStudyMode(mode)) {
+      return "study";
+    }
+
+    if (mode === "custom") {
+      return "custom";
+    }
+
+    return Object.prototype.hasOwnProperty.call(PERSONA_DIMENSION_WEIGHTS, mode) ? mode : "custom";
+  }
+
   async function ensureScheduleConfig(config) {
     if (config && config.version === DEFAULT_SCHEDULE_CONFIG.version) {
       return;
     }
 
     setLocal({ [SCHEDULE_STORAGE_KEY]: DEFAULT_SCHEDULE_CONFIG });
+  }
+
+  async function ensurePersonaPreferences(preferences) {
+    if (preferences && preferences.version === DEFAULT_PERSONA_PREFERENCES.version) {
+      return;
+    }
+
+    setLocal({ [PERSONA_PREFS_STORAGE_KEY]: DEFAULT_PERSONA_PREFERENCES });
   }
 
   function normalizeSession(session, mode) {
@@ -718,6 +811,8 @@
     card.style.setProperty("--persona-labs-border-glow", color.glow);
     renderBadge(card, result, MODES[activeMode].label, color.alignment);
     recordCardTelemetry(context, result, color.alignment, isElementVisible(card));
+    latestDebugPayload = result.debug;
+    updateDebugPanel();
   }
 
   function getCardContext(card) {
@@ -730,7 +825,9 @@
     const durationSeconds = parseDuration(durationText) || parseDuration(ariaTitle || "");
     const titleText = normalizeWhitespace([title, ariaTitle]);
     const thumbnailText = getThumbnailText(card);
+    const channelMetadataText = getChannelMetadataText(card);
     const metadataText = getMetadataText(card, ariaTitle, durationText);
+    const transcriptText = "";
     const searchText = normalizeText([titleText, thumbnailText, metadataText]);
     const isShort =
       card.matches("ytd-reel-item-renderer") ||
@@ -742,11 +839,14 @@
       href: href || "",
       isShort,
       key: `${href || title}-${durationSeconds || "unknown"}`,
+      channelMetadataText,
+      durationText,
       metadataText,
       searchText,
       thumbnailText,
       title,
-      titleText
+      titleText,
+      transcriptText
     };
   }
 
@@ -784,12 +884,29 @@
     const selectors = [
       "#metadata-line",
       "ytd-video-meta-block",
-      "#byline",
-      "#channel-name",
       "ytd-badge-supported-renderer",
       "ytd-thumbnail-overlay-time-status-renderer"
     ];
     const values = [ariaTitle, card.getAttribute("aria-label"), durationText];
+
+    selectors.forEach((selector) => {
+      const node = card.querySelector(selector);
+      if (node) {
+        values.push(collectAccessibleText(node));
+      }
+    });
+
+    return normalizeWhitespace(values);
+  }
+
+  function getChannelMetadataText(card) {
+    const selectors = [
+      "#byline",
+      "#channel-name",
+      "ytd-channel-name",
+      "yt-formatted-string#text.ytd-channel-name"
+    ];
+    const values = [];
 
     selectors.forEach((selector) => {
       const node = card.querySelector(selector);
@@ -864,6 +981,21 @@
     return seconds || null;
   }
 
+  function formatDuration(seconds) {
+    if (!seconds) {
+      return "unknown";
+    }
+
+    const minutes = Math.round(seconds / 60);
+    if (minutes < 60) {
+      return `long-form (${minutes}m)`;
+    }
+
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return remainingMinutes ? `long-form (${hours}h ${remainingMinutes}m)` : `long-form (${hours}h)`;
+  }
+
   function scoreCard(context, mode) {
     let result;
 
@@ -875,12 +1007,21 @@
       result = scoreChillMode(context);
     } else if (mode === "project") {
       result = scoreProjectMode(context);
+    } else if (mode === "custom") {
+      result = scoreCustomMode(context);
     } else {
       result = buildResult(50, [], [], "No active mode scoring.");
     }
 
+    result.metrics.personaProfile = personaProfileForMode(mode);
+    result.metrics.personaWeights = PERSONA_DIMENSION_WEIGHTS[result.metrics.personaProfile];
+    result.dimensions = calculateDimensions(result.score, result.positiveSignals, result.negativeSignals, result.metrics);
+    result.classification = classifyDimensions(result.dimensions);
+    result.calmExplanation = calmExplanationFor(result.classification, result.explanationContext);
     result.metrics.sourceSignals = buildSourceSignalSummary(context);
+    result.metrics.signalProvenance = buildSignalProvenance(context);
     result.metrics.thumbnailTextAvailable = Boolean(context.thumbnailText);
+    result.debug = buildDebugPayload(context, mode, result);
     return result;
   }
 
@@ -1195,12 +1336,111 @@
     });
   }
 
+  function scoreCustomMode(context) {
+    let score = 50;
+    const positives = [];
+    const negatives = [];
+    const volatility = calculateEmotionalVolatility(context);
+    const education = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.educationalStudyPositive);
+    const evidence = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.evidenceGrounding);
+    const calm = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.calmLowConflict);
+    let continuityBonus = 0;
+    const durationBonus = addDurationSignal(context, positives, negatives);
+
+    score += addSignal(positives, education, "educational formatting", 4, 12);
+    score += addSignal(positives, evidence, "evidence-oriented language", 5, 15);
+    score += addSignal(positives, calm, "low-conflict media signals", 4, 12);
+    score += durationBonus;
+
+    if (education.length || evidence.length || calm.length) {
+      continuityBonus = 6;
+      score += continuityBonus;
+      positives.push("content contains signals relevant to custom persona calibration");
+    }
+
+    if (context.isShort) {
+      score -= 10;
+      negatives.push("short-form format increases cognitive load for many personas");
+    }
+
+    score -= addManipulationPenalties(context, negatives);
+
+    return buildResult(score, positives, negatives, "Custom Mode uses locally stored persona preferences as future weighting inputs.", {
+      continuityBonus,
+      durationBonus,
+      emotionalVolatilityScore: volatility.score,
+      personaProfile: "custom",
+      personaWeights: PERSONA_DIMENSION_WEIGHTS.custom,
+      thumbnailVolatilitySignalCount: volatility.thumbnailSignalCount,
+      volatilitySignals: volatility.signals
+    });
+  }
+
   function buildSourceSignalSummary(context) {
     return {
+      channel: summarizeTextSignals(context.channelMetadataText),
+      duration: context.durationSeconds ? [`duration: ${formatDuration(context.durationSeconds)}`] : [],
       metadata: summarizeTextSignals(context.metadataText),
       thumbnail: summarizeTextSignals(context.thumbnailText),
-      title: summarizeTextSignals(context.titleText)
+      title: summarizeTextSignals(context.titleText),
+      transcript: []
     };
+  }
+
+  function buildSignalProvenance(context) {
+    return {
+      "browsing continuity/session": ["session-level signals tracked separately"],
+      "channel metadata": summarizeTextSignalDetails(context.channelMetadataText),
+      duration: context.durationSeconds ? [{ category: "duration", terms: [formatDuration(context.durationSeconds)] }] : [],
+      "thumbnail OCR": summarizeTextSignalDetails(context.thumbnailText),
+      title: summarizeTextSignalDetails(context.titleText),
+      transcript: []
+    };
+  }
+
+  function buildDebugPayload(context, mode, result) {
+    return {
+      activeMode: mode,
+      cardKey: context.key,
+      dimensions: result.dimensions,
+      finalClassification: result.classification,
+      finalScore: result.score,
+      matchedDictionaries: result.metrics.signalProvenance,
+      personaWeightingPath: {
+        profile: result.metrics.personaProfile,
+        weights: result.metrics.personaWeights
+      },
+      rawExtractedSignals: {
+        channelMetadata: context.channelMetadataText || "",
+        duration: context.durationText || "",
+        metadata: context.metadataText || "",
+        thumbnailOCR: context.thumbnailText || "",
+        title: context.titleText || "",
+        transcript: "unavailable"
+      },
+      strongestContributors: {
+        friction: result.metrics.strongestNegativeContributor,
+        supporting: result.metrics.strongestPositiveContributor
+      }
+    };
+  }
+
+  function summarizeTextSignalDetails(text) {
+    if (!text) {
+      return [];
+    }
+
+    return getSignalCategories()
+      .map((category) => {
+        const matches = findMatches(text, HEURISTIC_SIGNAL_DICTIONARIES[category.key]);
+        return matches.length
+          ? {
+              category: category.label,
+              terms: matches
+            }
+          : null;
+      })
+      .filter(Boolean);
   }
 
   function summarizeTextSignals(text) {
@@ -1208,7 +1448,19 @@
       return [];
     }
 
-    const categories = [
+    const categories = getSignalCategories();
+
+    return categories
+      .map((category) => {
+        const matches = findMatches(text, HEURISTIC_SIGNAL_DICTIONARIES[category.key]);
+        return matches.length ? `${category.label}: ${formatMatches(matches)}` : "";
+      })
+      .filter(Boolean)
+      .slice(0, 6);
+  }
+
+  function getSignalCategories() {
+    return [
       { key: "educationalStudyPositive", label: "educational/study-positive" },
       { key: "studyCybersecurityTopic", label: "cybersecurity topic" },
       { key: "studyAiMlTopic", label: "AI/ML topic" },
@@ -1230,14 +1482,6 @@
       { key: "noveltyIntensityLanguage", label: "novelty intensity" },
       { key: "shortFormNoveltyRisk", label: "short-form/novelty" }
     ];
-
-    return categories
-      .map((category) => {
-        const matches = findMatches(text, HEURISTIC_SIGNAL_DICTIONARIES[category.key]);
-        return matches.length ? `${category.label}: ${formatMatches(matches)}` : "";
-      })
-      .filter(Boolean)
-      .slice(0, 6);
   }
 
   function calculateEmotionalVolatility(context) {
@@ -1398,6 +1642,8 @@
       educationalFormatSignals: metrics.educationalFormatSignals || [],
       emotionalVolatilityScore: Number(metrics.emotionalVolatilityScore) || 0,
       matchedTopicKeywords: metrics.matchedTopicKeywords || [],
+      personaProfile: metrics.personaProfile || "custom",
+      personaWeights: metrics.personaWeights || PERSONA_DIMENSION_WEIGHTS.custom,
       selectedStudyPersona: metrics.selectedStudyPersona || "",
       strongestNegativeContributor: negativeSignals[0] || "no strong friction signals",
       strongestPositiveContributor: positiveSignals[0] || "no strong supporting signals",
@@ -1413,6 +1659,7 @@
       classification,
       confidence,
       dimensions,
+      explanationContext,
       metrics: normalizedMetrics,
       negativeSignals,
       positiveSignals,
@@ -1436,26 +1683,44 @@
     const diversitySignals = positiveSignals.filter((signal) =>
       /opposing|critique|viewpoint|debate|panel|roundtable|conversation/i.test(signal)
     ).length;
+    const educationalSignals =
+      (metrics.educationalFormatSignals && metrics.educationalFormatSignals.length) ||
+      positiveSignals.filter((signal) => /educational|tutorial|walkthrough|lesson|course|lecture|lab|demo|technical/i.test(signal)).length;
+    const weights = metrics.personaWeights || PERSONA_DIMENSION_WEIGHTS.custom;
 
-    const evidence = clampDimension(
+    const evidenceQuality = clampDimension(
       35 + evidenceSignals * 14 + metrics.durationBonus + metrics.continuityBonus - lowEvidenceSignals * 18
     );
-    const volatility = clampDimension(metrics.emotionalVolatilityScore);
+    const emotionalVolatility = clampDimension(metrics.emotionalVolatilityScore);
     const noveltyPressure = clampDimension(10 + noveltySignals * 18 + (metrics.thumbnailVolatilitySignalCount ? 20 : 0));
     const cognitiveLoad = clampDimension(
       15 + cognitiveLoadSignals * 22 + (noveltyPressure >= 70 ? 12 : 0)
     );
-    const exploratoryDiversity = clampDimension(20 + diversitySignals * 22);
-    const continuity = clampDimension(25 + metrics.continuityBonus * 4);
-    const intentionalAlignment = clampDimension(score + Math.round(evidence * 0.08) - Math.round(Math.max(0, noveltyPressure - 70) * 0.12));
+    const exploratoryValue = clampDimension(20 + diversitySignals * 22 + Math.max(0, evidenceSignals - 1) * 8);
+    const continuityAlignment = clampDimension(25 + metrics.continuityBonus * 4);
+    const educationalDepth = clampDimension(20 + educationalSignals * 16 + metrics.durationBonus * 2);
+    const intentAlignment = clampDimension(
+      educationalDepth * weights.educationalDepth +
+        continuityAlignment * weights.continuityAlignment +
+        evidenceQuality * weights.evidenceQuality +
+        exploratoryValue * weights.exploratoryValue +
+        (100 - cognitiveLoad) * weights.lowCognitiveLoad +
+        (100 - emotionalVolatility) * weights.lowEmotionalVolatility -
+        Math.max(0, noveltyPressure - 75) * 0.15
+    );
 
     return {
       cognitiveLoad,
-      continuity,
-      emotionalVolatility: volatility,
-      evidence,
-      exploratoryDiversity,
-      intentionalAlignment,
+      continuity: continuityAlignment,
+      continuityAlignment,
+      educationalDepth,
+      emotionalVolatility,
+      evidence: evidenceQuality,
+      evidenceQuality,
+      exploratoryDiversity: exploratoryValue,
+      exploratoryValue,
+      intentAlignment,
+      intentionalAlignment: intentAlignment,
       noveltyPressure
     };
   }
@@ -1465,19 +1730,19 @@
       dimensions.emotionalVolatility >= 75,
       dimensions.noveltyPressure >= 70,
       dimensions.cognitiveLoad >= 75,
-      dimensions.evidence <= 30
+      dimensions.evidenceQuality <= 30
     ].filter(Boolean).length;
-    const hasResearchLikeValue = dimensions.evidence >= 65 || dimensions.exploratoryDiversity >= 60;
+    const hasResearchLikeValue = dimensions.evidenceQuality >= 65 || dimensions.exploratoryValue >= 60;
 
-    if (dimensions.intentionalAlignment >= 70 && strongNegativeCount === 0) {
+    if (dimensions.intentAlignment >= 70 && strongNegativeCount === 0) {
       return "aligned";
     }
 
-    if (strongNegativeCount >= 2 && dimensions.intentionalAlignment < 60 && !hasResearchLikeValue) {
+    if (strongNegativeCount >= 2 && dimensions.intentAlignment < 60 && !hasResearchLikeValue) {
       return "misaligned";
     }
 
-    if (dimensions.intentionalAlignment >= 55 || hasResearchLikeValue) {
+    if (dimensions.intentAlignment >= 55 || hasResearchLikeValue) {
       return "mixed";
     }
 
@@ -1637,15 +1902,16 @@
       : "- no outrage/escalation signals detected";
     const continuityLevel = levelFromBonus(result.metrics.continuityBonus, 12, 6);
     const volatilityLevel = levelFromScore(result.dimensions.emotionalVolatility, 60, 35);
-    const evidenceLevel = levelFromScore(result.dimensions.evidence, 65, 45);
+    const evidenceLevel = levelFromScore(result.dimensions.evidenceQuality, 65, 45);
+    const educationalDepthLevel = levelFromScore(result.dimensions.educationalDepth, 65, 45);
     const noveltyLevel = levelFromScore(result.dimensions.noveltyPressure, 65, 35);
     const cognitiveLoadLevel = levelFromScore(result.dimensions.cognitiveLoad, 65, 35);
-    const diversityLevel = levelFromScore(result.dimensions.exploratoryDiversity, 65, 35);
+    const diversityLevel = levelFromScore(result.dimensions.exploratoryValue, 65, 35);
 
     return [
       `${modeLabel} ${result.score} - ${result.classification}`,
       "Media Observability Panel",
-      `Intentionality Alignment: ${result.classification} (${result.dimensions.intentionalAlignment}/100)`,
+      `intentAlignment: ${result.classification} (${result.dimensions.intentAlignment}/100)`,
       `Final Alignment Score: ${result.score}`,
       result.metrics.selectedStudyPersona ? `Selected study persona: ${result.metrics.selectedStudyPersona}` : "",
       result.metrics.matchedTopicKeywords.length
@@ -1661,13 +1927,15 @@
       "Signals:",
       positive,
       negative,
-      `Evidence: ${evidenceLevel} (${result.dimensions.evidence}/100)`,
-      `Volatility: ${volatilityLevel} (${result.dimensions.emotionalVolatility}/100)`,
-      `Novelty Pressure: ${noveltyLevel} (${result.dimensions.noveltyPressure}/100)`,
-      `Cognitive Load / Fragmentation: ${cognitiveLoadLevel} (${result.dimensions.cognitiveLoad}/100)`,
-      `Continuity: ${continuityLevel} (${result.dimensions.continuity}/100)`,
-      `Exploratory Diversity: ${diversityLevel} (${result.dimensions.exploratoryDiversity}/100)`,
+      `evidenceQuality: ${evidenceLevel} (${result.dimensions.evidenceQuality}/100)`,
+      `educationalDepth: ${educationalDepthLevel} (${result.dimensions.educationalDepth}/100)`,
+      `emotionalVolatility: ${volatilityLevel} (${result.dimensions.emotionalVolatility}/100)`,
+      `noveltyPressure: ${noveltyLevel} (${result.dimensions.noveltyPressure}/100)`,
+      `cognitiveLoad: ${cognitiveLoadLevel} (${result.dimensions.cognitiveLoad}/100)`,
+      `continuityAlignment: ${continuityLevel} (${result.dimensions.continuityAlignment}/100)`,
+      `exploratoryValue: ${diversityLevel} (${result.dimensions.exploratoryValue}/100)`,
       `Confidence: ${capitalize(result.confidence)}`,
+      `Persona weighting path: ${formatPersonaWeights(result.metrics.personaProfile, result.metrics.personaWeights)}`,
       `Long-form Analysis Signal: +${result.metrics.durationBonus}`,
       `Primary supporting signal: ${result.metrics.strongestPositiveContributor}`,
       `Primary friction signal: ${result.metrics.strongestNegativeContributor}`,
@@ -1680,6 +1948,8 @@
         : "Thumbnail text unavailable; score based on title/metadata only.",
       "Metadata/duration signals:",
       formatSourceSignals(result.metrics.sourceSignals.metadata, "no metadata dictionary signals"),
+      "Signal Provenance:",
+      formatSignalProvenance(result.metrics.signalProvenance),
       "Emotional Volatility Signals:",
       volatilitySignals,
       result.calmExplanation
@@ -1717,6 +1987,49 @@
 
   function formatSourceSignals(signals, fallback) {
     return signals && signals.length ? signals.map((signal) => `- ${signal}`).join("\n") : fallback;
+  }
+
+  function formatSignalProvenance(provenance) {
+    const sourceOrder = [
+      "title",
+      "thumbnail OCR",
+      "duration",
+      "channel metadata",
+      "transcript",
+      "browsing continuity/session"
+    ];
+
+    return sourceOrder
+      .map((source) => {
+        const entries = provenance && provenance[source] ? provenance[source] : [];
+        if (!entries.length) {
+          return `- ${source}: ${source === "transcript" ? "unavailable" : "none"}`;
+        }
+
+        if (typeof entries[0] === "string") {
+          return `- ${source}: ${entries.join(", ")}`;
+        }
+
+        const terms = entries.flatMap((entry) => entry.terms || []);
+        return `- ${source}: ${terms.length ? uniqueMatches(terms).map((term) => `"${term}"`).join(", ") : "none"}`;
+      })
+      .join("\n");
+  }
+
+  function formatPersonaWeights(profile, weights) {
+    if (!weights) {
+      return `${profile || "custom"} weights unavailable`;
+    }
+
+    return [
+      `${profile || "custom"}`,
+      `educationalDepth ${weights.educationalDepth}`,
+      `continuityAlignment ${weights.continuityAlignment}`,
+      `evidenceQuality ${weights.evidenceQuality}`,
+      `exploratoryValue ${weights.exploratoryValue}`,
+      `lowCognitiveLoad ${weights.lowCognitiveLoad}`,
+      `lowEmotionalVolatility ${weights.lowEmotionalVolatility}`
+    ].join(" | ");
   }
 
   function recordCardTelemetry(context, result, alignment, isVisible) {
@@ -1932,6 +2245,26 @@
     }
   }
 
+  function updateDebugPanel() {
+    const existingPanel = document.querySelector(".persona-labs-debug-panel");
+    if (!debugMode || activeMode === "bareMetal") {
+      if (existingPanel) {
+        existingPanel.remove();
+      }
+      return;
+    }
+
+    const panel = existingPanel || document.createElement("pre");
+    panel.className = "persona-labs-debug-panel";
+    panel.textContent = latestDebugPayload
+      ? JSON.stringify(latestDebugPayload, null, 2)
+      : "Persona Labs debug mode enabled. No card analyzed yet.";
+
+    if (!existingPanel) {
+      document.body.append(panel);
+    }
+  }
+
   function isElementVisible(element) {
     const rect = element.getBoundingClientRect();
     return rect.bottom > 0 && rect.top < window.innerHeight && rect.right > 0 && rect.left < window.innerWidth;
@@ -1976,6 +2309,7 @@
     document.documentElement.classList.toggle("persona-labs-bare-metal", isBareMetal);
     if (isBareMetal) {
       hideDriftPrompt();
+      updateDebugPanel();
     }
   }
 })();

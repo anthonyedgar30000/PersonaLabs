@@ -151,3 +151,27 @@
 .persona-labs-bare-metal .persona-labs-drift-prompt {
   display: none !important;
 }
+
+.persona-labs-debug-panel {
+  background: rgba(2, 6, 23, 0.96);
+  border: 1px solid rgba(45, 212, 191, 0.45);
+  border-radius: 14px;
+  bottom: 20px;
+  color: #ccfbf1;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 10px;
+  line-height: 1.35;
+  margin: 0;
+  max-height: 45vh;
+  max-width: 520px;
+  overflow: auto;
+  padding: 12px;
+  position: fixed;
+  left: 20px;
+  white-space: pre-wrap;
+  z-index: 2147483647;
+}
+
+.persona-labs-bare-metal .persona-labs-debug-panel {
+  display: none !important;
+}
