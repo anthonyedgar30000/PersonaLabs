@@ -18,6 +18,7 @@
   ].join(",");
   const TITLE_RETRY_DELAYS_MS = [500, 1500];
   const LOW_METADATA_GATING_REASON = "Low confidence: insufficient metadata";
+  const CONFLICT_ESCALATION_REASON = "Conflict escalation signals detected";
 
   const MODES = {
     studyCyber: {
@@ -428,9 +429,12 @@
     ],
     chillStrongNegativeTitleFriction: [
       "attacked",
+      "attacking",
+      "assault",
       "horrifying",
       "panic",
       "destroyed",
+      "destroys",
       "revenge",
       "humiliated",
       "exposed",
@@ -442,7 +446,99 @@
       "slaughter",
       "viciously",
       "shocking",
-      "chaos"
+      "chaos",
+      "collapse",
+      "backfires",
+      "reveals",
+      "revealed",
+      "violent",
+      "retaliation",
+      "strikes",
+      "military",
+      "firing"
+    ],
+    conflictIntensity: [
+      "attacked",
+      "attacking",
+      "attack",
+      "horrifying",
+      "strikes",
+      "strike",
+      "military",
+      "firing",
+      "war",
+      "slaughter",
+      "crisis",
+      "revenge",
+      "panic",
+      "exposed",
+      "humiliated",
+      "destroys",
+      "destroyed",
+      "bombshell",
+      "chaos",
+      "collapse",
+      "backfires",
+      "reveals",
+      "revealed",
+      "shocking",
+      "violent",
+      "assault",
+      "retaliation"
+    ],
+    geopoliticalEscalation: [
+      "idf",
+      "gaza",
+      "iran",
+      "iranian",
+      "israel",
+      "israeli",
+      "military",
+      "missiles",
+      "missile",
+      "bombing",
+      "ceasefire",
+      "invasion",
+      "sanctions"
+    ],
+    outrageFraming: [
+      "panic",
+      "exposed",
+      "humiliated",
+      "destroys",
+      "destroyed",
+      "bombshell",
+      "chaos",
+      "collapse",
+      "backfires",
+      "reveals",
+      "revealed",
+      "shocking"
+    ],
+    adversarialNarrativeEnergy: [
+      "attacked",
+      "attacking",
+      "attack",
+      "strikes",
+      "strike",
+      "revenge",
+      "retaliation",
+      "assault",
+      "firing",
+      "war",
+      "destroys",
+      "destroyed",
+      "backfires"
+    ],
+    smilePlayfulSignals: [
+      "smiling faces",
+      "smiling",
+      "relaxed expressions",
+      "relaxed",
+      "animals",
+      "nature scenes",
+      "soft color palettes",
+      "soft colors"
     ],
     project: [
       "bug",
@@ -497,11 +593,16 @@
     outrageRageBait: [
       "cancelled",
       "canceled",
+      "backfires",
+      "bombshell",
       "destroyed",
+      "destroys",
       "drama",
       "exposed",
       "gone wrong",
       "meltdown",
+      "revealed",
+      "reveals",
       "scandal",
       "slammed",
       "they lied",
@@ -601,13 +702,20 @@
     conflict: [
       "attack",
       "attacked",
+      "attacking",
+      "assault",
       "civil war",
       "clash",
       "culture war",
       "fight",
+      "firing",
       "humiliates",
+      "military",
       "owns",
       "political war",
+      "retaliation",
+      "strike",
+      "strikes",
       "war on"
     ],
     shortFormNoveltyRisk: [
@@ -1018,13 +1126,14 @@
       .replace(/\s+-\s+YouTube$/i, "");
 
     if (/aria-label/i.test(source)) {
+      const hasYouTubeAriaMetadata = /\d+(?:,\d{3})*(?:\.\d+)?[KMB]?\s+views?|\b(?:second|minute|hour|day|week|month|year)s?\s+ago\b|(?:Streamed|Premiered)\s+/i.test(title);
       title = title
         .replace(/\s+\d+(?:,\d{3})*(?:\.\d+)?[KMB]?\s+views?.*$/i, "")
         .replace(/\s+(?:\d+\s+)?(?:second|minute|hour|day|week|month|year)s?\s+ago.*$/i, "")
         .replace(/\s+(?:Streamed|Premiered)\s+.*$/i, "");
 
       const byMetadataMatch = title.match(/^(.+)\s+by\s+.+$/i);
-      if (byMetadataMatch && byMetadataMatch[1].length >= 6) {
+      if (hasYouTubeAriaMetadata && byMetadataMatch && byMetadataMatch[1].length >= 6) {
         title = byMetadataMatch[1];
       }
     }
@@ -1228,6 +1337,7 @@
     result.dimensions = calculateDimensions(result.score, result.positiveSignals, result.negativeSignals, result.metrics);
     result.classification = classifyDimensions(result.dimensions);
     applyConfidenceGating(context, mode, result);
+    applyChillConflictCaps(mode, result);
     result.calmExplanation = calmExplanationFor(result.classification, result.explanationContext);
     result.metrics.sourceSignals = buildSourceSignalSummary(context);
     result.metrics.signalProvenance = buildSignalProvenance(context);
@@ -1441,12 +1551,16 @@
     const volatility = calculateEmotionalVolatility(context);
     const titleSupport = findMatches(context.titleText, HEURISTIC_SIGNAL_DICTIONARIES.chillStrongPositiveTitleSignals);
     const titleFriction = findMatches(context.titleText, HEURISTIC_SIGNAL_DICTIONARIES.chillStrongNegativeTitleFriction);
+    const softVisualSignals = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.smilePlayfulSignals);
+    const chillConflict = calculateChillConflictWeighting(context);
     const chill = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.calmLowConflict);
     const conflict = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.conflict);
     const outrage = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.outrageRageBait);
     const volatilityPenalty = Math.min(75, Math.round(volatility.score * 0.72));
     const severeVolatility = volatility.score >= 60;
     const elevatedVolatility = volatility.score >= 35;
+    const elevatedConflict = chillConflict.conflictIntensity >= 35;
+    const severeConflict = chillConflict.conflictIntensity >= 60 || chillConflict.highFrictionTitleSignals.length >= 2;
     let continuityBonus = 0;
     let durationBonus = 0;
 
@@ -1455,29 +1569,35 @@
       negatives.push(`emotional volatility estimate: ${volatility.score}/100`);
     }
 
+    if (chillConflict.penalty > 0) {
+      score -= chillConflict.penalty;
+      negatives.push(`${CONFLICT_ESCALATION_REASON}: ${formatMatches(chillConflict.allConflictSignals)}`);
+    }
+
     score += addSignal(positives, titleSupport, "title chill signals", 12, 24);
     score -= addSignal(negatives, titleFriction, "title friction signals", 18, 54);
+    score += addSignal(positives, softVisualSignals, "soft/playful recovery cues", 4, 8);
     score += addSignal(positives, chill, "calming or light content", 8, 18);
 
-    if ((chill.length || titleSupport.length) && !elevatedVolatility && !titleFriction.length) {
+    if ((chill.length || titleSupport.length || softVisualSignals.length) && !elevatedVolatility && !elevatedConflict && !titleFriction.length) {
       continuityBonus = 8;
       score += continuityBonus;
       positives.push("low-conflict topic continuity");
-    } else if ((chill.length || titleSupport.length) && (elevatedVolatility || titleFriction.length)) {
-      negatives.push("calming terms are outweighed by emotional volatility or title friction");
+    } else if ((chill.length || titleSupport.length || softVisualSignals.length) && (elevatedVolatility || elevatedConflict || titleFriction.length)) {
+      negatives.push("calming terms are outweighed by emotional volatility, conflict escalation, or title friction");
     }
 
-    if (!conflict.length && !outrage.length && !titleFriction.length && !hasEmotionalVolatility(context)) {
+    if (!conflict.length && !outrage.length && !titleFriction.length && !elevatedConflict && !hasEmotionalVolatility(context)) {
       score += 8;
       positives.push("low-conflict tone");
     }
 
-    if (context.durationSeconds >= 1200 && !elevatedVolatility) {
+    if (context.durationSeconds >= 1200 && !elevatedVolatility && !elevatedConflict) {
       durationBonus = 4;
       score += durationBonus;
       positives.push("long-form duration with low conflict signals");
-    } else if (context.durationSeconds >= 1200 && elevatedVolatility) {
-      negatives.push("long-form duration does not reduce conflict signal");
+    } else if (context.durationSeconds >= 1200 && (elevatedVolatility || elevatedConflict)) {
+      negatives.push("long-form calm discussion does not override explicit conflict or violence language");
     }
 
     if (context.isShort) {
@@ -1489,21 +1609,84 @@
     score -= addSignal(negatives, outrage, "outrage-heavy language", 15, 38);
     score -= addSignal(negatives, findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.currentEvents), "news/current events during chill", 5, 10);
 
-    if (severeVolatility) {
+    if (severeVolatility || severeConflict) {
       score = Math.min(score, 34);
-      negatives.push("severe emotional volatility overrides duration and continuity bonuses");
-    } else if (elevatedVolatility) {
+      negatives.push("severe emotional volatility or conflict intensity overrides duration and continuity bonuses");
+    } else if (elevatedVolatility || elevatedConflict) {
       score = Math.min(score, 49);
-      negatives.push("emotional volatility takes priority over long-form duration");
+      negatives.push("emotional volatility and conflict escalation take priority over long-form duration");
     }
 
     return buildResult(score, positives, negatives, "Chill Mode is for recovery, low-conflict browsing, and light entertainment.", {
+      adversarialNarrativeEnergyScore: chillConflict.adversarialNarrativeEnergy,
+      chillCalmSignals: uniqueMatches(chill.concat(titleSupport, softVisualSignals)),
+      chillConflictSignals: chillConflict.allConflictSignals,
+      chillSuppressionReason: chillConflict.suppressionReason,
+      chillWeightingPath: chillConflict.weightingPath,
+      conflictIntensityScore: chillConflict.conflictIntensity,
       continuityBonus,
       durationBonus,
       emotionalVolatilityScore: volatility.score,
+      finalConfidenceExplanation: chillConflict.confidenceExplanation,
+      geopoliticalEscalationScore: chillConflict.geopoliticalEscalation,
+      matchedGeopoliticalSignals: chillConflict.geopoliticalSignals,
+      outrageFramingScore: chillConflict.outrageFraming,
+      positiveRecoveryVisualSignals: softVisualSignals,
       thumbnailVolatilitySignalCount: volatility.thumbnailSignalCount,
       volatilitySignals: volatility.signals
     });
+  }
+
+  function calculateChillConflictWeighting(context) {
+    const titleText = context.titleText || context.rawExtractedTitle || "";
+    const highFrictionTitleSignals = findMatches(titleText, HEURISTIC_SIGNAL_DICTIONARIES.conflictIntensity);
+    const conflictSignals = uniqueMatches(highFrictionTitleSignals.concat(findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.conflictIntensity)));
+    const geopoliticalSignals = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.geopoliticalEscalation);
+    const outrageSignals = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.outrageFraming);
+    const adversarialSignals = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.adversarialNarrativeEnergy);
+    const conflictIntensity = clampDimension(
+      Math.min(76, conflictSignals.length * 22) +
+        Math.min(36, geopoliticalSignals.length * 9) +
+        Math.min(42, outrageSignals.length * 14) +
+        Math.min(38, adversarialSignals.length * 12)
+    );
+    const geopoliticalEscalation = clampDimension(Math.min(100, geopoliticalSignals.length * 22 + adversarialSignals.length * 8));
+    const outrageFraming = clampDimension(Math.min(100, outrageSignals.length * 26 + conflictSignals.length * 6));
+    const adversarialNarrativeEnergy = clampDimension(Math.min(100, adversarialSignals.length * 24 + geopoliticalSignals.length * 6));
+    const penalty = Math.min(70, Math.round(conflictIntensity * 0.68));
+    const allConflictSignals = uniqueMatches(
+      conflictSignals.concat(geopoliticalSignals, outrageSignals, adversarialSignals)
+    );
+    let suppressionReason = "";
+
+    if (highFrictionTitleSignals.length >= 2) {
+      suppressionReason = "Explicit violence/conflict title signals cap Chill alignment at mixed or lower";
+    } else if (conflictIntensity >= 45) {
+      suppressionReason = "Geopolitical or adversarial conflict energy suppresses calm-delivery bonuses";
+    }
+
+    return {
+      adversarialNarrativeEnergy,
+      allConflictSignals,
+      confidenceExplanation: conflictIntensity >= 45
+        ? "Aligned confidence reduced because visible metadata contains conflict escalation signals."
+        : "Aligned confidence follows visible title, metadata, and low-conflict signal balance.",
+      conflictIntensity,
+      geopoliticalEscalation,
+      geopoliticalSignals,
+      highFrictionTitleSignals,
+      outrageFraming,
+      outrageSignals,
+      penalty,
+      suppressionReason,
+      weightingPath: [
+        `conflictIntensity ${conflictIntensity}/100`,
+        `geopoliticalEscalation ${geopoliticalEscalation}/100`,
+        `outrageFraming ${outrageFraming}/100`,
+        `adversarialNarrativeEnergy ${adversarialNarrativeEnergy}/100`,
+        `conflict penalty -${penalty}`
+      ].join(" | ")
+    };
   }
 
   function scoreProjectMode(context) {
@@ -1644,6 +1827,32 @@
     result.metrics.strongestNegativeContributor = LOW_METADATA_GATING_REASON;
   }
 
+  function applyChillConflictCaps(mode, result) {
+    if (mode !== "chill" || result.metrics.conflictIntensityScore < 45) {
+      return;
+    }
+
+    const reason = result.metrics.chillSuppressionReason || CONFLICT_ESCALATION_REASON;
+    result.metrics.chillSuppressionReason = reason;
+    result.metrics.finalConfidenceExplanation = "Aligned confidence reduced: visible metadata contains conflict escalation signals.";
+    result.score = Math.min(result.score, result.metrics.conflictIntensityScore >= 60 ? 44 : 54);
+    result.dimensions.intentAlignment = Math.min(result.dimensions.intentAlignment, result.metrics.conflictIntensityScore >= 60 ? 49 : 54);
+    result.dimensions.intentionalAlignment = result.dimensions.intentAlignment;
+
+    if (result.classification === "aligned") {
+      result.classification = "mixed";
+    }
+
+    if (result.confidence === "high") {
+      result.confidence = "medium";
+    }
+
+    if (!result.negativeSignals.includes(reason)) {
+      result.negativeSignals.unshift(reason);
+    }
+    result.metrics.strongestNegativeContributor = reason;
+  }
+
   function buildDebugPayload(context, mode, result) {
     return {
       activeMode: mode,
@@ -1670,6 +1879,18 @@
         matchedTitleSignals: result.metrics.matchedTitleSignals,
         rawExtractedTitle: result.metrics.rawExtractedTitle,
         source: result.metrics.extractionSource
+      },
+      chillWeighting: {
+        adversarialNarrativeEnergy: result.metrics.adversarialNarrativeEnergyScore,
+        conflictIntensity: result.metrics.conflictIntensityScore,
+        finalConfidenceExplanation: result.metrics.finalConfidenceExplanation || "",
+        geopoliticalEscalation: result.metrics.geopoliticalEscalationScore,
+        matchedCalmSignals: result.metrics.chillCalmSignals,
+        matchedConflictSignals: result.metrics.chillConflictSignals,
+        outrageFraming: result.metrics.outrageFramingScore,
+        positiveRecoveryVisualSignals: result.metrics.positiveRecoveryVisualSignals,
+        suppressionReason: result.metrics.chillSuppressionReason || "",
+        weightingPath: result.metrics.chillWeightingPath || ""
       },
       confidenceGatingReason: result.metrics.confidenceGatingReason || "",
       strongestContributors: {
@@ -1728,6 +1949,11 @@
       { key: "calmLowConflict", label: "calm/low-conflict" },
       { key: "chillStrongPositiveTitleSignals", label: "chill title support" },
       { key: "chillStrongNegativeTitleFriction", label: "chill title friction" },
+      { key: "conflictIntensity", label: "conflict intensity" },
+      { key: "geopoliticalEscalation", label: "geopolitical escalation" },
+      { key: "outrageFraming", label: "outrage framing" },
+      { key: "adversarialNarrativeEnergy", label: "adversarial narrative energy" },
+      { key: "smilePlayfulSignals", label: "soft/playful recovery cues" },
       { key: "clickbaitUrgency", label: "clickbait/urgency" },
       { key: "outrageRageBait", label: "outrage/rage-bait" },
       { key: "outrageEscalation", label: "outrage escalation" },
@@ -1893,13 +2119,24 @@
     const score = clampScore(rawScore);
     const confidence = confidenceFor(positiveSignals, negativeSignals);
     const normalizedMetrics = {
+      adversarialNarrativeEnergyScore: Number(metrics.adversarialNarrativeEnergyScore) || 0,
+      chillCalmSignals: metrics.chillCalmSignals || [],
+      chillConflictSignals: metrics.chillConflictSignals || [],
+      chillSuppressionReason: metrics.chillSuppressionReason || "",
+      chillWeightingPath: metrics.chillWeightingPath || "",
+      conflictIntensityScore: Number(metrics.conflictIntensityScore) || 0,
       continuityBonus: Number(metrics.continuityBonus) || 0,
       durationBonus: Number(metrics.durationBonus) || 0,
       educationalFormatSignals: metrics.educationalFormatSignals || [],
       emotionalVolatilityScore: Number(metrics.emotionalVolatilityScore) || 0,
+      finalConfidenceExplanation: metrics.finalConfidenceExplanation || "",
+      geopoliticalEscalationScore: Number(metrics.geopoliticalEscalationScore) || 0,
+      matchedGeopoliticalSignals: metrics.matchedGeopoliticalSignals || [],
       matchedTopicKeywords: metrics.matchedTopicKeywords || [],
+      outrageFramingScore: Number(metrics.outrageFramingScore) || 0,
       personaProfile: metrics.personaProfile || "custom",
       personaWeights: metrics.personaWeights || PERSONA_DIMENSION_WEIGHTS.custom,
+      positiveRecoveryVisualSignals: metrics.positiveRecoveryVisualSignals || [],
       selectedStudyPersona: metrics.selectedStudyPersona || "",
       strongestNegativeContributor: negativeSignals[0] || "no strong friction signals",
       strongestPositiveContributor: positiveSignals[0] || "no strong supporting signals",
@@ -1947,10 +2184,16 @@
     const evidenceQuality = clampDimension(
       35 + evidenceSignals * 14 + metrics.durationBonus + metrics.continuityBonus - lowEvidenceSignals * 18
     );
-    const emotionalVolatility = clampDimension(metrics.emotionalVolatilityScore);
-    const noveltyPressure = clampDimension(10 + noveltySignals * 18 + (metrics.thumbnailVolatilitySignalCount ? 20 : 0));
+    const conflictIntensity = clampDimension(metrics.conflictIntensityScore);
+    const geopoliticalEscalation = clampDimension(metrics.geopoliticalEscalationScore);
+    const outrageFraming = clampDimension(metrics.outrageFramingScore);
+    const adversarialNarrativeEnergy = clampDimension(metrics.adversarialNarrativeEnergyScore);
+    const emotionalVolatility = clampDimension(Math.max(metrics.emotionalVolatilityScore, conflictIntensity));
+    const noveltyPressure = clampDimension(
+      10 + noveltySignals * 18 + (metrics.thumbnailVolatilitySignalCount ? 20 : 0) + Math.max(0, outrageFraming - 45) * 0.35
+    );
     const cognitiveLoad = clampDimension(
-      15 + cognitiveLoadSignals * 22 + (noveltyPressure >= 70 ? 12 : 0)
+      15 + cognitiveLoadSignals * 22 + (noveltyPressure >= 70 ? 12 : 0) + (conflictIntensity >= 45 ? 14 : 0)
     );
     const exploratoryValue = clampDimension(20 + diversitySignals * 22 + Math.max(0, evidenceSignals - 1) * 8);
     const continuityAlignment = clampDimension(25 + metrics.continuityBonus * 4);
@@ -1962,11 +2205,14 @@
         exploratoryValue * weights.exploratoryValue +
         (100 - cognitiveLoad) * weights.lowCognitiveLoad +
         (100 - emotionalVolatility) * weights.lowEmotionalVolatility -
-        Math.max(0, noveltyPressure - 75) * 0.15
+        Math.max(0, noveltyPressure - 75) * 0.15 -
+        Math.max(0, conflictIntensity - 25) * 0.45
     );
 
     return {
+      adversarialNarrativeEnergy,
       cognitiveLoad,
+      conflictIntensity,
       continuity: continuityAlignment,
       continuityAlignment,
       educationalDepth,
@@ -1975,14 +2221,17 @@
       evidenceQuality,
       exploratoryDiversity: exploratoryValue,
       exploratoryValue,
+      geopoliticalEscalation,
       intentAlignment,
       intentionalAlignment: intentAlignment,
-      noveltyPressure
+      noveltyPressure,
+      outrageFraming
     };
   }
 
   function classifyDimensions(dimensions) {
     const strongNegativeCount = [
+      dimensions.conflictIntensity >= 45,
       dimensions.emotionalVolatility >= 75,
       dimensions.noveltyPressure >= 70,
       dimensions.cognitiveLoad >= 75,
@@ -2190,6 +2439,10 @@
       `evidenceQuality: ${evidenceLevel} (${result.dimensions.evidenceQuality}/100)`,
       `educationalDepth: ${educationalDepthLevel} (${result.dimensions.educationalDepth}/100)`,
       `emotionalVolatility: ${volatilityLevel} (${result.dimensions.emotionalVolatility}/100)`,
+      `conflictIntensity: ${levelFromScore(result.dimensions.conflictIntensity, 60, 35)} (${result.dimensions.conflictIntensity}/100)`,
+      `geopoliticalEscalation: ${levelFromScore(result.dimensions.geopoliticalEscalation, 60, 35)} (${result.dimensions.geopoliticalEscalation}/100)`,
+      `outrageFraming: ${levelFromScore(result.dimensions.outrageFraming, 60, 35)} (${result.dimensions.outrageFraming}/100)`,
+      `adversarialNarrativeEnergy: ${levelFromScore(result.dimensions.adversarialNarrativeEnergy, 60, 35)} (${result.dimensions.adversarialNarrativeEnergy}/100)`,
       `noveltyPressure: ${noveltyLevel} (${result.dimensions.noveltyPressure}/100)`,
       `cognitiveLoad: ${cognitiveLoadLevel} (${result.dimensions.cognitiveLoad}/100)`,
       `continuityAlignment: ${continuityLevel} (${result.dimensions.continuityAlignment}/100)`,
@@ -2205,7 +2458,14 @@
       `extraction confidence: ${formatExtractionConfidence(result.metrics.extractionConfidence)}`,
       "Matched title signals:",
       formatSourceSignals(result.metrics.matchedTitleSignals, "no title dictionary signals"),
+      "Matched conflict signals:",
+      formatSignalList(result.metrics.chillConflictSignals, "no conflict escalation signals"),
+      "Matched calm signals:",
+      formatSignalList(result.metrics.chillCalmSignals, "no calm/recovery signals"),
+      `Weighting path: ${result.metrics.chillWeightingPath || "standard mode weighting"}`,
+      `Suppression/capping reason: ${result.metrics.chillSuppressionReason || "none"}`,
       `Confidence gating reason: ${result.metrics.confidenceGatingReason || "none"}`,
+      `Final confidence explanation: ${result.metrics.finalConfidenceExplanation || "Confidence follows matched visible metadata signals."}`,
       "Evidence Signals:",
       "Title signals:",
       formatSourceSignals(result.metrics.sourceSignals.title, "no title dictionary signals"),
@@ -2254,6 +2514,10 @@
 
   function formatSourceSignals(signals, fallback) {
     return signals && signals.length ? signals.map((signal) => `- ${signal}`).join("\n") : fallback;
+  }
+
+  function formatSignalList(signals, fallback) {
+    return signals && signals.length ? `- ${signals.join(", ")}` : fallback;
   }
 
   function formatExtractionConfidence(confidence) {
