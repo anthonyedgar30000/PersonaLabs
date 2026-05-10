@@ -159,12 +159,16 @@
   }
 
   function colorForScore(score) {
-    if (score >= 75) {
+    if (score >= 80) {
       return { border: "#22c55e", glow: "rgba(34, 197, 94, 0.18)" };
     }
 
-    if (score >= 45) {
-      return { border: "#f59e0b", glow: "rgba(245, 158, 11, 0.2)" };
+    if (score >= 60) {
+      return { border: "#eab308", glow: "rgba(234, 179, 8, 0.2)" };
+    }
+
+    if (score >= 40) {
+      return { border: "#f97316", glow: "rgba(249, 115, 22, 0.2)" };
     }
 
     return { border: "#ef4444", glow: "rgba(239, 68, 68, 0.18)" };

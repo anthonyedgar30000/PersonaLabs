@@ -7,7 +7,8 @@ This is a local-only Manifest V3 Chrome extension demo. It detects YouTube video
 - Detects common YouTube video card renderers on Home, Search, channel grids, playlists, and sidebars.
 - Applies mock Persona alignment scores with color-coded borders:
   - Green: high fit
-  - Amber: mixed fit
+  - Yellow: good fit
+  - Orange: mixed fit
   - Red: low fit
 - Adds a small score badge to each decorated card.
 - Popup mode selector:
