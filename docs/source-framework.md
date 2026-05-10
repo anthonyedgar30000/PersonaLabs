@@ -113,19 +113,19 @@ Dictionary matches are local heuristic indicators. They are signals used to esti
    - Intended signal: content may use ragebait, escalation, dominance, or high-arousal framing.
 
 5. **Disturbing / violent subject matter terms**
-   - Examples: attacked, murder, war footage, bombing, slaughter, execution, dead, injured, graphic, blood, hostage, terror, military strike, airstrike, massacre, assault, crisis, raid, gore, burning alive.
+   - Examples: attacked, injured, execution, gore, explosion, burning alive, assault, war footage, horrifying footage, massacre, hostage, raid, war crime, murdered, bombing, slaughter, terror, brutality, violent, killed, airstrike, blood, crisis, stabbed, chaos, dead, military strike, graphic, disaster, beaten, panic.
    - Intended signal: content may carry psychologically heavy or disturbing subject matter even when the tone is restrained.
 
 6. **Calm ambient terms**
-   - Examples: relaxing, nature, gentle, soft music, peaceful, ambience, sleep, calming, meditation, forest, rain, birds, aquarium, bunny, cat tv, dog tv, lofi, healing, mindful.
+   - Examples: relaxing, nature, gentle, soft music, peaceful, ambience, sleep, calming, meditation, forest, rain, birds, aquarium, bunny, cat tv, dog tv, piano, ocean, waterfall, cozy, lofi, healing, mindful.
    - Intended signal: content may support Chill Mode recovery, low-friction ambience, or stable calming attention.
 
 7. **Cognitive load terms**
-   - Examples: debate, analysis, politics, breaking news, investigation, controversy, drama, reaction, argument, live coverage, multi-topic, rapid updates.
+   - Examples: debate, analysis, politics, breaking news, investigation, controversy, drama, reaction, argument, live coverage, multi-topic, rapid updates, complex, technical, economic, policy, deep dive, long form analysis.
    - Intended signal: content may increase mental processing burden, switching cost, or attentional fragmentation.
 
 8. **Tribal domination framing terms**
-   - Examples: owned, destroyed, humiliated, revenge, meltdown, obliterated, crushed, wrecked, slams, annihilates, exposed, collapse, disastrous, panic, losing minds, unhinged, final note, bombshell, cringe, fails badly, disaster, destroys, embarrassed, caught lying, takedown, rage, backfires badly.
+   - Examples: owned, destroyed, humiliated, revenge, meltdown, obliterated, crushed, wrecked, slams, annihilates, exposed, collapse, disastrous, panic, losing minds, unhinged, final note, bombshell, cringe, fails badly, disaster, destroys, embarrassed, caught lying, takedown, rage, epic fail, backfires badly.
    - Intended signal: content may use conflict-framed attention capture patterns such as enemies vs allies, winners vs losers, humiliation vs dominance, revenge vs punishment, or collapse vs catastrophe.
 
 9. **Calm / low-conflict terms**

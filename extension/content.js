@@ -164,11 +164,15 @@
     "attacked",
     "attack",
     "murder",
+    "murdered",
     "war footage",
+    "horrifying footage",
+    "horrifying",
     "bombing",
     "slaughter",
     "execution",
     "dead",
+    "killed",
     "injured",
     "graphic",
     "blood",
@@ -181,7 +185,14 @@
     "crisis",
     "raid",
     "gore",
-    "burning alive"
+    "burning alive",
+    "explosion",
+    "brutality",
+    "violent",
+    "stabbed",
+    "chaos",
+    "beaten",
+    "war crime"
   ]);
 
   const CALM_AMBIENT_SIGNALS = Object.freeze([
@@ -203,6 +214,10 @@
     "bunny",
     "cat tv",
     "dog tv",
+    "piano",
+    "ocean",
+    "waterfall",
+    "cozy",
     "lofi",
     "healing",
     "mindful"
@@ -220,7 +235,13 @@
     "argument",
     "live coverage",
     "multi-topic",
-    "rapid updates"
+    "rapid updates",
+    "complex",
+    "technical",
+    "economic",
+    "policy",
+    "deep dive",
+    "long form analysis"
   ]);
 
   const TRIBAL_DOMINATION_FRAMING_SIGNALS = Object.freeze([
@@ -251,6 +272,7 @@
     "embarrassed",
     "caught lying",
     "takedown",
+    "epic fail",
     "rage",
     "backfires badly"
   ]);

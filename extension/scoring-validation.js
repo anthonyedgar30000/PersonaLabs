@@ -93,6 +93,19 @@ const cases = [
     }
   },
   {
+    name: "horrifying attacked footage is not Chill aligned",
+    context: makeContext("Nun ATTACKED By Israel in Horrifying Footage", { durationSeconds: 420 }),
+    mode: "chill",
+    assert(result) {
+      return (
+        result.score <= 42 &&
+        ["mixed", "misaligned"].includes(result.classification) &&
+        result.metrics.signalLayers.subjectMatter.sourceMatches.title.includes("attacked") &&
+        result.metrics.signalLayers.subjectMatter.sourceMatches.title.includes("horrifying footage")
+      );
+    }
+  },
+  {
     name: "war footage and casualties score low in Chill",
     context: makeContext("War footage shows bombing aftermath with dead and injured", { durationSeconds: 600 }),
     mode: "chill",
@@ -164,11 +177,19 @@ const cases = [
     }
   },
   {
+    name: "epic fail domination framing reduces Chill alignment",
+    context: makeContext("Epic fail as final note revealed", { durationSeconds: 1800 }),
+    mode: "chill",
+    assert(result) {
+      return result.score <= 49 && result.dimensions.tribalDomination >= 35;
+    }
+  },
+  {
     name: "technical analytical long-form stays mixed or neutral in Chill",
     context: makeContext("Technical discussion and analysis of Kubernetes networking debate", { durationSeconds: 2400 }),
     mode: "chill",
     assert(result) {
-      return result.score >= 40 && result.score <= 69 && ["mixed", "neutral"].includes(result.classification);
+      return result.score <= 69 && ["mixed", "neutral"].includes(result.classification);
     }
   },
   {

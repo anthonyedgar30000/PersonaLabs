@@ -105,10 +105,10 @@ Hides overlays and suppresses drift prompts. It is always available.
 
 Scoring is deterministic and heuristic-based. Each card is first separated into deterministic signal layers, then weighted against the selected persona:
 
-1. **Calm / Ambient Signals** - recovery-oriented signals such as bunny, aquarium, relaxing music, sleep ambience, nature, rain, birds, meditation, and lofi.
-2. **Violence / Disturbing Subject Matter** - disturbing/heavy themes such as attacked, murder, war footage, bombing, dead, injured, hostage, terror, military strike, airstrike, massacre, raid, gore, or burning alive.
-3. **Tribal Domination Framing** - conflict/dominance attention patterns such as owned, destroyed, revenge, humiliated, meltdown, obliterated, crushed, slams, exposed, collapse, disastrous, final note, bombshell, cringe, caught lying, takedown, or backfires badly.
-4. **Cognitive Load** - attentional complexity and fragmentation such as debate, analysis, politics, breaking news, investigation, controversy, drama, reaction, argument, live coverage, multi-topic, or rapid updates.
+1. **Calm / Ambient Signals** - recovery-oriented signals such as bunny, aquarium, relaxing music, sleep ambience, nature, rain, birds, meditation, piano, ocean, waterfall, cozy, and lofi.
+2. **Violence / Disturbing Subject Matter** - disturbing/heavy themes such as attacked, injured, execution, gore, explosion, burning alive, war footage, massacre, hostage, raid, war crime, murdered, bombing, slaughter, terror, brutality, violent, killed, airstrike, blood, crisis, stabbed, chaos, dead, military strike, graphic, disaster, beaten, or panic.
+3. **Tribal Domination Framing** - conflict/dominance attention patterns such as owned, destroys, crushed, humiliates, wrecked, revenge, slams, annihilates, meltdown, collapse, disastrous, final note, bombshell, cringe, caught lying, takedown, epic fail, or backfires badly.
+4. **Cognitive Load** - attentional complexity and fragmentation such as debate, analysis, politics, breaking news, investigation, controversy, live coverage, multi-topic, rapid updates, complex, technical, economic, policy, deep dive, or long form analysis.
 5. **Persona Alignment** - persona-specific weighting over the observed layers and mode-positive signals.
 
 Each card receives objective dimension scores, a persona-weighted intent alignment score, mode, classification, alignment signals, evidence signals, media environment signals, title/thumbnail/metadata provenance, confidence level, selected study persona where applicable, matched topic keywords, long-form and continuity bonuses, primary supporting/friction signals, and a short calm explanation.
@@ -183,6 +183,24 @@ Signal Provenance:
 - channel metadata: none
 - transcript: unavailable
 Looks aligned with this mode. Study Mode is tuned for calm, long-form learning and technical depth.
+```
+
+Chill-specific friction example:
+
+```text
+Chill 42 - mixed
+Media Observability Panel
+Calm / Ambient Signals:
+- no calm ambient signals detected
+Violence / Disturbing Subject Matter:
+- title disturbing subject matter: attacked, horrifying footage
+Tribal Domination Framing:
+- no tribal/conflict framing detected
+Cognitive Load:
+- low cognitive-fragmentation signals detected
+Persona Alignment:
+Drift risk: Moderate (52/100)
+Explanation: Chill alignment reduced due to disturbing subject matter signals: attacked, horrifying footage.
 ```
 
 The model is intentionally transparent and limited. It does not diagnose, infer mental health state, or claim whether content is true. PersonaLabs models attentional friction and intentional alignment, not political correctness or objective truth.
