@@ -16,6 +16,8 @@
     "ytd-playlist-video-renderer",
     "ytd-reel-item-renderer"
   ].join(",");
+  const TITLE_RETRY_DELAYS_MS = [500, 1500];
+  const LOW_METADATA_GATING_REASON = "Low confidence: insufficient metadata";
 
   const MODES = {
     studyCyber: {
@@ -387,20 +389,60 @@
     ],
     calmLowConflict: [
       "ambient",
+      "ambience",
       "calm",
+      "calming",
       "cozy",
       "cooking",
       "game",
       "gardening",
+      "gentle",
+      "healing",
       "light comedy",
       "lofi",
       "meditation",
       "music",
       "nature",
+      "peaceful",
+      "piano",
       "relax",
+      "relaxing",
+      "sleep",
+      "soft music",
       "travel",
       "vlog",
       "walk"
+    ],
+    chillStrongPositiveTitleSignals: [
+      "relaxing",
+      "ambience",
+      "peaceful",
+      "calming",
+      "healing",
+      "nature",
+      "sleep",
+      "gentle",
+      "piano",
+      "meditation",
+      "soft music"
+    ],
+    chillStrongNegativeTitleFriction: [
+      "attacked",
+      "horrifying",
+      "panic",
+      "destroyed",
+      "revenge",
+      "humiliated",
+      "exposed",
+      "meltdown",
+      "disaster",
+      "bombshell",
+      "crisis",
+      "war",
+      "slaughter",
+      "viciously",
+      "shocking",
+      "chaos"
     ],
     project: [
       "bug",
@@ -498,13 +540,16 @@
     ],
     panicFearFraming: [
       "catastrophe",
+      "chaos",
       "complete shock",
       "crisis",
       "disaster",
       "freakout",
+      "horrifying",
       "losing their minds",
       "panic",
       "panic mode",
+      "shocking",
       "terrifying"
     ],
     absolutistEmotionalWording: [
@@ -555,6 +600,7 @@
     ],
     conflict: [
       "attack",
+      "attacked",
       "civil war",
       "clash",
       "culture war",
@@ -582,6 +628,7 @@
   let recentNavigationTimes = [];
   let debugMode = false;
   let latestDebugPayload = null;
+  const titleRetryState = new WeakMap();
 
   init();
 
@@ -770,6 +817,9 @@
       scheduleScan();
     });
     window.addEventListener("popstate", scheduleScan);
+    window.addEventListener("load", scheduleScan);
+    window.addEventListener("resize", scheduleScan);
+    document.addEventListener("scroll", scheduleScan, true);
     scheduleScan();
   }
 
@@ -785,7 +835,7 @@
     scanTimer = window.setTimeout(scanCards, SCAN_INTERVAL_MS);
   }
 
-  function decorateCard(card) {
+  function decorateCard(card, options = {}) {
     if (!(card instanceof HTMLElement)) {
       return;
     }
@@ -796,6 +846,9 @@
       removeBadge(card);
       card.removeAttribute("data-persona-labs-score");
       card.removeAttribute("data-persona-labs-alignment");
+      card.removeAttribute("data-persona-labs-raw-extracted-title");
+      card.removeAttribute("data-persona-labs-extraction-source");
+      card.removeAttribute("data-persona-labs-extraction-confidence");
       card.style.removeProperty("--persona-labs-border-color");
       card.style.removeProperty("--persona-labs-border-glow");
       return;
@@ -807,23 +860,30 @@
 
     card.dataset.personaLabsScore = String(result.score);
     card.dataset.personaLabsAlignment = color.alignment;
+    card.dataset.personaLabsRawExtractedTitle = context.rawExtractedTitle || "";
+    card.dataset.personaLabsExtractionSource = context.extractionSource || "none";
+    card.dataset.personaLabsExtractionConfidence = String(context.extractionConfidence || 0);
     card.style.setProperty("--persona-labs-border-color", color.border);
     card.style.setProperty("--persona-labs-border-glow", color.glow);
     renderBadge(card, result, MODES[activeMode].label, color.alignment);
     recordCardTelemetry(context, result, color.alignment, isElementVisible(card));
     latestDebugPayload = result.debug;
     updateDebugPanel();
+
+    if (!options.skipTitleRetries) {
+      scheduleTitleExtractionRetries(card, context);
+    }
   }
 
   function getCardContext(card) {
-    const titleLink = card.querySelector("#video-title");
-    const textTitle = titleLink && titleLink.textContent;
-    const ariaTitle = titleLink && titleLink.getAttribute("aria-label");
-    const href = titleLink && titleLink.getAttribute("href");
-    const title = String(textTitle || ariaTitle || "").trim();
+    const extraction = extractVisibleTitle(card);
+    const titleLink = card.querySelector("#video-title, a#video-title, a[href*='/watch'], a[href*='/shorts/']");
+    const ariaTitle = extraction.ariaLabel || (titleLink && titleLink.getAttribute("aria-label")) || "";
+    const href = getCardHref(card, titleLink);
+    const title = extraction.title;
     const durationText = getDurationText(card);
     const durationSeconds = parseDuration(durationText) || parseDuration(ariaTitle || "");
-    const titleText = normalizeWhitespace([title, ariaTitle]);
+    const titleText = normalizeWhitespace([title]);
     const thumbnailText = getThumbnailText(card);
     const channelMetadataText = getChannelMetadataText(card);
     const metadataText = getMetadataText(card, ariaTitle, durationText);
@@ -841,13 +901,158 @@
       key: `${href || title}-${durationSeconds || "unknown"}`,
       channelMetadataText,
       durationText,
+      extractionConfidence: extraction.extractionConfidence,
+      extractionSource: extraction.extractionSource,
       metadataText,
+      rawExtractedTitle: extraction.rawExtractedTitle,
       searchText,
       thumbnailText,
       title,
       titleText,
       transcriptText
     };
+  }
+
+  function scheduleTitleExtractionRetries(card, context) {
+    const fingerprint = context.href || context.key || "";
+    const existing = titleRetryState.get(card);
+    if (existing && existing.fingerprint === fingerprint) {
+      return;
+    }
+
+    if (existing && existing.timers) {
+      existing.timers.forEach((timerId) => window.clearTimeout(timerId));
+    }
+
+    const state = { fingerprint, timers: [] };
+    titleRetryState.set(card, state);
+
+    TITLE_RETRY_DELAYS_MS.forEach((delay) => {
+      const timerId = window.setTimeout(() => {
+        if (!document.documentElement.contains(card)) {
+          return;
+        }
+
+        const previousTitle = card.dataset.personaLabsRawExtractedTitle || "";
+        const latestContext = getCardContext(card);
+        const titleChanged = latestContext.rawExtractedTitle !== previousTitle;
+        const needsMetadataRescore = isLowMetadataContext(latestContext) !== isLowMetadataContext(context);
+
+        if (titleChanged || needsMetadataRescore || !previousTitle) {
+          decorateCard(card, { skipTitleRetries: true });
+        }
+      }, delay);
+      state.timers.push(timerId);
+    });
+  }
+
+  function extractVisibleTitle(card) {
+    const candidates = [];
+    const addCandidate = (value, source, confidence, ariaLabel = "") => {
+      const raw = normalizeWhitespace([value]);
+      if (!raw || isLikelyNonTitleText(raw)) {
+        return;
+      }
+
+      candidates.push({
+        ariaLabel,
+        confidence,
+        raw,
+        source,
+        title: cleanTitleCandidate(raw, source)
+      });
+    };
+
+    card.querySelectorAll("#video-title, a#video-title").forEach((node) => {
+      addCandidate(node.textContent, "#video-title text", 0.96);
+      addCandidate(node.getAttribute("title"), "#video-title title attribute", 0.94);
+      addCandidate(node.getAttribute("aria-label"), "#video-title aria-label", 0.82, node.getAttribute("aria-label") || "");
+    });
+
+    card.querySelectorAll("a[title]").forEach((node) => {
+      addCandidate(node.getAttribute("title"), "anchor title attribute", 0.9);
+    });
+
+    card.querySelectorAll("a[aria-label], [aria-label]").forEach((node) => {
+      const isTitleNode =
+        node.matches("#video-title, a#video-title, h3, ytd-rich-grid-media, ytd-video-renderer") ||
+        Boolean(node.closest("h3")) ||
+        String(node.getAttribute("href") || "").includes("/watch") ||
+        String(node.getAttribute("href") || "").includes("/shorts/");
+      addCandidate(node.getAttribute("aria-label"), isTitleNode ? "aria-label" : "nearby aria-label", isTitleNode ? 0.76 : 0.54, node.getAttribute("aria-label") || "");
+    });
+
+    card.querySelectorAll("#video-title yt-formatted-string, yt-formatted-string#video-title, h3 yt-formatted-string, yt-formatted-string").forEach((node) => {
+      const inTitleContainer = Boolean(node.closest("#video-title, h3"));
+      addCandidate(node.textContent, inTitleContainer ? "yt-formatted-string title text" : "yt-formatted-string text", inTitleContainer ? 0.9 : 0.62);
+      addCandidate(node.getAttribute("title"), "yt-formatted-string title attribute", inTitleContainer ? 0.88 : 0.6);
+      addCandidate(node.getAttribute("aria-label"), "yt-formatted-string aria-label", inTitleContainer ? 0.78 : 0.56, node.getAttribute("aria-label") || "");
+    });
+
+    const best = candidates
+      .filter((candidate) => candidate.title && !isLikelyNonTitleText(candidate.title))
+      .sort((left, right) => right.confidence - left.confidence || right.title.length - left.title.length)[0];
+
+    if (!best) {
+      return {
+        ariaLabel: "",
+        extractionConfidence: 0,
+        extractionSource: "none",
+        rawExtractedTitle: "",
+        title: ""
+      };
+    }
+
+    return {
+      ariaLabel: best.ariaLabel,
+      extractionConfidence: best.confidence,
+      extractionSource: best.source,
+      rawExtractedTitle: best.raw,
+      title: best.title
+    };
+  }
+
+  function cleanTitleCandidate(value, source) {
+    let title = normalizeWhitespace([value])
+      .replace(/^Thumbnail for\s+/i, "")
+      .replace(/\s+-\s+YouTube$/i, "");
+
+    if (/aria-label/i.test(source)) {
+      title = title
+        .replace(/\s+\d+(?:,\d{3})*(?:\.\d+)?[KMB]?\s+views?.*$/i, "")
+        .replace(/\s+(?:\d+\s+)?(?:second|minute|hour|day|week|month|year)s?\s+ago.*$/i, "")
+        .replace(/\s+(?:Streamed|Premiered)\s+.*$/i, "");
+
+      const byMetadataMatch = title.match(/^(.+)\s+by\s+.+$/i);
+      if (byMetadataMatch && byMetadataMatch[1].length >= 6) {
+        title = byMetadataMatch[1];
+      }
+    }
+
+    return title.trim();
+  }
+
+  function isLikelyNonTitleText(value) {
+    const text = normalizeWhitespace([value]);
+    if (!text || text.length < 3) {
+      return true;
+    }
+
+    return [
+      /^\d+(?::\d{2})+$/,
+      /^\d+(?:,\d{3})*\s+views?$/i,
+      /^(?:live|new|cc|hd|4k)$/i,
+      /^(?:home|videos|shorts|play all|view full playlist)$/i,
+      /^(?:subscribed|subscribe|settings|more actions)$/i,
+      /^(?:\d+\s+)?(?:second|minute|hour|day|week|month|year)s?\s+ago$/i
+    ].some((pattern) => pattern.test(text));
+  }
+
+  function getCardHref(card, titleLink) {
+    const hrefNode =
+      (titleLink && titleLink.getAttribute("href") ? titleLink : null) ||
+      card.querySelector("a#video-title, a[href*='/watch'], a[href*='/shorts/']");
+    return (hrefNode && hrefNode.getAttribute("href")) || "";
   }
 
   function getThumbnailText(card) {
@@ -1015,8 +1220,14 @@
 
     result.metrics.personaProfile = personaProfileForMode(mode);
     result.metrics.personaWeights = PERSONA_DIMENSION_WEIGHTS[result.metrics.personaProfile];
+    result.metrics.rawExtractedTitle = context.rawExtractedTitle || "";
+    result.metrics.extractionSource = context.extractionSource || "none";
+    result.metrics.extractionConfidence = Number(context.extractionConfidence) || 0;
+    result.metrics.matchedTitleSignals = buildMatchedTitleSignalSummary(context);
+    result.metrics.confidenceGatingReason = "";
     result.dimensions = calculateDimensions(result.score, result.positiveSignals, result.negativeSignals, result.metrics);
     result.classification = classifyDimensions(result.dimensions);
+    applyConfidenceGating(context, mode, result);
     result.calmExplanation = calmExplanationFor(result.classification, result.explanationContext);
     result.metrics.sourceSignals = buildSourceSignalSummary(context);
     result.metrics.signalProvenance = buildSignalProvenance(context);
@@ -1228,6 +1439,8 @@
     const positives = [];
     const negatives = [];
     const volatility = calculateEmotionalVolatility(context);
+    const titleSupport = findMatches(context.titleText, HEURISTIC_SIGNAL_DICTIONARIES.chillStrongPositiveTitleSignals);
+    const titleFriction = findMatches(context.titleText, HEURISTIC_SIGNAL_DICTIONARIES.chillStrongNegativeTitleFriction);
     const chill = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.calmLowConflict);
     const conflict = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.conflict);
     const outrage = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.outrageRageBait);
@@ -1242,17 +1455,19 @@
       negatives.push(`emotional volatility estimate: ${volatility.score}/100`);
     }
 
+    score += addSignal(positives, titleSupport, "title chill signals", 12, 24);
+    score -= addSignal(negatives, titleFriction, "title friction signals", 18, 54);
     score += addSignal(positives, chill, "calming or light content", 8, 18);
 
-    if (chill.length && !elevatedVolatility) {
+    if ((chill.length || titleSupport.length) && !elevatedVolatility && !titleFriction.length) {
       continuityBonus = 8;
       score += continuityBonus;
       positives.push("low-conflict topic continuity");
-    } else if (chill.length && elevatedVolatility) {
-      negatives.push("calming terms are outweighed by emotional volatility");
+    } else if ((chill.length || titleSupport.length) && (elevatedVolatility || titleFriction.length)) {
+      negatives.push("calming terms are outweighed by emotional volatility or title friction");
     }
 
-    if (!conflict.length && !outrage.length && !hasEmotionalVolatility(context)) {
+    if (!conflict.length && !outrage.length && !titleFriction.length && !hasEmotionalVolatility(context)) {
       score += 8;
       positives.push("low-conflict tone");
     }
@@ -1398,6 +1613,37 @@
     };
   }
 
+  function buildMatchedTitleSignalSummary(context) {
+    return summarizeTextSignals(context.titleText || context.rawExtractedTitle || "");
+  }
+
+  function isLowMetadataContext(context) {
+    return !normalizeWhitespace([context.rawExtractedTitle || context.titleText]) &&
+      !normalizeWhitespace([context.thumbnailText]) &&
+      !normalizeWhitespace([context.transcriptText]);
+  }
+
+  function applyConfidenceGating(context, mode, result) {
+    if (mode !== "chill" || !isLowMetadataContext(context)) {
+      return;
+    }
+
+    result.metrics.confidenceGatingReason = LOW_METADATA_GATING_REASON;
+    result.confidence = "low";
+    result.score = Math.min(result.score, 54);
+    result.dimensions.intentAlignment = Math.min(result.dimensions.intentAlignment, 54);
+    result.dimensions.intentionalAlignment = result.dimensions.intentAlignment;
+
+    if (result.classification === "aligned") {
+      result.classification = result.negativeSignals.length ? "mixed" : "neutral";
+    }
+
+    if (!result.negativeSignals.includes(LOW_METADATA_GATING_REASON)) {
+      result.negativeSignals.unshift(LOW_METADATA_GATING_REASON);
+    }
+    result.metrics.strongestNegativeContributor = LOW_METADATA_GATING_REASON;
+  }
+
   function buildDebugPayload(context, mode, result) {
     return {
       activeMode: mode,
@@ -1414,10 +1660,18 @@
         channelMetadata: context.channelMetadataText || "",
         duration: context.durationText || "",
         metadata: context.metadataText || "",
+        rawExtractedTitle: context.rawExtractedTitle || "",
         thumbnailOCR: context.thumbnailText || "",
         title: context.titleText || "",
         transcript: "unavailable"
       },
+      titleExtraction: {
+        confidence: result.metrics.extractionConfidence,
+        matchedTitleSignals: result.metrics.matchedTitleSignals,
+        rawExtractedTitle: result.metrics.rawExtractedTitle,
+        source: result.metrics.extractionSource
+      },
+      confidenceGatingReason: result.metrics.confidenceGatingReason || "",
       strongestContributors: {
         friction: result.metrics.strongestNegativeContributor,
         supporting: result.metrics.strongestPositiveContributor
@@ -1472,6 +1726,8 @@
       { key: "researchComplexity", label: "geopolitical/current-events discussion" },
       { key: "currentEvents", label: "current-events metadata" },
       { key: "calmLowConflict", label: "calm/low-conflict" },
+      { key: "chillStrongPositiveTitleSignals", label: "chill title support" },
+      { key: "chillStrongNegativeTitleFriction", label: "chill title friction" },
       { key: "clickbaitUrgency", label: "clickbait/urgency" },
       { key: "outrageRageBait", label: "outrage/rage-bait" },
       { key: "outrageEscalation", label: "outrage escalation" },
@@ -1885,6 +2141,10 @@
   }
 
   function summarizeSignals(result) {
+    if (result.metrics.confidenceGatingReason) {
+      return result.metrics.confidenceGatingReason;
+    }
+
     const positive = result.positiveSignals[0] ? `+ ${result.positiveSignals[0]}` : "";
     const negative = result.negativeSignals[0] ? `- ${result.negativeSignals[0]}` : "";
     return [positive, negative].filter(Boolean).join(" | ") || result.calmExplanation;
@@ -1939,6 +2199,13 @@
       `Long-form Analysis Signal: +${result.metrics.durationBonus}`,
       `Primary supporting signal: ${result.metrics.strongestPositiveContributor}`,
       `Primary friction signal: ${result.metrics.strongestNegativeContributor}`,
+      "Title Extraction:",
+      `rawExtractedTitle: ${result.metrics.rawExtractedTitle || "none"}`,
+      `extraction source: ${result.metrics.extractionSource || "none"}`,
+      `extraction confidence: ${formatExtractionConfidence(result.metrics.extractionConfidence)}`,
+      "Matched title signals:",
+      formatSourceSignals(result.metrics.matchedTitleSignals, "no title dictionary signals"),
+      `Confidence gating reason: ${result.metrics.confidenceGatingReason || "none"}`,
       "Evidence Signals:",
       "Title signals:",
       formatSourceSignals(result.metrics.sourceSignals.title, "no title dictionary signals"),
@@ -1987,6 +2254,11 @@
 
   function formatSourceSignals(signals, fallback) {
     return signals && signals.length ? signals.map((signal) => `- ${signal}`).join("\n") : fallback;
+  }
+
+  function formatExtractionConfidence(confidence) {
+    const value = Number(confidence) || 0;
+    return `${Math.round(value * 100)}%`;
   }
 
   function formatSignalProvenance(provenance) {
@@ -2298,6 +2570,9 @@
 
       card.removeAttribute("data-persona-labs-score");
       card.removeAttribute("data-persona-labs-alignment");
+      card.removeAttribute("data-persona-labs-raw-extracted-title");
+      card.removeAttribute("data-persona-labs-extraction-source");
+      card.removeAttribute("data-persona-labs-extraction-confidence");
       card.style.removeProperty("--persona-labs-border-color");
       card.style.removeProperty("--persona-labs-border-glow");
       removeBadge(card);
