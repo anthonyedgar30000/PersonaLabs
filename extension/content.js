@@ -96,6 +96,14 @@
    * and high-evidence conflict/current-events content can remain appropriate
    * for Research mode. These axes are heuristic media-environment indicators,
    * not truth verification, ideology classification, or clinical profiling.
+   *
+   * Layer separation:
+   * Topic Layer signals identify subject matter; Framing Layer signals
+   * identify presentation style; Cognitive Environment Layer signals estimate
+   * load/fragmentation; Evidence Layer signals estimate grounding; and
+   * Intentional Alignment Layer signals compare the card to the selected mode.
+   * Topic labels must not be treated as framing, evidence, or alignment by
+   * themselves.
    */
   const HEURISTIC_SIGNAL_DICTIONARIES = {
     educationalStudyPositive: [
@@ -1209,6 +1217,8 @@
       { key: "tutorial", label: "tutorial/walkthrough" },
       { key: "technicalCyberAi", label: "technical/cyber/AI" },
       { key: "evidenceGrounding", label: "evidence/grounding" },
+      { key: "researchComplexity", label: "geopolitical/current-events discussion" },
+      { key: "currentEvents", label: "current-events metadata" },
       { key: "calmLowConflict", label: "calm/low-conflict" },
       { key: "clickbaitUrgency", label: "clickbait/urgency" },
       { key: "outrageRageBait", label: "outrage/rage-bait" },
@@ -1509,7 +1519,25 @@
 
   function findMatches(text, terms) {
     const lowerText = String(text || "").toLowerCase();
-    return terms.filter((term) => lowerText.includes(term));
+    return terms.filter((term) => termMatches(lowerText, term));
+  }
+
+  function termMatches(lowerText, term) {
+    const normalizedTerm = String(term || "").toLowerCase();
+    if (!normalizedTerm) {
+      return false;
+    }
+
+    const escapedTerm = escapeRegExp(normalizedTerm);
+    const startsWithWord = /^[a-z0-9]/.test(normalizedTerm);
+    const endsWithWord = /[a-z0-9]$/.test(normalizedTerm);
+    const prefix = startsWithWord ? "(^|[^a-z0-9])" : "";
+    const suffix = endsWithWord ? "([^a-z0-9]|$)" : "";
+    return new RegExp(`${prefix}${escapedTerm}${suffix}`, "i").test(lowerText);
+  }
+
+  function escapeRegExp(value) {
+    return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 
   function formatMatches(matches) {
@@ -1617,7 +1645,7 @@
     return [
       `${modeLabel} ${result.score} - ${result.classification}`,
       "Media Observability Panel",
-      `Intentionality Alignment: ${result.classification}`,
+      `Intentionality Alignment: ${result.classification} (${result.dimensions.intentionalAlignment}/100)`,
       `Final Alignment Score: ${result.score}`,
       result.metrics.selectedStudyPersona ? `Selected study persona: ${result.metrics.selectedStudyPersona}` : "",
       result.metrics.matchedTopicKeywords.length

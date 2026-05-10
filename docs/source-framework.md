@@ -245,7 +245,7 @@ Every score should expose:
 
 - score
 - mode
-- classification: aligned, neutral, or misaligned
+- classification: aligned, neutral, mixed, or misaligned
 - alignment signals
 - evidence signals
 - media environment signals
@@ -265,6 +265,8 @@ Every score should expose:
 - strongest positive and negative contributors
 - confidence level
 - short calm explanation
+
+Topic classification is not the same as framing analysis, cognitive environment analysis, evidence assessment, or intentional alignment. A video may discuss serious geopolitical, conflict, or military topics while still being analytically framed, lower volatility, long-form, educational, and appropriate for Research mode.
 
 ## Media observability framing
 
