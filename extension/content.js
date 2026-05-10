@@ -1322,6 +1322,7 @@
     return buildResult(score, positives, negatives, "Research Mode allows complexity and opposing views, while flagging rage framing.", {
       continuityBonus,
       durationBonus,
+      evidenceSignalCount: uniqueMatches(evidence.concat(viewpoints, currentEvents)).length,
       emotionalVolatilityScore: volatility.score,
       signalLayers,
       thumbnailVolatilitySignalCount: volatility.thumbnailSignalCount,
@@ -1901,6 +1902,7 @@
       cognitiveLoadScore: signalLayers.cognitiveLoad.score,
       durationBonus: Number(metrics.durationBonus) || 0,
       educationalFormatSignals: metrics.educationalFormatSignals || [],
+      evidenceSignalCount: Number(metrics.evidenceSignalCount) || 0,
       emotionalToneScore: signalLayers.emotionalTone.score,
       emotionalVolatilityScore: Number(metrics.emotionalVolatilityScore) || 0,
       matchedTopicKeywords: metrics.matchedTopicKeywords || [],
@@ -1959,9 +1961,12 @@
   }
 
   function calculateDimensions(score, positiveSignals, negativeSignals, metrics) {
-    const evidenceSignals = positiveSignals.filter((signal) =>
-      /evidence|source|report|analysis|analytical|opposing|critique|viewpoint|interview|data|technical/i.test(signal)
-    ).length;
+    const evidenceSignals = Math.max(
+      Number(metrics.evidenceSignalCount) || 0,
+      positiveSignals.filter((signal) =>
+        /evidence|source|report|analysis|analytical|opposing|critique|viewpoint|interview|data|technical/i.test(signal)
+      ).length
+    );
     const lowEvidenceSignals = negativeSignals.filter((signal) =>
       /low evidence|speculation|without grounding/i.test(signal)
     ).length;
@@ -2036,6 +2041,10 @@
 
     if (dimensions.intentAlignment >= 70 && strongNegativeCount === 0) {
       return "aligned";
+    }
+
+    if (dimensions.emotionalVolatility >= 75 && dimensions.intentAlignment < 60 && !hasResearchLikeValue) {
+      return "misaligned";
     }
 
     if (dimensions.subjectMatterImpact >= 75 && dimensions.intentAlignment < 55 && !hasResearchLikeValue) {
