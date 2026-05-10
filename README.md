@@ -28,6 +28,17 @@ The system helps users notice when digital media consumption patterns drift away
 - Explainable scoring summaries
 - Adaptive schedule renegotiation prompts
 
+## Chrome Extension MVP
+
+The current demo lives in [`extension/`](extension/). It is a local-only Chrome extension that detects YouTube video cards and applies color-coded borders from mock scoring data. The popup supports Study, Chill, Research, and Bare Metal modes.
+
+To try it:
+
+1. Open `chrome://extensions` in Chrome.
+2. Enable **Developer mode**.
+3. Click **Load unpacked** and choose the `extension` directory.
+4. Visit YouTube and switch modes from the Persona Labs popup.
+
 ## Example Prompt
 
 "Looks like your activity drifted away from Study Mode.

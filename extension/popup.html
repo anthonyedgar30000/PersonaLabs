@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Persona Labs</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main class="popup">
+      <header class="popup-header">
+        <p class="eyebrow">Persona Labs</p>
+        <h1>YouTube Overlay</h1>
+        <p class="description">Choose an intent mode. Video cards get local mock alignment scores.</p>
+      </header>
+
+      <section class="mode-list" aria-label="Persona mode">
+        <button class="mode-card" type="button" data-mode="study">
+          <span class="mode-title">Study</span>
+          <span class="mode-copy">Prioritize tutorials, lectures, and learning content.</span>
+        </button>
+        <button class="mode-card" type="button" data-mode="chill">
+          <span class="mode-title">Chill</span>
+          <span class="mode-copy">Relaxed browsing with entertainment-friendly signals.</span>
+        </button>
+        <button class="mode-card" type="button" data-mode="research">
+          <span class="mode-title">Research</span>
+          <span class="mode-copy">Favor analysis, interviews, documentaries, and reviews.</span>
+        </button>
+        <button class="mode-card" type="button" data-mode="bareMetal">
+          <span class="mode-title">Bare Metal</span>
+          <span class="mode-copy">Hide Persona styling and browse without overlays.</span>
+        </button>
+      </section>
+
+      <footer class="legend">
+        <span><i class="dot green"></i>High fit</span>
+        <span><i class="dot amber"></i>Mixed fit</span>
+        <span><i class="dot red"></i>Low fit</span>
+      </footer>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>
