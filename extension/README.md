@@ -71,7 +71,7 @@ Flags rage framing, low evidence density for complex/current topics, Shorts form
 
 Rewards calming, low-conflict content such as music, nature, cozy/light entertainment, travel, and casual recovery browsing.
 
-Flags outrage-heavy politics, conflict-heavy framing, and high-emotion titles.
+Flags outrage-heavy framing, conflict-heavy titles, panic/fear language, humiliation framing, and high-emotion wording. Political or current-events content is not treated as inherently bad, but high emotional volatility can outweigh long-form duration in Chill Mode.
 
 ### Project
 
@@ -93,6 +93,10 @@ Scoring is deterministic and heuristic-based. Each card receives:
 - top positive signals
 - top negative signals
 - confidence level
+- `EMOTIONAL_VOLATILITY_SCORE`
+- long-form duration bonus
+- topic continuity bonus
+- strongest positive and negative contributors
 - short buddy-tone explanation
 
 Example tooltip shape:
@@ -100,6 +104,11 @@ Example tooltip shape:
 ```text
 Study 84 - aligned
 Confidence: high
+EMOTIONAL_VOLATILITY_SCORE: 0/100
+Long-form bonus: +14
+Continuity bonus: +8
+Strongest positive contributor: long-form duration: 20+ minutes
+Strongest negative contributor: no strong negative signals
 Top positive signals:
 + long-form duration: 20+ minutes
 + technical terminology: python, api
@@ -111,6 +120,8 @@ Looks aligned with this mode. Study Mode is tuned for calm, long-form learning a
 The model is intentionally transparent and limited. It does not diagnose, infer mental health state, or claim whether content is true.
 
 The lexical dictionaries are heuristic signal categories, not clinical or truth judgments. See [`../docs/source-framework.md`](../docs/source-framework.md) for the source concepts, dictionary categories, explanation requirements, and governance boundaries.
+
+Long-form does not necessarily mean low-conflict. The scoring hierarchy prioritizes emotional volatility and outrage framing first, then topic continuity, content type/Shorts signals, and finally duration bonuses. This keeps extended outrage/commentary videos from being treated as relaxing simply because they are long.
 
 ## Drift detection logic
 
@@ -142,6 +153,8 @@ Prompt actions:
 - Snooze 30 min
 
 The prompt never blocks content. Continue/dismiss briefly quiets the prompt; Snooze quiets it for 30 minutes.
+
+Drift detection is based on trajectory and signal density, not political alignment. Repeated high-volatility signals during Chill Mode increase prompt likelihood even when videos are long-form.
 
 ## Schedule-ready structure
 

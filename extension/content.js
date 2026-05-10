@@ -66,6 +66,8 @@
    * with the user's current mode. Core categories include:
    * educational/study-positive, technical/cyber/AI, evidence/grounding,
    * calm/low-conflict, clickbait/urgency, outrage/rage-bait,
+   * outrage escalation, humiliation framing, tribal conflict language,
+   * panic/fear framing, absolutist/emotional wording, doomscroll triggers,
    * speculation/low-evidence, and short-form/novelty-risk terms.
    * Scores are local-first deterministic alignment estimates. Explanations
    * must show observed signals and uncertainty; Bare Metal and user override
@@ -237,6 +239,7 @@
       "insane",
       "rage",
       "terrifying",
+      "unhinged",
       "unbelievable",
       "worst"
     ],
@@ -248,7 +251,9 @@
       "secret",
       "shocking",
       "urgent",
-      "you won't believe"
+      "watch now",
+      "you need to see",
+      "you \u2019t believe"
     ],
     outrageRageBait: [
       "cancelled",
@@ -263,6 +268,69 @@
       "they lied",
       "truth about",
       "woke mob"
+    ],
+    outrageEscalation: [
+      "annihilates",
+      "crushed",
+      "destroyed",
+      "explodes",
+      "meltdown",
+      "obliterated",
+      "panic mode",
+      "total disaster"
+    ],
+    humiliationFraming: [
+      "embarrassed",
+      "humiliated",
+      "humiliates",
+      "owned",
+      "owns",
+      "shuts down",
+      "smoked"
+    ],
+    tribalConflictLanguage: [
+      "civil war",
+      "culture war",
+      "enemy",
+      "mob",
+      "our side",
+      "their side",
+      "traitor",
+      "us vs them",
+      "war on"
+    ],
+    panicFearFraming: [
+      "catastrophe",
+      "complete shock",
+      "crisis",
+      "disaster",
+      "freakout",
+      "losing their minds",
+      "panic",
+      "panic mode",
+      "terrifying"
+    ],
+    absolutistEmotionalWording: [
+      "always",
+      "complete shock",
+      "everyone",
+      "never",
+      "no one",
+      "totally",
+      "unbelievable",
+      "worst"
+    ],
+    doomscrollTriggerLanguage: [
+      "breaking",
+      "can't stop watching",
+      "doom",
+      "end of",
+      "everything is collapsing",
+      "must watch",
+      "urgent",
+      "watch before it's gone",
+      "you won't believe",
+      "you won\u2019t believe"
     ],
     speculationLowEvidence: [
       "allegedly",
@@ -378,6 +446,8 @@
     base.activeMode = mode;
     base.lastUpdated = now;
     base.alignmentCounts = normalizeAlignmentCounts(base.alignmentCounts);
+    base.emotionalVolatilityScoreTotal = Number(base.emotionalVolatilityScoreTotal) || 0;
+    base.highEmotionalVolatilityItems = Number(base.highEmotionalVolatilityItems) || 0;
     base.byMode = base.byMode || {};
 
     Object.keys(MODES).forEach((modeKey) => {
@@ -397,6 +467,8 @@
       lastUpdated: now,
       activeMode: mode,
       cardsScanned: 0,
+      emotionalVolatilityScoreTotal: 0,
+      highEmotionalVolatilityItems: 0,
       shortsDetected: 0,
       misalignedItemsVisible: 0,
       misalignedItemsScanned: 0,
@@ -412,6 +484,8 @@
   function normalizeModeStats(stats) {
     return {
       cardsScanned: Number(stats && stats.cardsScanned) || 0,
+      emotionalVolatilityScoreTotal: Number(stats && stats.emotionalVolatilityScoreTotal) || 0,
+      highEmotionalVolatilityItems: Number(stats && stats.highEmotionalVolatilityItems) || 0,
       shortsDetected: Number(stats && stats.shortsDetected) || 0,
       misalignedItemsVisible: Number(stats && stats.misalignedItemsVisible) || 0,
       misalignedItemsScanned: Number(stats && stats.misalignedItemsScanned) || 0,
@@ -484,7 +558,7 @@
     card.style.setProperty("--persona-labs-border-color", color.border);
     card.style.setProperty("--persona-labs-border-glow", color.glow);
     renderBadge(card, result, MODES[activeMode].label, color.alignment);
-    recordCardTelemetry(context, color.alignment, isElementVisible(card));
+    recordCardTelemetry(context, result, color.alignment, isElementVisible(card));
   }
 
   function getCardContext(card) {
@@ -573,23 +647,27 @@
     let score = 42;
     const positives = [];
     const negatives = [];
+    const volatility = calculateEmotionalVolatility(context);
     const education = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.educationalStudyPositive);
     const tutorial = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.tutorial);
     const technical = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.technicalCyberAi);
     const entertainment = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.entertainment);
     const novelty = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.shortFormNoveltyRisk);
+    let continuityBonus = 0;
+    const durationBonus = addDurationSignal(context, positives, negatives);
 
     score += addSignal(positives, education, "educational keywords", 7, 22);
     score += addSignal(positives, tutorial, "tutorial/walkthrough indicators", 9, 18);
     score += addSignal(positives, technical, "technical terminology", 6, 24);
-    score += addDurationSignal(context, positives, negatives);
+    score += durationBonus;
 
     if ((education.length || tutorial.length) && technical.length && !context.isShort) {
-      score += 8;
+      continuityBonus = 8;
+      score += continuityBonus;
       positives.push("coherent topic learning pattern");
     }
 
-    score += addLowVolatilitySignal(context, positives, negatives);
+    score += addLowVolatilitySignal(volatility, positives, negatives);
 
     if (context.isShort) {
       score -= 28;
@@ -600,23 +678,42 @@
     score -= addSignal(negatives, entertainment, "unrelated entertainment", 9, 18);
     score -= addManipulationPenalties(context, negatives);
 
-    return buildResult(score, positives, negatives, "Study Mode is tuned for calm, long-form learning and technical depth.");
+    if (volatility.score >= 70) {
+      score -= 18;
+      negatives.push("severe emotional volatility can outweigh study continuity");
+    }
+
+    return buildResult(score, positives, negatives, "Study Mode is tuned for calm, long-form learning and technical depth.", {
+      continuityBonus,
+      durationBonus,
+      emotionalVolatilityScore: volatility.score,
+      volatilitySignals: volatility.signals
+    });
   }
 
   function scoreResearchMode(context) {
     let score = 50;
     const positives = [];
     const negatives = [];
+    const volatility = calculateEmotionalVolatility(context);
     const evidence = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.evidenceGrounding);
     const complexity = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.researchComplexity);
     const viewpoints = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.viewpoints);
     const currentEvents = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.currentEvents);
     const speculation = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.speculationLowEvidence);
+    let continuityBonus = 0;
+    let durationBonus = 0;
 
     score += addSignal(positives, evidence, "evidence or source density", 8, 24);
     score += addSignal(positives, complexity, "high-complexity topic", 6, 18);
     score += addSignal(positives, viewpoints, "opposing viewpoints or critique", 6, 14);
     score += addSignal(positives, currentEvents, "current events context", 4, 10);
+
+    if ((complexity.length || currentEvents.length) && (evidence.length || viewpoints.length)) {
+      continuityBonus = 6;
+      score += continuityBonus;
+      positives.push("topic continuity with grounding signals");
+    }
 
     if ((currentEvents.length || complexity.length) && !evidence.length) {
       score -= 12;
@@ -629,7 +726,8 @@
     }
 
     if (context.durationSeconds >= 600) {
-      score += 6;
+      durationBonus = 6;
+      score += durationBonus;
       positives.push("enough duration for context");
     }
 
@@ -640,22 +738,54 @@
 
     score -= addManipulationPenalties(context, negatives);
 
-    return buildResult(score, positives, negatives, "Research Mode allows complexity and opposing views, while flagging rage framing.");
+    return buildResult(score, positives, negatives, "Research Mode allows complexity and opposing views, while flagging rage framing.", {
+      continuityBonus,
+      durationBonus,
+      emotionalVolatilityScore: volatility.score,
+      volatilitySignals: volatility.signals
+    });
   }
 
   function scoreChillMode(context) {
     let score = 55;
     const positives = [];
     const negatives = [];
+    const volatility = calculateEmotionalVolatility(context);
     const chill = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.calmLowConflict);
     const conflict = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.conflict);
     const outrage = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.outrageRageBait);
+    const volatilityPenalty = Math.min(75, Math.round(volatility.score * 0.72));
+    const severeVolatility = volatility.score >= 60;
+    const elevatedVolatility = volatility.score >= 35;
+    let continuityBonus = 0;
+    let durationBonus = 0;
 
-    score += addSignal(positives, chill, "calming or light content", 8, 24);
+    if (volatilityPenalty > 0) {
+      score -= volatilityPenalty;
+      negatives.push(`emotional volatility estimate: ${volatility.score}/100`);
+    }
+
+    score += addSignal(positives, chill, "calming or light content", 8, 18);
+
+    if (chill.length && !elevatedVolatility) {
+      continuityBonus = 8;
+      score += continuityBonus;
+      positives.push("low-conflict topic continuity");
+    } else if (chill.length && elevatedVolatility) {
+      negatives.push("calming terms are outweighed by emotional volatility");
+    }
 
     if (!conflict.length && !outrage.length && !hasEmotionalVolatility(context)) {
       score += 8;
       positives.push("low-conflict tone");
+    }
+
+    if (context.durationSeconds >= 1200 && !elevatedVolatility) {
+      durationBonus = 4;
+      score += durationBonus;
+      positives.push("long-form duration with low conflict signals");
+    } else if (context.durationSeconds >= 1200 && elevatedVolatility) {
+      negatives.push("long-form duration does not reduce conflict signal");
     }
 
     if (context.isShort) {
@@ -663,29 +793,51 @@
       negatives.push("short-form novelty");
     }
 
-    score -= addSignal(negatives, conflict, "conflict-heavy framing", 9, 20);
-    score -= addSignal(negatives, outrage, "outrage-heavy language", 9, 24);
+    score -= addSignal(negatives, conflict, "conflict-heavy framing", 12, 28);
+    score -= addSignal(negatives, outrage, "outrage-heavy language", 15, 38);
     score -= addSignal(negatives, findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.currentEvents), "news/current events during chill", 5, 10);
-    score -= addEmotionalPenalties(context, negatives);
 
-    return buildResult(score, positives, negatives, "Chill Mode is for recovery, low-conflict browsing, and light entertainment.");
+    if (severeVolatility) {
+      score = Math.min(score, 34);
+      negatives.push("severe emotional volatility overrides duration and continuity bonuses");
+    } else if (elevatedVolatility) {
+      score = Math.min(score, 49);
+      negatives.push("emotional volatility takes priority over long-form duration");
+    }
+
+    return buildResult(score, positives, negatives, "Chill Mode is for recovery, low-conflict browsing, and light entertainment.", {
+      continuityBonus,
+      durationBonus,
+      emotionalVolatilityScore: volatility.score,
+      volatilitySignals: volatility.signals
+    });
   }
 
   function scoreProjectMode(context) {
     let score = 48;
     const positives = [];
     const negatives = [];
+    const volatility = calculateEmotionalVolatility(context);
     const project = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.project);
     const technical = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.technicalCyberAi);
     const tutorial = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.tutorial);
     const entertainment = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.entertainment);
+    let continuityBonus = 0;
+    let durationBonus = 0;
 
     score += addSignal(positives, project, "project execution language", 8, 24);
     score += addSignal(positives, technical, "technical implementation terms", 6, 20);
     score += addSignal(positives, tutorial, "how-to or walkthrough support", 5, 12);
 
+    if ((project.length || tutorial.length) && technical.length) {
+      continuityBonus = 6;
+      score += continuityBonus;
+      positives.push("topic continuity for project execution");
+    }
+
     if (context.durationSeconds >= 300) {
-      score += 6;
+      durationBonus = 6;
+      score += durationBonus;
       positives.push("enough duration to support execution");
     }
 
@@ -697,7 +849,54 @@
     score -= addSignal(negatives, entertainment, "unrelated entertainment", 10, 22);
     score -= addManipulationPenalties(context, negatives);
 
-    return buildResult(score, positives, negatives, "Project Mode favors practical build, debug, and execution support.");
+    return buildResult(score, positives, negatives, "Project Mode favors practical build, debug, and execution support.", {
+      continuityBonus,
+      durationBonus,
+      emotionalVolatilityScore: volatility.score,
+      volatilitySignals: volatility.signals
+    });
+  }
+
+  function calculateEmotionalVolatility(context) {
+    const categories = [
+      { key: "outrageEscalation", label: "outrage/escalation signals", weight: 20, cap: 34 },
+      { key: "humiliationFraming", label: "humiliation framing", weight: 18, cap: 30 },
+      { key: "tribalConflictLanguage", label: "tribal conflict language", weight: 16, cap: 28 },
+      { key: "panicFearFraming", label: "panic/fear framing", weight: 18, cap: 32 },
+      { key: "absolutistEmotionalWording", label: "absolutist/emotional wording", weight: 12, cap: 24 },
+      { key: "doomscrollTriggerLanguage", label: "doomscroll trigger language", weight: 16, cap: 30 },
+      { key: "outrageRageBait", label: "outrage/rage-bait terms", weight: 16, cap: 30 },
+      { key: "clickbaitUrgency", label: "clickbait/urgency terms", weight: 12, cap: 24 },
+      { key: "emotional", label: "emotional wording", weight: 8, cap: 18 },
+      { key: "conflict", label: "conflict language", weight: 8, cap: 18 }
+    ];
+    let score = 0;
+    const signals = [];
+
+    categories.forEach((category) => {
+      const matches = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES[category.key]);
+      if (!matches.length) {
+        return;
+      }
+
+      score += Math.min(category.cap, matches.length * category.weight);
+      signals.push(`${category.label}: ${formatMatches(matches)}`);
+    });
+
+    if (hasAllCapsSignal(context.title)) {
+      score += 8;
+      signals.push("all-caps emphasis");
+    }
+
+    if (/!!|\?\?/.test(context.title)) {
+      score += 6;
+      signals.push("exaggerated punctuation");
+    }
+
+    return {
+      score: Math.min(100, score),
+      signals
+    };
   }
 
   function addSignal(target, matches, label, pointsPerMatch, cap) {
@@ -734,13 +933,13 @@
     return 0;
   }
 
-  function addLowVolatilitySignal(context, positives, negatives) {
-    if (!hasEmotionalVolatility(context)) {
+  function addLowVolatilitySignal(volatility, positives, negatives) {
+    if (volatility.score === 0) {
       positives.push("low emotional language");
       return 8;
     }
 
-    negatives.push("emotional volatility present");
+    negatives.push(`emotional volatility estimate: ${volatility.score}/100`);
     return 0;
   }
 
@@ -768,25 +967,28 @@
   }
 
   function hasEmotionalVolatility(context) {
-    return (
-      findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.emotional).length > 0 ||
-      findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.clickbaitUrgency).length > 0 ||
-      findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.outrageRageBait).length > 0 ||
-      hasAllCapsSignal(context.title) ||
-      /!!|\?\?/.test(context.title)
-    );
+    return calculateEmotionalVolatility(context).score > 0;
   }
 
-  function buildResult(rawScore, positiveSignals, negativeSignals, buddyContext) {
+  function buildResult(rawScore, positiveSignals, negativeSignals, buddyContext, metrics = {}) {
     const score = clampScore(rawScore);
     const classification = classifyScore(score);
     const confidence = confidenceFor(positiveSignals, negativeSignals);
     const buddyExplanation = buddyExplanationFor(classification, buddyContext);
+    const normalizedMetrics = {
+      continuityBonus: Number(metrics.continuityBonus) || 0,
+      durationBonus: Number(metrics.durationBonus) || 0,
+      emotionalVolatilityScore: Number(metrics.emotionalVolatilityScore) || 0,
+      strongestNegativeContributor: negativeSignals[0] || "no strong negative signals",
+      strongestPositiveContributor: positiveSignals[0] || "no strong positive signals",
+      volatilitySignals: metrics.volatilitySignals || []
+    };
 
     return {
       buddyExplanation,
       classification,
       confidence,
+      metrics: normalizedMetrics,
       negativeSignals,
       positiveSignals,
       score
@@ -909,10 +1111,20 @@
     const negative = result.negativeSignals.length
       ? result.negativeSignals.map((signal) => `- ${signal}`).join("\n")
       : "- no strong negative signals";
+    const volatilitySignals = result.metrics.volatilitySignals.length
+      ? result.metrics.volatilitySignals.map((signal) => `- ${signal}`).join("\n")
+      : "- no outrage/escalation signals detected";
 
     return [
       `${modeLabel} ${result.score} - ${result.classification}`,
       `Confidence: ${result.confidence}`,
+      `EMOTIONAL_VOLATILITY_SCORE: ${result.metrics.emotionalVolatilityScore}/100`,
+      `Long-form bonus: +${result.metrics.durationBonus}`,
+      `Continuity bonus: +${result.metrics.continuityBonus}`,
+      `Strongest positive contributor: ${result.metrics.strongestPositiveContributor}`,
+      `Strongest negative contributor: ${result.metrics.strongestNegativeContributor}`,
+      "Outrage/escalation signals detected:",
+      volatilitySignals,
       "Top positive signals:",
       positive,
       "Top negative signals:",
@@ -921,7 +1133,7 @@
     ].join("\n");
   }
 
-  function recordCardTelemetry(context, alignment, isVisible) {
+  function recordCardTelemetry(context, result, alignment, isVisible) {
     if (!sessionState || activeMode === "bareMetal" || seenCardKeys.has(context.key)) {
       return;
     }
@@ -933,6 +1145,13 @@
     modeStats.cardsScanned += 1;
     sessionState.alignmentCounts[alignment] += 1;
     modeStats.alignmentCounts[alignment] += 1;
+    sessionState.emotionalVolatilityScoreTotal += result.metrics.emotionalVolatilityScore;
+    modeStats.emotionalVolatilityScoreTotal += result.metrics.emotionalVolatilityScore;
+
+    if (result.metrics.emotionalVolatilityScore >= 60) {
+      sessionState.highEmotionalVolatilityItems += 1;
+      modeStats.highEmotionalVolatilityItems += 1;
+    }
 
     if (context.isShort) {
       sessionState.shortsDetected += 1;
@@ -1010,8 +1229,10 @@
 
     const misaligned = modeStats.alignmentCounts.misaligned;
     const misalignedRatio = misaligned / Math.max(total, 1);
+    const highVolatilityRatio = modeStats.highEmotionalVolatilityItems / Math.max(total, 1);
     const shouldPrompt =
       (misaligned >= 3 && misalignedRatio >= 0.35) ||
+      (activeMode === "chill" && modeStats.highEmotionalVolatilityItems >= 2 && highVolatilityRatio >= 0.25) ||
       (activeMode === "study" && modeStats.shortsDetected >= 3) ||
       (activeMode === "project" && modeStats.shortsDetected >= 3) ||
       sessionState.rapidSwitchEstimate >= 2;
@@ -1020,10 +1241,14 @@
       return;
     }
 
-    showDriftPrompt(driftReason(modeStats, misalignedRatio));
+    showDriftPrompt(driftReason(modeStats, misalignedRatio, highVolatilityRatio));
   }
 
-  function driftReason(modeStats, misalignedRatio) {
+  function driftReason(modeStats, misalignedRatio, highVolatilityRatio) {
+    if (activeMode === "chill" && modeStats.highEmotionalVolatilityItems >= 2 && highVolatilityRatio >= 0.25) {
+      return "Repeated high-volatility signals are showing up during Chill Mode.";
+    }
+
     if (activeMode === "study" && modeStats.shortsDetected >= 3) {
       return "A few Shorts showed up during a focus-oriented mode.";
     }

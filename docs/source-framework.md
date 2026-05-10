@@ -120,13 +120,50 @@ Dictionary matches are local heuristic indicators. They are signals used to esti
    - Examples: exposed, destroyed, meltdown, slammed, they lied, humiliates, culture war.
    - Intended signal: content may be high-conflict or emotionally activating.
 
-7. **Speculation / low-evidence terms**
+7. **Outrage escalation terms**
+   - Examples: destroyed, annihilates, obliterated, crushed, panic mode, total disaster.
+   - Intended signal: content may use escalating emotional conflict framing.
+
+8. **Humiliation framing terms**
+   - Examples: humiliated, humiliates, owned, shuts down, smoked, embarrassed.
+   - Intended signal: content may be framed around interpersonal or tribal dominance.
+
+9. **Tribal conflict language**
+   - Examples: culture war, us vs them, enemy, traitor, mob, war on.
+   - Intended signal: content may invite group conflict rather than low-conflict reflection.
+
+10. **Panic/fear framing**
+    - Examples: panic, freakout, disaster, catastrophe, crisis, losing their minds, complete shock.
+    - Intended signal: content may be emotionally activating or fear-forward.
+
+11. **Absolutist/emotional wording**
+    - Examples: always, never, everyone, no one, totally, unbelievable, worst.
+    - Intended signal: content may use strong certainty or emotional amplification.
+
+12. **Doomscroll trigger language**
+    - Examples: urgent, breaking, must watch, can't stop watching, everything is collapsing.
+    - Intended signal: content may invite compulsive checking or escalating novelty.
+
+13. **Speculation / low-evidence terms**
    - Examples: rumor, allegedly, theory, what if, could be, maybe, anonymous source.
    - Intended signal: content may need lower Research confidence unless grounded by evidence terms.
 
-8. **Short-form / novelty-risk terms**
+14. **Short-form / novelty-risk terms**
    - Examples: Shorts, TikTok, viral, compilation, top 10, random.
    - Intended signal: content may be rapid novelty or low-context browsing, especially in Study or Project modes.
+
+## Scoring hierarchy
+
+The deterministic hierarchy should generally prioritize:
+
+1. emotional volatility / outrage framing
+2. topic continuity
+3. content type and Shorts/novelty risk
+4. duration bonuses
+
+Long-form does not necessarily mean low-conflict. A long video with dense outrage, humiliation, panic, or doomscroll trigger language should score lower in Chill Mode than a shorter low-conflict video. Emotional volatility can outweigh duration when signals are severe.
+
+Drift detection is based on trajectory and signal density, not political alignment. PersonaLabs should not classify an ideology, party, topic, or current-events category as inherently good or bad. It should only flag observed lexical and behavioral signals relative to the user's selected mode.
 
 ## Score interpretation
 
@@ -153,6 +190,10 @@ Every score should expose:
 - classification: aligned, neutral, or misaligned
 - top positive observed signals
 - top negative observed signals
+- emotional volatility estimate
+- long-form duration bonus
+- topic continuity bonus
+- strongest positive and negative contributors
 - confidence level
 - short buddy-tone explanation
 

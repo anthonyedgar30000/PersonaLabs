@@ -44,6 +44,8 @@ The extension stores mode, aggregate session telemetry, and schedule-ready confi
 
 The deterministic scoring architecture is documented in [`docs/source-framework.md`](docs/source-framework.md), including source concepts, heuristic dictionary categories, explanation requirements, and clinical/truth-judgment boundaries.
 
+Recent scoring refinements prioritize emotional volatility and outrage framing over long-form duration, so extended commentary is not treated as low-conflict simply because it is long. Drift prompts are based on signal density and trajectory relative to the selected mode, not political alignment.
+
 ## Example Prompt
 
 "Looks like your activity drifted away from Study Mode.
