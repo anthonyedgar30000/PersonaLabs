@@ -6,6 +6,7 @@
   const PERSONA_PREFS_STORAGE_KEY = "personaLabsPersonaPreferences";
   const DEFAULT_MODE = "studyGeneral";
   const SCAN_INTERVAL_MS = 1500;
+  const DELAYED_RESCAN_MS = 900;
   const DRIFT_SNOOZE_MS = 30 * 60 * 1000;
   const CONTINUE_SNOOZE_MS = 10 * 60 * 1000;
   const CARD_SELECTOR = [
@@ -989,6 +990,7 @@
     }
 
     const context = getCardContext(card);
+    scheduleDelayedRescanIfNeeded(card, context);
     const result = scoreCard(context, activeMode);
     const color = colorForResult(result);
 
@@ -1003,11 +1005,10 @@
   }
 
   function getCardContext(card) {
-    const titleLink = card.querySelector("#video-title");
-    const textTitle = titleLink && titleLink.textContent;
-    const ariaTitle = titleLink && titleLink.getAttribute("aria-label");
-    const href = titleLink && titleLink.getAttribute("href");
-    const title = String(textTitle || ariaTitle || "").trim();
+    const titleExtraction = getTitleExtraction(card);
+    const ariaTitle = titleExtraction.ariaTitle;
+    const href = titleExtraction.href;
+    const title = titleExtraction.title;
     const durationText = getDurationText(card);
     const durationSeconds = parseDuration(durationText) || parseDuration(ariaTitle || "");
     const titleText = normalizeWhitespace([title, ariaTitle]);
@@ -1028,13 +1029,175 @@
       key: `${href || title}-${durationSeconds || "unknown"}`,
       channelMetadataText,
       durationText,
+      extractionDebug: titleExtraction.debug,
       metadataText,
+      rawExtractedChannelName: channelMetadataText,
+      rawExtractedDuration: durationText,
+      rawExtractedMetadataText: metadataText,
+      rawExtractedThumbnailText: thumbnailText,
+      rawExtractedTitle: title,
       searchText,
       thumbnailText,
       title,
       titleText,
       transcriptText
     };
+  }
+
+  function getTitleExtraction(card) {
+    const selectors = [
+      "#video-title",
+      "a#video-title",
+      "yt-formatted-string#video-title",
+      "h3 a[href*='/watch']",
+      "a[href*='/watch']",
+      "a[href*='/shorts/']",
+      "h3 a",
+      "h3",
+      "h4",
+      ".yt-lockup-metadata-view-model-wiz__title",
+      "a.yt-lockup-metadata-view-model-wiz__title",
+      "[aria-label][href*='/watch']",
+      "[title][href*='/watch']"
+    ];
+    const candidates = [];
+
+    selectors.forEach((selector) => {
+      const nodes = typeof card.querySelectorAll === "function" ? Array.from(card.querySelectorAll(selector)) : [];
+      nodes.forEach((node) => {
+        candidates.push(titleCandidateFromNode(node, selector));
+      });
+    });
+
+    if (typeof card.querySelectorAll === "function") {
+      Array.from(card.querySelectorAll("a")).forEach((node) => {
+        const href = node.getAttribute && node.getAttribute("href");
+        if (String(href || "").includes("/watch") || String(href || "").includes("/shorts/")) {
+          candidates.push(titleCandidateFromNode(node, "anchor href fallback"));
+        }
+      });
+    }
+
+    candidates.push({
+      ariaTitle: card.getAttribute && card.getAttribute("aria-label"),
+      href: "",
+      source: "card aria-label fallback",
+      text: ""
+    });
+    candidates.push({
+      ariaTitle: "",
+      href: "",
+      source: "card container text fallback",
+      text: extractTitleFromContainerText(card)
+    });
+
+    const normalizedCandidates = candidates
+      .map((candidate) => ({
+        ariaTitle: normalizeWhitespace([candidate.ariaTitle]),
+        href: candidate.href || "",
+        source: candidate.source,
+        text: cleanTitleText(candidate.text)
+      }))
+      .filter((candidate) => candidate.text || candidate.ariaTitle);
+    const best = normalizedCandidates.sort((a, b) => titleCandidateScore(b) - titleCandidateScore(a))[0] || {
+      ariaTitle: "",
+      href: "",
+      source: "none",
+      text: ""
+    };
+
+    return {
+      ariaTitle: best.ariaTitle,
+      debug: {
+        candidateCount: normalizedCandidates.length,
+        selectedSource: best.source,
+        weakTitle: isWeakExtractedTitle(best.text),
+        titleCandidates: normalizedCandidates.slice(0, 5).map((candidate) => ({
+          source: candidate.source,
+          text: candidate.text || candidate.ariaTitle
+        }))
+      },
+      href: best.href,
+      title: best.text || cleanTitleText(best.ariaTitle)
+    };
+  }
+
+  function titleCandidateFromNode(node, source) {
+    if (!node) {
+      return { ariaTitle: "", href: "", source, text: "" };
+    }
+
+    return {
+      ariaTitle: node.getAttribute && node.getAttribute("aria-label"),
+      href: (node.getAttribute && node.getAttribute("href")) || "",
+      source,
+      text: normalizeWhitespace([
+        node.getAttribute && node.getAttribute("title"),
+        node.innerText,
+        node.textContent
+      ])
+    };
+  }
+
+  function cleanTitleText(text) {
+    const value = normalizeWhitespace([text])
+      .replace(/\b\d+:\d{2}(?::\d{2})?\b/g, " ")
+      .replace(/\b\d+\s+(views?|hours?|minutes?|seconds?|days?|weeks?|months?|years?)\b/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    const lines = value
+      .split(/\s{2,}|\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    return lines[0] || value;
+  }
+
+  function extractTitleFromContainerText(card) {
+    const text = normalizeWhitespace([card.innerText, card.textContent]);
+    const lines = text
+      .split(/\n|\s{3,}/)
+      .map((line) => cleanTitleText(line))
+      .filter((line) => line && !/^\d+:\d{2}/.test(line));
+    return lines[0] || "";
+  }
+
+  function titleCandidateScore(candidate) {
+    const text = normalizeWhitespace([candidate.text, candidate.ariaTitle]);
+    const tokens = text.match(/[a-z0-9]+/gi) || [];
+    let score = tokens.length * 5;
+    if (candidate.href) {
+      score += 15;
+    }
+    if (/video-title|h3|lockup/i.test(candidate.source)) {
+      score += 12;
+    }
+    if (tokens.length >= 4) {
+      score += 10;
+    }
+    if (/\bviews?\b|\bsubscribers?\b|\bago\b/i.test(text)) {
+      score -= 12;
+    }
+    return score;
+  }
+
+  function isWeakExtractedTitle(title) {
+    const tokens = String(title || "").match(/[a-z0-9]+/gi) || [];
+    return tokens.length < 2;
+  }
+
+  function scheduleDelayedRescanIfNeeded(card, context) {
+    if (!card || card.dataset.personaLabsDelayedRescan === "done") {
+      return;
+    }
+
+    if (!context.rawExtractedTitle || isWeakExtractedTitle(context.rawExtractedTitle)) {
+      card.dataset.personaLabsDelayedRescan = "done";
+      window.setTimeout(() => {
+        if (document.documentElement.contains(card)) {
+          decorateCard(card);
+        }
+      }, DELAYED_RESCAN_MS);
+    }
   }
 
   function getThumbnailText(card) {
@@ -1187,6 +1350,7 @@
     let result;
     const signalLayers = analyzeSignalLayers(context);
     const signalRichness = calculateSignalRichness(context, signalLayers);
+    const debugObservability = buildDebugObservability(context, signalLayers);
 
     if (isStudyMode(mode)) {
       result = scoreStudyMode(context, mode, signalLayers);
@@ -1211,10 +1375,12 @@
     result.metrics.sourceSignals = buildSourceSignalSummary(context);
     result.metrics.signalProvenance = buildSignalProvenance(context);
     result.metrics.signalRichness = signalRichness;
+    result.metrics.debugObservability = debugObservability;
     result.metrics.thumbnailTextAvailable = Boolean(context.thumbnailText);
     result.dimensions.signalRichness = signalRichness.score;
     result.confidence = confidenceFor(result.positiveSignals, result.negativeSignals, signalRichness);
     result.calmExplanation = applySignalRichnessCaveat(result.calmExplanation, result.confidence, signalRichness);
+    result.calmExplanation = applyDebugExtractionCaveat(result.calmExplanation, debugObservability);
     result.debug = buildDebugPayload(context, mode, result);
     return result;
   }
@@ -2010,6 +2176,141 @@
     return notes;
   }
 
+  function buildDebugObservability(context, signalLayers) {
+    const rawInputs = {
+      rawExtractedTitle: context.rawExtractedTitle || context.titleText || "",
+      rawExtractedThumbnailText: context.rawExtractedThumbnailText || context.thumbnailText || "",
+      rawExtractedChannelName: context.rawExtractedChannelName || context.channelMetadataText || "",
+      rawExtractedDuration: context.rawExtractedDuration || context.durationText || "",
+      rawExtractedMetadataText: context.rawExtractedMetadataText || context.metadataText || "",
+      transcriptStatus: context.transcriptText ? "available" : "unavailable"
+    };
+    const normalizedInputs = {
+      normalizedTitle: normalizeText([rawInputs.rawExtractedTitle]),
+      normalizedThumbnailText: normalizeText([rawInputs.rawExtractedThumbnailText]),
+      normalizedMetadataText: normalizeText([rawInputs.rawExtractedMetadataText])
+    };
+    const provenance = buildDebugSignalProvenance(context);
+    const matchedTitleSignals = provenance.filter((entry) => entry.source === "title");
+    const matchedThumbnailSignals = provenance.filter((entry) => entry.source === "thumbnail OCR");
+    const matchedMetadataSignals = provenance.filter((entry) => entry.source === "metadata");
+
+    return {
+      rawObservableInputs: rawInputs,
+      normalizedInputs,
+      matchedSignals: {
+        matchedTitleSignals,
+        matchedThumbnailSignals,
+        matchedMetadataSignals,
+        matchedViolenceSignals: provenance.filter((entry) => entry.category === "violence_disturbing"),
+        matchedTribalDominationSignals: provenance.filter((entry) => entry.category === "tribal_domination"),
+        matchedCalmSignals: provenance.filter((entry) => entry.category === "calm_ambient" || entry.category === "smiles_playfulness"),
+        matchedCognitiveLoadSignals: provenance.filter((entry) => entry.category === "cognitive_load" || entry.category === "emotional_tone")
+      },
+      signalProvenance: provenance,
+      extraction: {
+        titleExtractionIncomplete: !rawInputs.rawExtractedTitle || isWeakExtractedTitle(rawInputs.rawExtractedTitle),
+        limitedMetadata:
+          !context.transcriptText &&
+          !rawInputs.rawExtractedThumbnailText &&
+          (!rawInputs.rawExtractedMetadataText || rawInputs.rawExtractedMetadataText === rawInputs.rawExtractedDuration),
+        titleExtractionDebug: context.extractionDebug || {}
+      },
+      layerScores: {
+        calmAmbient: signalLayers.calmAmbient.score,
+        cognitiveLoad: signalLayers.cognitiveLoad.score,
+        emotionalTone: signalLayers.emotionalTone.score,
+        smilesPlayfulness: signalLayers.smilesPlayfulness.score,
+        subjectMatter: signalLayers.subjectMatter.score,
+        tribalDomination: signalLayers.tribalDomination.score
+      }
+    };
+  }
+
+  function buildDebugSignalProvenance(context) {
+    const sourceTexts = {
+      title: context.rawExtractedTitle || context.titleText || "",
+      "thumbnail OCR": context.rawExtractedThumbnailText || context.thumbnailText || "",
+      metadata: context.rawExtractedMetadataText || context.metadataText || "",
+      transcript: context.transcriptText || "",
+      duration: context.rawExtractedDuration || context.durationText || ""
+    };
+    const configs = getDebugSignalConfigs();
+    const entries = [];
+
+    Object.keys(sourceTexts).forEach((source) => {
+      configs.forEach((config) => {
+        findMatches(sourceTexts[source], config.terms).forEach((term) => {
+          entries.push({
+            category: config.category,
+            impact: impactForDebugSignal(config, source),
+            source,
+            term
+          });
+        });
+      });
+    });
+
+    return uniqueSignalEntries(entries);
+  }
+
+  function getDebugSignalConfigs() {
+    return [
+      {
+        category: "violence_disturbing",
+        impact: -35,
+        terms: HEURISTIC_SIGNAL_DICTIONARIES.VIOLENCE_DISTURBING_SIGNALS
+      },
+      {
+        category: "tribal_domination",
+        impact: -28,
+        terms: HEURISTIC_SIGNAL_DICTIONARIES.TRIBAL_DOMINATION_FRAMING_SIGNALS.concat(["revealed", "priceless", "panic mode"])
+      },
+      {
+        category: "cognitive_load",
+        impact: -18,
+        terms: HEURISTIC_SIGNAL_DICTIONARIES.COGNITIVE_LOAD_SIGNALS.concat(["panic mode"])
+      },
+      {
+        category: "emotional_tone",
+        impact: -22,
+        terms: HEURISTIC_SIGNAL_DICTIONARIES.EMOTIONAL_TONE_SIGNALS.concat(["panic mode"])
+      },
+      {
+        category: "calm_ambient",
+        impact: 18,
+        terms: HEURISTIC_SIGNAL_DICTIONARIES.CALM_AMBIENT_SIGNALS
+      },
+      {
+        category: "smiles_playfulness",
+        impact: 16,
+        terms: HEURISTIC_SIGNAL_DICTIONARIES.SMILES_PLAYFULNESS_SIGNALS
+      }
+    ];
+  }
+
+  function impactForDebugSignal(config, source) {
+    if (source === "thumbnail OCR") {
+      return Math.round(config.impact * 1.2);
+    }
+    if (source === "transcript") {
+      return Math.round(config.impact * 0.8);
+    }
+    return config.impact;
+  }
+
+  function uniqueSignalEntries(entries) {
+    const seen = new Set();
+    return entries.filter((entry) => {
+      const key = `${entry.term}|${entry.source}|${entry.category}`;
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+  }
+
   function buildSourceSignalSummary(context) {
     return {
       channel: summarizeTextSignals(context.channelMetadataText),
@@ -2040,6 +2341,7 @@
       finalClassification: result.classification,
       finalScore: result.score,
       matchedDictionaries: result.metrics.signalProvenance,
+      debugObservability: result.metrics.debugObservability,
       signalLayers: result.metrics.signalLayers,
       signalRichness: result.metrics.signalRichness,
       personaWeightingPath: {
@@ -2047,11 +2349,11 @@
         weights: result.metrics.personaWeights
       },
       rawExtractedSignals: {
-        channelMetadata: context.channelMetadataText || "",
-        duration: context.durationText || "",
-        metadata: context.metadataText || "",
-        thumbnailOCR: context.thumbnailText || "",
-        title: context.titleText || "",
+        channelMetadata: context.rawExtractedChannelName || context.channelMetadataText || "",
+        duration: context.rawExtractedDuration || context.durationText || "",
+        metadata: context.rawExtractedMetadataText || context.metadataText || "",
+        thumbnailOCR: context.rawExtractedThumbnailText || context.thumbnailText || "",
+        title: context.rawExtractedTitle || context.titleText || "",
         transcript: context.transcriptText || "unavailable"
       },
       strongestContributors: {
@@ -2545,6 +2847,22 @@
     return explanation;
   }
 
+  function applyDebugExtractionCaveat(explanation, debugObservability) {
+    if (!debugObservability || !debugObservability.extraction) {
+      return explanation;
+    }
+
+    const caveats = [];
+    if (debugObservability.extraction.titleExtractionIncomplete) {
+      caveats.push("Low confidence: title extraction incomplete.");
+    }
+    if (debugObservability.extraction.limitedMetadata) {
+      caveats.push("Limited metadata: score based on visible title/duration/session only.");
+    }
+
+    return caveats.length ? `${explanation} ${caveats.join(" ")}` : explanation;
+  }
+
   function calmExplanationFor(classification, context) {
     if (classification === "aligned") {
       return `Looks aligned with this mode. ${context}`;
@@ -2700,6 +3018,13 @@
       thumbnailOcrConfidence: "Unavailable",
       transcriptAvailability: "Unavailable"
     };
+    const debugObservability = result.metrics.debugObservability || {
+      extraction: {},
+      matchedSignals: {},
+      normalizedInputs: {},
+      rawObservableInputs: {},
+      signalProvenance: []
+    };
 
     return [
       `${modeLabel} ${result.score} - ${result.classification}`,
@@ -2712,6 +3037,30 @@
       `Metadata completeness: ${signalRichness.metadataCompleteness}`,
       `Signal convergence estimate: ${signalRichness.signalConvergence}`,
       signalRichness.notes && signalRichness.notes.length ? `Signal richness notes: ${signalRichness.notes.slice(0, 3).join("; ")}` : "",
+      "Debug Observability Layer:",
+      "RAW OBSERVABLE INPUTS:",
+      `rawExtractedTitle: ${debugObservability.rawObservableInputs.rawExtractedTitle || "[missing]"}`,
+      `rawExtractedThumbnailText: ${debugObservability.rawObservableInputs.rawExtractedThumbnailText || "[missing]"}`,
+      `rawExtractedChannelName: ${debugObservability.rawObservableInputs.rawExtractedChannelName || "[missing]"}`,
+      `rawExtractedDuration: ${debugObservability.rawObservableInputs.rawExtractedDuration || "[missing]"}`,
+      `rawExtractedMetadataText: ${debugObservability.rawObservableInputs.rawExtractedMetadataText || "[missing]"}`,
+      `transcriptStatus: ${debugObservability.rawObservableInputs.transcriptStatus || "unavailable"}`,
+      "NORMALIZED INPUTS:",
+      `normalizedTitle: ${debugObservability.normalizedInputs.normalizedTitle || "[missing]"}`,
+      `normalizedThumbnailText: ${debugObservability.normalizedInputs.normalizedThumbnailText || "[missing]"}`,
+      `normalizedMetadataText: ${debugObservability.normalizedInputs.normalizedMetadataText || "[missing]"}`,
+      debugObservability.extraction.titleExtractionIncomplete ? "Low confidence: title extraction incomplete." : "",
+      debugObservability.extraction.limitedMetadata ? "Limited metadata: score based on visible title/duration/session only." : "",
+      "MATCHED SIGNALS:",
+      `matchedTitleSignals: ${formatDebugSignalEntries(debugObservability.matchedSignals.matchedTitleSignals)}`,
+      `matchedThumbnailSignals: ${formatDebugSignalEntries(debugObservability.matchedSignals.matchedThumbnailSignals)}`,
+      `matchedMetadataSignals: ${formatDebugSignalEntries(debugObservability.matchedSignals.matchedMetadataSignals)}`,
+      `matchedViolenceSignals: ${formatDebugSignalEntries(debugObservability.matchedSignals.matchedViolenceSignals)}`,
+      `matchedTribalDominationSignals: ${formatDebugSignalEntries(debugObservability.matchedSignals.matchedTribalDominationSignals)}`,
+      `matchedCalmSignals: ${formatDebugSignalEntries(debugObservability.matchedSignals.matchedCalmSignals)}`,
+      `matchedCognitiveLoadSignals: ${formatDebugSignalEntries(debugObservability.matchedSignals.matchedCognitiveLoadSignals)}`,
+      "SIGNAL PROVENANCE:",
+      formatDebugSignalEntries(debugObservability.signalProvenance),
       result.metrics.selectedStudyPersona ? `Selected study persona: ${result.metrics.selectedStudyPersona}` : "",
       result.metrics.matchedTopicKeywords.length
         ? `Matched topic keywords: ${formatMatches(result.metrics.matchedTopicKeywords)}`
@@ -2786,6 +3135,17 @@
     }
 
     return layer.signals.map((signal) => `- ${signal}`).join("\n");
+  }
+
+  function formatDebugSignalEntries(entries) {
+    if (!entries || !entries.length) {
+      return "none";
+    }
+
+    return entries
+      .slice(0, 8)
+      .map((entry) => `{ term: "${entry.term}", source: "${entry.source}", category: "${entry.category}", impact: ${entry.impact} }`)
+      .join("; ");
   }
 
   function formatPersonaAlignmentNote(result) {

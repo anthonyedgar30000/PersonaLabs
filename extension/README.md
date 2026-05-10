@@ -257,6 +257,19 @@ See [`../demo_dataset.md`](../demo_dataset.md) for curated demo categories and e
 
 Extraction is card-local. Title, thumbnail-accessible text, visible metadata, channel metadata, and duration are collected from the current card only. Channel metadata is shown separately and is not used as an inherited topic label.
 
+The Debug Observability Layer exposes upstream observable inputs before scoring. No downstream score should be treated as reliable unless these inputs are visible and inspectable.
+
+Debug fields include:
+
+- Raw observable inputs: `rawExtractedTitle`, `rawExtractedThumbnailText`, `rawExtractedChannelName`, `rawExtractedDuration`, `rawExtractedMetadataText`, and `transcriptStatus`.
+- Normalized inputs: `normalizedTitle`, `normalizedThumbnailText`, and `normalizedMetadataText`.
+- Matched signals: `matchedTitleSignals`, `matchedThumbnailSignals`, `matchedMetadataSignals`, `matchedViolenceSignals`, `matchedTribalDominationSignals`, `matchedCalmSignals`, and `matchedCognitiveLoadSignals`.
+- Signal provenance entries with `term`, `source`, `category`, and deterministic `impact`.
+
+If title extraction is empty or weak, tooltips say: "Low confidence: title extraction incomplete." If OCR/transcript-like text is unavailable, tooltips say: "Limited metadata: score based on visible title/duration/session only."
+
+Title extraction uses multiple per-card fallbacks: YouTube title selectors, ARIA labels, title attributes, watch/Shorts anchor text, and finally nearest card-container text. It avoids page-level text and neighboring-card leakage. YouTube card text can render late, so weak-title cards receive a safe delayed rescan.
+
 Tooltip provenance lists exact matched terms by source:
 
 - title

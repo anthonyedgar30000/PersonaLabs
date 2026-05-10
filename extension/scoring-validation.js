@@ -75,7 +75,12 @@ const cases = [
     context: makeContext("Bunny nature sleep ambience with gentle rain and birds", { durationSeconds: 3600 }),
     mode: "chill",
     assert(result) {
-      return result.score >= 70 && result.classification === "aligned" && result.dimensions.calmAmbient >= 65;
+      return (
+        result.score >= 70 &&
+        result.classification === "aligned" &&
+        result.dimensions.calmAmbient >= 65 &&
+        result.metrics.debugObservability.matchedSignals.matchedCalmSignals.some((signal) => signal.term === "bunny")
+      );
     }
   },
   {
@@ -83,7 +88,12 @@ const cases = [
     context: makeContext("Aquarium video for cats relaxing soft music", { durationSeconds: 2400 }),
     mode: "chill",
     assert(result) {
-      return result.score >= 70 && result.classification === "aligned" && result.dimensions.subjectMatterImpact === 0;
+      return (
+        result.score >= 70 &&
+        result.classification === "aligned" &&
+        result.dimensions.subjectMatterImpact === 0 &&
+        result.metrics.debugObservability.matchedSignals.matchedCalmSignals.some((signal) => signal.term === "aquarium")
+      );
     }
   },
   {
@@ -136,8 +146,25 @@ const cases = [
       return (
         result.score <= 42 &&
         ["mixed", "misaligned"].includes(result.classification) &&
+        result.metrics.debugObservability.rawObservableInputs.rawExtractedTitle === "Nun ATTACKED By Israel in Horrifying Footage" &&
+        result.metrics.debugObservability.matchedSignals.matchedViolenceSignals.some((signal) => signal.term === "attacked") &&
+        result.metrics.debugObservability.matchedSignals.matchedViolenceSignals.some((signal) => signal.term === "horrifying") &&
         result.metrics.signalLayers.subjectMatter.sourceMatches.title.includes("attacked") &&
         result.metrics.signalLayers.subjectMatter.sourceMatches.title.includes("horrifying footage")
+      );
+    }
+  },
+  {
+    name: "panic mode title exposes escalation and cognitive friction",
+    context: makeContext("Kash Patel Is In PANIC MODE", { durationSeconds: 420 }),
+    mode: "chill",
+    assert(result) {
+      return (
+        result.metrics.debugObservability.normalizedInputs.normalizedTitle === "kash patel is in panic mode" &&
+        result.metrics.debugObservability.matchedSignals.matchedCognitiveLoadSignals.some((signal) => signal.term === "panic mode") &&
+        result.metrics.debugObservability.signalProvenance.some(
+          (signal) => signal.term === "panic mode" && signal.source === "title"
+        )
       );
     }
   },
@@ -243,6 +270,18 @@ const cases = [
     mode: "chill",
     assert(result) {
       return result.score <= 69 && ["mixed", "neutral"].includes(result.classification);
+    }
+  },
+  {
+    name: "missing extraction reports incomplete observable inputs",
+    context: makeContext("", { durationSeconds: 300 }),
+    mode: "chill",
+    assert(result) {
+      return (
+        result.metrics.debugObservability.extraction.titleExtractionIncomplete === true &&
+        result.metrics.debugObservability.rawObservableInputs.rawExtractedTitle === "" &&
+        result.calmExplanation.includes("Low confidence")
+      );
     }
   },
   {

@@ -371,6 +371,19 @@ Avoid page-level keyword contamination, neighboring-card leakage, cached/shared 
 
 Tooltip and debug output should expose exact matched terms and their source. This is both an explainability feature and a debugging safeguard against topic leakage.
 
+### Debug Observability Layer
+
+Before scoring, PersonaLabs should expose what it actually observed:
+
+- raw observable inputs: `rawExtractedTitle`, `rawExtractedThumbnailText`, `rawExtractedChannelName`, `rawExtractedDuration`, `rawExtractedMetadataText`, `transcriptStatus`
+- normalized inputs: `normalizedTitle`, `normalizedThumbnailText`, `normalizedMetadataText`
+- matched signals: title, thumbnail, metadata, violence/disturbing, tribal domination, calm, and cognitive load matches
+- signal provenance for each term: `term`, `source`, `category`, and deterministic `impact`
+
+If the raw title is empty or weak, explanations should say: "Low confidence: title extraction incomplete." If OCR/transcript-like text is unavailable, explanations should say: "Limited metadata: score based on visible title/duration/session only."
+
+Extraction should try multiple YouTube card title selectors, ARIA labels, title attributes, anchor text, and nearest card-container text while preserving strict per-card isolation. Safe delayed rescans are allowed because YouTube card text can render after the card node appears.
+
 ## Future thumbnail hooks
 
 The thumbnail layer currently uses accessible text only; no OCR or image model is used. Future local/governed hooks may include:
