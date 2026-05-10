@@ -1186,6 +1186,7 @@
   function scoreCard(context, mode) {
     let result;
     const signalLayers = analyzeSignalLayers(context);
+    const signalRichness = calculateSignalRichness(context, signalLayers);
 
     if (isStudyMode(mode)) {
       result = scoreStudyMode(context, mode, signalLayers);
@@ -1209,7 +1210,11 @@
     result.calmExplanation = calmExplanationFor(result.classification, result.explanationContext);
     result.metrics.sourceSignals = buildSourceSignalSummary(context);
     result.metrics.signalProvenance = buildSignalProvenance(context);
+    result.metrics.signalRichness = signalRichness;
     result.metrics.thumbnailTextAvailable = Boolean(context.thumbnailText);
+    result.dimensions.signalRichness = signalRichness.score;
+    result.confidence = confidenceFor(result.positiveSignals, result.negativeSignals, signalRichness);
+    result.calmExplanation = applySignalRichnessCaveat(result.calmExplanation, result.confidence, signalRichness);
     result.debug = buildDebugPayload(context, mode, result);
     return result;
   }
@@ -1784,6 +1789,227 @@
     };
   }
 
+  function calculateSignalRichness(context, signalLayers) {
+    const titleQuality = titleSpecificityScore(context.titleText);
+    const metadataCompletenessScore = metadataCompletenessFor(context);
+    const transcriptScore = transcriptCompletenessScore(context.transcriptText);
+    const thumbnailScore = thumbnailReadabilityScore(context.thumbnailText);
+    const durationScore = durationStabilityScore(context);
+    const convergenceScore = signalConvergenceScore(signalLayers);
+    const semanticConsistencyScore = semanticConsistencyFor(signalLayers);
+    const score = clampDimension(
+      titleQuality * 0.22 +
+        metadataCompletenessScore * 0.16 +
+        transcriptScore * 0.16 +
+        thumbnailScore * 0.14 +
+        durationScore * 0.12 +
+        convergenceScore * 0.12 +
+        semanticConsistencyScore * 0.08
+    );
+
+    return {
+      score,
+      level: signalRichnessLevel(score),
+      transcriptAvailability: transcriptAvailabilityFor(context.transcriptText),
+      thumbnailOcrConfidence: thumbnailOcrConfidenceFor(context.thumbnailText),
+      metadataCompleteness: signalRichnessLevel(metadataCompletenessScore),
+      signalConvergence: signalRichnessLevel(convergenceScore),
+      titleSpecificity: signalRichnessLevel(titleQuality),
+      durationStability: signalRichnessLevel(durationScore),
+      semanticConsistency: signalRichnessLevel(semanticConsistencyScore),
+      notes: signalRichnessNotes({
+        context,
+        convergenceScore,
+        metadataCompletenessScore,
+        semanticConsistencyScore,
+        thumbnailScore,
+        titleQuality,
+        transcriptScore
+      })
+    };
+  }
+
+  function titleSpecificityScore(title) {
+    const value = normalizeText([title]);
+    const tokens = value.match(/[a-z0-9]+/g) || [];
+    if (!tokens.length) {
+      return 0;
+    }
+
+    let score = Math.min(70, tokens.length * 7);
+    if (tokens.length >= 5) {
+      score += 12;
+    }
+
+    if (findMatches(value, HEURISTIC_SIGNAL_DICTIONARIES.educationalStudyPositive).length) {
+      score += 8;
+    }
+
+    if (findMatches(value, HEURISTIC_SIGNAL_DICTIONARIES.technicalCyberAi).length) {
+      score += 8;
+    }
+
+    if (findMatches(value, HEURISTIC_SIGNAL_DICTIONARIES.clickbaitUrgency).length && tokens.length <= 5) {
+      score -= 14;
+    }
+
+    return clampDimension(score);
+  }
+
+  function metadataCompletenessFor(context) {
+    let score = 0;
+    if (context.titleText) {
+      score += 25;
+    }
+    if (context.metadataText) {
+      score += 20;
+    }
+    if (context.channelMetadataText) {
+      score += 15;
+    }
+    if (context.durationSeconds) {
+      score += 20;
+    }
+    if (context.thumbnailText) {
+      score += 20;
+    }
+    return clampDimension(score);
+  }
+
+  function transcriptCompletenessScore(transcriptText) {
+    const length = String(transcriptText || "").trim().length;
+    if (!length) {
+      return 0;
+    }
+    if (length >= 2000) {
+      return 100;
+    }
+    if (length >= 600) {
+      return 75;
+    }
+    if (length >= 160) {
+      return 50;
+    }
+    return 25;
+  }
+
+  function thumbnailReadabilityScore(thumbnailText) {
+    const value = normalizeText([thumbnailText]);
+    const tokens = value.match(/[a-z0-9]+/g) || [];
+    if (!tokens.length) {
+      return 0;
+    }
+    return clampDimension(35 + Math.min(55, tokens.length * 8));
+  }
+
+  function durationStabilityScore(context) {
+    if (!context.durationSeconds) {
+      return 20;
+    }
+    if (context.isShort || context.durationSeconds <= 90) {
+      return 25;
+    }
+    if (context.durationSeconds >= 600) {
+      return 90;
+    }
+    if (context.durationSeconds >= 180) {
+      return 70;
+    }
+    return 45;
+  }
+
+  function signalConvergenceScore(signalLayers) {
+    const layers = Object.keys(signalLayers || {})
+      .map((key) => signalLayers[key])
+      .filter((layer) => layer && layer.matches && layer.matches.length);
+    const sourceCount = uniqueMatches(
+      layers.flatMap((layer) =>
+        Object.keys(layer.sourceMatches || {}).filter((source) => layer.sourceMatches[source] && layer.sourceMatches[source].length)
+      )
+    ).length;
+    const matchCount = layers.reduce((total, layer) => total + layer.matches.length, 0);
+    return clampDimension(layers.length * 18 + sourceCount * 12 + Math.min(28, matchCount * 4));
+  }
+
+  function semanticConsistencyFor(signalLayers) {
+    const frictionLayers = ["subjectMatter", "tribalDomination", "emotionalTone", "cognitiveLoad"].filter(
+      (key) => signalLayers[key] && signalLayers[key].score >= 25
+    );
+    const recoveryLayers = ["smilesPlayfulness", "calmAmbient"].filter(
+      (key) => signalLayers[key] && signalLayers[key].score >= 25
+    );
+
+    if (!frictionLayers.length && !recoveryLayers.length) {
+      return 35;
+    }
+
+    if (frictionLayers.length && recoveryLayers.length) {
+      return 55;
+    }
+
+    return clampDimension(70 + Math.max(frictionLayers.length, recoveryLayers.length) * 10);
+  }
+
+  function transcriptAvailabilityFor(transcriptText) {
+    const score = transcriptCompletenessScore(transcriptText);
+    if (score >= 75) {
+      return "Available";
+    }
+    if (score > 0) {
+      return "Partial";
+    }
+    return "Unavailable";
+  }
+
+  function thumbnailOcrConfidenceFor(thumbnailText) {
+    const score = thumbnailReadabilityScore(thumbnailText);
+    if (!score) {
+      return "Unavailable";
+    }
+    if (score >= 75) {
+      return "High";
+    }
+    if (score >= 45) {
+      return "Medium";
+    }
+    return "Low";
+  }
+
+  function signalRichnessLevel(score) {
+    if (score >= 70) {
+      return "High";
+    }
+    if (score >= 40) {
+      return "Medium";
+    }
+    return "Low";
+  }
+
+  function signalRichnessNotes(values) {
+    const notes = [];
+    if (!values.context.transcriptText) {
+      notes.push("transcript unavailable");
+    }
+    if (!values.context.thumbnailText) {
+      notes.push("thumbnail text unavailable");
+    }
+    if (values.titleQuality < 40) {
+      notes.push("low title specificity");
+    }
+    if (values.metadataCompletenessScore < 50) {
+      notes.push("limited structured metadata");
+    }
+    if (values.convergenceScore >= 70) {
+      notes.push("signals converge across layers or sources");
+    } else if (values.convergenceScore < 40) {
+      notes.push("limited signal convergence");
+    }
+    if (values.semanticConsistencyScore < 60) {
+      notes.push("semantic context is ambiguous");
+    }
+    return notes;
+  }
+
   function buildSourceSignalSummary(context) {
     return {
       channel: summarizeTextSignals(context.channelMetadataText),
@@ -1791,7 +2017,7 @@
       metadata: summarizeTextSignals(context.metadataText),
       thumbnail: summarizeTextSignals(context.thumbnailText),
       title: summarizeTextSignals(context.titleText),
-      transcript: []
+      transcript: summarizeTextSignals(context.transcriptText)
     };
   }
 
@@ -1802,7 +2028,7 @@
       duration: context.durationSeconds ? [{ category: "duration", terms: [formatDuration(context.durationSeconds)] }] : [],
       "thumbnail OCR": summarizeTextSignalDetails(context.thumbnailText),
       title: summarizeTextSignalDetails(context.titleText),
-      transcript: []
+      transcript: summarizeTextSignalDetails(context.transcriptText)
     };
   }
 
@@ -1815,6 +2041,7 @@
       finalScore: result.score,
       matchedDictionaries: result.metrics.signalProvenance,
       signalLayers: result.metrics.signalLayers,
+      signalRichness: result.metrics.signalRichness,
       personaWeightingPath: {
         profile: result.metrics.personaProfile,
         weights: result.metrics.personaWeights
@@ -1825,7 +2052,7 @@
         metadata: context.metadataText || "",
         thumbnailOCR: context.thumbnailText || "",
         title: context.titleText || "",
-        transcript: "unavailable"
+        transcript: context.transcriptText || "unavailable"
       },
       strongestContributors: {
         friction: result.metrics.strongestNegativeContributor,
@@ -2068,7 +2295,7 @@
 
   function buildResult(rawScore, positiveSignals, negativeSignals, explanationContext, metrics = {}) {
     const score = clampScore(rawScore);
-    const confidence = confidenceFor(positiveSignals, negativeSignals);
+    const confidence = confidenceFor(positiveSignals, negativeSignals, metrics.signalRichness);
     const signalLayers = normalizeSignalLayers(metrics.signalLayers);
     const normalizedMetrics = {
       activeMode: metrics.activeMode || "",
@@ -2284,17 +2511,38 @@
     return Math.max(0, Math.min(100, Math.round(value)));
   }
 
-  function confidenceFor(positiveSignals, negativeSignals) {
+  function confidenceFor(positiveSignals, negativeSignals, signalRichness) {
     const signalCount = positiveSignals.length + negativeSignals.length;
-    if (signalCount >= 5) {
+    const richnessScore = signalRichness && Number.isFinite(signalRichness.score) ? signalRichness.score : 45;
+    const convergence = signalRichness && signalRichness.signalConvergence === "High" ? 12 : 0;
+    const weakMetadataPenalty = richnessScore < 40 ? 22 : richnessScore < 55 ? 10 : 0;
+    const confidenceScore = clampDimension(20 + Math.min(52, signalCount * 10) + Math.max(0, richnessScore - 45) * 0.45 + convergence - weakMetadataPenalty);
+
+    if (confidenceScore >= 70) {
       return "high";
     }
 
-    if (signalCount >= 3) {
+    if (confidenceScore >= 45) {
       return "medium";
     }
 
     return "low";
+  }
+
+  function applySignalRichnessCaveat(explanation, confidence, signalRichness) {
+    if (!signalRichness) {
+      return explanation;
+    }
+
+    if (confidence === "low" || signalRichness.level === "Low") {
+      return `${explanation} Confidence is limited because observable metadata/signal richness is low.`;
+    }
+
+    if (signalRichness.level === "Medium") {
+      return `${explanation} Signal richness is medium, so this classification should be read as a directional estimate.`;
+    }
+
+    return explanation;
   }
 
   function calmExplanationFor(classification, context) {
@@ -2443,12 +2691,27 @@
     const tribalDominationLevel = levelFromScore(result.dimensions.tribalDomination, 60, 35);
     const driftRiskLevel = levelFromScore(result.dimensions.driftRisk, 70, 40);
     const diversityLevel = levelFromScore(result.dimensions.exploratoryValue, 65, 35);
+    const signalRichness = result.metrics.signalRichness || {
+      level: "Low",
+      metadataCompleteness: "Low",
+      notes: ["signal richness unavailable"],
+      score: 0,
+      signalConvergence: "Low",
+      thumbnailOcrConfidence: "Unavailable",
+      transcriptAvailability: "Unavailable"
+    };
 
     return [
       `${modeLabel} ${result.score} - ${result.classification}`,
       "Media Observability Panel",
       `intentAlignment: ${result.classification} (${result.dimensions.intentAlignment}/100)`,
       `Final Alignment Score: ${result.score}`,
+      `Signal Richness: ${signalRichness.level} (${signalRichness.score}/100)`,
+      `Transcript availability: ${signalRichness.transcriptAvailability}`,
+      `Thumbnail OCR confidence: ${signalRichness.thumbnailOcrConfidence}`,
+      `Metadata completeness: ${signalRichness.metadataCompleteness}`,
+      `Signal convergence estimate: ${signalRichness.signalConvergence}`,
+      signalRichness.notes && signalRichness.notes.length ? `Signal richness notes: ${signalRichness.notes.slice(0, 3).join("; ")}` : "",
       result.metrics.selectedStudyPersona ? `Selected study persona: ${result.metrics.selectedStudyPersona}` : "",
       result.metrics.matchedTopicKeywords.length
         ? `Matched topic keywords: ${formatMatches(result.metrics.matchedTopicKeywords)}`
@@ -2485,6 +2748,7 @@
       `evidenceQuality: ${evidenceLevel} (${result.dimensions.evidenceQuality}/100)`,
       `educationalDepth: ${educationalDepthLevel} (${result.dimensions.educationalDepth}/100)`,
       `emotionalVolatility: ${volatilityLevel} (${result.dimensions.emotionalVolatility}/100)`,
+      `signalRichness: ${signalRichness.level} (${signalRichness.score}/100)`,
       `smilesPlayfulness: ${smilesPlayfulnessLevel} (${result.dimensions.smilesPlayfulness}/100)`,
       `subjectMatterImpact: ${subjectMatterLevel} (${result.dimensions.subjectMatterImpact}/100)`,
       `tribalDomination: ${tribalDominationLevel} (${result.dimensions.tribalDomination}/100)`,

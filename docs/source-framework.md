@@ -240,6 +240,23 @@ These dimensions prevent speaking style, playful affect, subject matter, dominat
 
 PersonaLabs separates objective measurable signals from user-defined subjective intent alignment. Objective dimensions describe observed properties of a card. `intentAlignment` estimates fit against the user's currently declared persona and its local dimension weights. This means the system estimates "how aligned this content is with my current intent," not whether the content is true, moral, healthy, politically correct, misinformation, or allowed. PersonaLabs models attentional friction and intentional alignment, not political correctness or objective truth.
 
+`SIGNAL_RICHNESS_SCORE` estimates observability quality before explanations are interpreted. It is not an alignment score. It describes whether the local card has enough reliable observable metadata to support a confident explanation.
+
+Inputs may include:
+
+- transcript availability and completeness
+- thumbnail OCR/accessibility text confidence
+- descriptive title quality
+- structured metadata completeness
+- category clarity
+- duration stability
+- semantic consistency across signals
+- thumbnail readability
+- title specificity
+- signal convergence across title, thumbnail, metadata, and transcript sources
+
+Weak signal richness lowers confidence so classifications do not appear overly authoritative. Strong signal convergence can raise confidence even when the final alignment is mixed or misaligned.
+
 High volatility, playful affect, disturbing subject matter, tribal domination framing, low evidence, and educational/opinion framing are separate dimensions. A high-volatility item may still have strong evidence quality. A low-volatility item may still discuss violent or disturbing subject matter. A calm speaker may still frame reality as enemies vs allies, winners vs losers, humiliation vs dominance, revenge vs punishment, or collapse vs catastrophe. Smiles or playful text do not sanitize disturbing subject matter. Educational formatting is not the same as truth verification.
 
 The deterministic hierarchy should generally prioritize:
@@ -299,6 +316,11 @@ Every score should expose:
 - score
 - mode
 - classification: aligned, neutral, mixed, or misaligned
+- Signal Richness: High / Medium / Low
+- Transcript availability
+- Thumbnail OCR confidence
+- Metadata completeness
+- Signal convergence estimate
 - Smiles / Playfulness signals
 - Calm / Ambient signals
 - Violence / Disturbing Subject Matter signals
@@ -309,6 +331,7 @@ Every score should expose:
 - evidence signals
 - media environment signals
 - Evidence Signals dimension
+- `SIGNAL_RICHNESS_SCORE`
 - emotional tone / rage-framing estimate
 - disturbing subject matter estimate
 - tribal domination framing estimate

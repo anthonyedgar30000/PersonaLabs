@@ -27,11 +27,12 @@ function makeContext(title, options = {}) {
   const thumbnailText = options.thumbnailText || "";
   const metadataText = options.metadataText || "";
   const transcriptText = options.transcriptText || "";
+  const channelMetadataText = options.channelMetadataText || "";
   const titleText = title;
   const searchText = api.normalizeText([titleText, thumbnailText, metadataText]);
 
   return {
-    channelMetadataText: "",
+    channelMetadataText,
     durationSeconds,
     durationText: "",
     href: "",
@@ -47,6 +48,28 @@ function makeContext(title, options = {}) {
 }
 
 const cases = [
+  {
+    name: "signal-rich Linux tutorial has high richness",
+    context: makeContext("RHCSA full course Linux file permissions explained", {
+      channelMetadataText: "Linux training channel",
+      durationSeconds: 7200,
+      metadataText: "Full course tutorial chaptered lesson with captions",
+      thumbnailText: "RHCSA Linux Course",
+      transcriptText: "Linux permissions chmod chown users groups SELinux labs ".repeat(80)
+    }),
+    mode: "studyGeneral",
+    assert(result) {
+      return result.metrics.signalRichness.level === "High" && result.confidence === "high";
+    }
+  },
+  {
+    name: "low-context short has low signal richness and low confidence",
+    context: makeContext("WOW", { durationSeconds: 18, isShort: true }),
+    mode: "chill",
+    assert(result) {
+      return result.metrics.signalRichness.level === "Low" && result.confidence === "low";
+    }
+  },
   {
     name: "bunny nature sleep ambience aligns with Chill",
     context: makeContext("Bunny nature sleep ambience with gentle rain and birds", { durationSeconds: 3600 }),
@@ -236,7 +259,7 @@ const failures = [];
 cases.forEach((testCase) => {
   const result = api.scoreCard(testCase.context, testCase.mode);
   const passed = testCase.assert(result);
-  const summary = `${testCase.name}: ${testCase.mode} score=${result.score} classification=${result.classification} smile=${result.dimensions.smilesPlayfulness} tone=${result.dimensions.emotionalTone} subject=${result.dimensions.subjectMatterImpact} tribal=${result.dimensions.tribalDomination} load=${result.dimensions.cognitiveLoad} drift=${result.dimensions.driftRisk} calm=${result.dimensions.calmAmbient}`;
+  const summary = `${testCase.name}: ${testCase.mode} score=${result.score} classification=${result.classification} confidence=${result.confidence} richness=${result.metrics.signalRichness.level}/${result.metrics.signalRichness.score} smile=${result.dimensions.smilesPlayfulness} tone=${result.dimensions.emotionalTone} subject=${result.dimensions.subjectMatterImpact} tribal=${result.dimensions.tribalDomination} load=${result.dimensions.cognitiveLoad} drift=${result.dimensions.driftRisk} calm=${result.dimensions.calmAmbient}`;
   console.log(`${passed ? "PASS" : "FAIL"} ${summary}`);
   if (!passed) {
     failures.push(summary);
