@@ -2,7 +2,7 @@
   const MODE_STORAGE_KEY = "personaLabsMode";
   const SESSION_STORAGE_KEY = "personaLabsSessionTelemetry";
   const SCHEDULE_STORAGE_KEY = "personaLabsScheduleConfig";
-  const DEFAULT_MODE = "study";
+  const DEFAULT_MODE = "studyGeneral";
   const SCAN_INTERVAL_MS = 1500;
   const DRIFT_SNOOZE_MS = 30 * 60 * 1000;
   const CONTINUE_SNOOZE_MS = 10 * 60 * 1000;
@@ -16,9 +16,25 @@
   ].join(",");
 
   const MODES = {
-    study: {
-      label: "Study",
-      intent: "focused learning"
+    studyCyber: {
+      label: "Cyber",
+      fullLabel: "Study - Cybersecurity",
+      intent: "cybersecurity study"
+    },
+    studyAi: {
+      label: "AI/ML",
+      fullLabel: "Study - AI/ML",
+      intent: "AI and machine learning study"
+    },
+    studyCloud: {
+      label: "Cloud",
+      fullLabel: "Study - Cloud/DevOps",
+      intent: "cloud and DevOps study"
+    },
+    studyGeneral: {
+      label: "General",
+      fullLabel: "Study - General",
+      intent: "general focused learning"
     },
     chill: {
       label: "Chill",
@@ -43,7 +59,7 @@
     timezone: "local",
     windows: [
       { name: "work hours", suggestedModes: ["project", "research"], days: "weekdays", start: "09:00", end: "17:00" },
-      { name: "study/project time", suggestedModes: ["study", "project"], days: "configurable", start: "19:00", end: "21:00" },
+      { name: "study/project time", suggestedModes: ["studyCyber", "studyAi", "studyCloud", "studyGeneral", "project"], days: "configurable", start: "19:00", end: "21:00" },
       { name: "family time", suggestedModes: ["bareMetal"], days: "configurable", start: "17:30", end: "19:00" },
       { name: "chill time", suggestedModes: ["chill"], days: "configurable", start: "21:00", end: "22:30" },
       { name: "recovery time", suggestedModes: ["chill", "bareMetal"], days: "configurable", start: "22:30", end: "23:30" },
@@ -81,21 +97,117 @@
       "class",
       "course",
       "crash course",
+      "demo",
+      "documentation",
       "education",
+      "example",
+      "explain",
       "explained",
       "fundamentals",
       "guide",
       "intro",
       "introduction",
+      "lab",
       "learn",
       "lecture",
       "lesson",
       "masterclass",
+      "overview",
       "seminar",
       "study",
       "training",
       "university",
       "workshop"
+    ],
+    studyGeneralTopic: [
+      "course",
+      "demo",
+      "documentation",
+      "example",
+      "explain",
+      "explained",
+      "fundamentals",
+      "guide",
+      "introduction",
+      "lab",
+      "lecture",
+      "lesson",
+      "overview",
+      "tutorial",
+      "walkthrough"
+    ],
+    studyCybersecurityTopic: [
+      "authentication",
+      "authorization",
+      "cybersecurity",
+      "cve",
+      "detection",
+      "edr",
+      "entra",
+      "exploit",
+      "firewall",
+      "iam",
+      "identity",
+      "incident response",
+      "logging",
+      "malware",
+      "mitre",
+      "network security",
+      "nist",
+      "oauth",
+      "phishing",
+      "security",
+      "siem",
+      "soc",
+      "telemetry",
+      "threat",
+      "vulnerability",
+      "xdr",
+      "zero trust"
+    ],
+    studyAiMlTopic: [
+      "agents",
+      "ai",
+      "alignment",
+      "claude",
+      "embeddings",
+      "evaluation",
+      "gemini",
+      "hallucination",
+      "inference",
+      "langchain",
+      "llm",
+      "machine learning",
+      "mcp",
+      "model",
+      "openai",
+      "prompt engineering",
+      "rag",
+      "training",
+      "transformer",
+      "vector database"
+    ],
+    studyCloudDevOpsTopic: [
+      "aws",
+      "azure",
+      "ci/cd",
+      "cloud",
+      "containers",
+      "devops",
+      "docker",
+      "gcp",
+      "homelab",
+      "infrastructure",
+      "kubernetes",
+      "linux",
+      "load balancer",
+      "logs",
+      "monitoring",
+      "networking",
+      "observability",
+      "server",
+      "terraform",
+      "yaml"
     ],
     tutorial: [
       "build",
@@ -442,7 +554,15 @@
   }
 
   function normalizeMode(mode) {
+    if (mode === "study") {
+      return "studyGeneral";
+    }
+
     return Object.prototype.hasOwnProperty.call(MODES, mode) ? mode : DEFAULT_MODE;
+  }
+
+  function isStudyMode(mode) {
+    return mode === "studyCyber" || mode === "studyAi" || mode === "studyCloud" || mode === "studyGeneral";
   }
 
   async function ensureScheduleConfig(config) {
@@ -721,8 +841,8 @@
   function scoreCard(context, mode) {
     let result;
 
-    if (mode === "study") {
-      result = scoreStudyMode(context);
+    if (isStudyMode(mode)) {
+      result = scoreStudyMode(context, mode);
     } else if (mode === "research") {
       result = scoreResearchMode(context);
     } else if (mode === "chill") {
@@ -738,8 +858,8 @@
     return result;
   }
 
-  function scoreStudyMode(context) {
-    let score = 42;
+  function scoreStudyMode(context, mode) {
+    let score = 30;
     const positives = [];
     const negatives = [];
     const volatility = calculateEmotionalVolatility(context);
@@ -748,12 +868,21 @@
     const technical = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.technicalCyberAi);
     const entertainment = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.entertainment);
     const novelty = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.shortFormNoveltyRisk);
+    const studyProfile = getStudyProfile(mode);
+    const topicMatches = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES[studyProfile.dictionaryKey]);
+    const thumbnailTopicMatches = findMatches(context.thumbnailText, HEURISTIC_SIGNAL_DICTIONARIES[studyProfile.dictionaryKey]);
+    const educationalFormatMatches = uniqueMatches(education.concat(tutorial));
+    const thumbnailFormatMatches = uniqueMatches(
+      findMatches(context.thumbnailText, HEURISTIC_SIGNAL_DICTIONARIES.educationalStudyPositive).concat(
+        findMatches(context.thumbnailText, HEURISTIC_SIGNAL_DICTIONARIES.tutorial)
+      )
+    );
     let continuityBonus = 0;
     const durationBonus = addDurationSignal(context, positives, negatives);
 
-    score += addSignal(positives, education, "educational keywords", 7, 22);
-    score += addSignal(positives, tutorial, "tutorial/walkthrough indicators", 9, 18);
-    score += addSignal(positives, technical, "technical terminology", 6, 24);
+    score += addSignal(positives, education, "educational format keywords", 6, 18);
+    score += addSignal(positives, tutorial, "tutorial/walkthrough indicators", 8, 18);
+    score += addSignal(positives, topicMatches, `${studyProfile.persona} topic keywords`, 8, 30);
     score += addThumbnailSignal(
       positives,
       findMatches(context.thumbnailText, HEURISTIC_SIGNAL_DICTIONARIES.educationalStudyPositive),
@@ -770,17 +899,31 @@
     );
     score += addThumbnailSignal(
       positives,
-      findMatches(context.thumbnailText, HEURISTIC_SIGNAL_DICTIONARIES.technicalCyberAi),
-      "technical/cyber/AI text",
-      4,
-      12
+      thumbnailTopicMatches,
+      `${studyProfile.persona} topic text`,
+      7,
+      18
     );
     score += durationBonus;
 
-    if ((education.length || tutorial.length) && technical.length && !context.isShort) {
-      continuityBonus = 8;
+    if (educationalFormatMatches.length && topicMatches.length && !context.isShort) {
+      continuityBonus = 18;
       score += continuityBonus;
-      positives.push("coherent topic learning pattern");
+      positives.push(`selected study persona matches educational format and ${studyProfile.persona} topic`);
+    } else if (educationalFormatMatches.length && !topicMatches.length) {
+      score -= 14;
+      negatives.push(`educational format but weak ${studyProfile.persona} topic match`);
+    } else if (!educationalFormatMatches.length && topicMatches.length) {
+      score -= 8;
+      negatives.push(`${studyProfile.persona} topic appears without strong study format`);
+    } else {
+      score -= 18;
+      negatives.push(`weak educational format and weak ${studyProfile.persona} topic match`);
+    }
+
+    if (thumbnailFormatMatches.length && thumbnailTopicMatches.length) {
+      score += 8;
+      positives.push(`thumbnail supports ${studyProfile.persona} study intent`);
     }
 
     score += addLowVolatilitySignal(volatility, positives, negatives);
@@ -808,9 +951,39 @@
       continuityBonus,
       durationBonus,
       emotionalVolatilityScore: volatility.score,
+      educationalFormatSignals: educationalFormatMatches,
+      matchedTopicKeywords: uniqueMatches(topicMatches.concat(thumbnailTopicMatches)),
+      selectedStudyPersona: studyProfile.fullLabel,
       thumbnailVolatilitySignalCount: volatility.thumbnailSignalCount,
       volatilitySignals: volatility.signals
     });
+  }
+
+  function getStudyProfile(mode) {
+    const profiles = {
+      studyCyber: {
+        dictionaryKey: "studyCybersecurityTopic",
+        fullLabel: "Study - Cybersecurity",
+        persona: "Cybersecurity"
+      },
+      studyAi: {
+        dictionaryKey: "studyAiMlTopic",
+        fullLabel: "Study - AI/ML",
+        persona: "AI/ML"
+      },
+      studyCloud: {
+        dictionaryKey: "studyCloudDevOpsTopic",
+        fullLabel: "Study - Cloud/DevOps",
+        persona: "Cloud/DevOps"
+      },
+      studyGeneral: {
+        dictionaryKey: "studyGeneralTopic",
+        fullLabel: "Study - General",
+        persona: "General"
+      }
+    };
+
+    return profiles[mode] || profiles.studyGeneral;
   }
 
   function scoreResearchMode(context) {
@@ -1011,6 +1184,10 @@
 
     const categories = [
       { key: "educationalStudyPositive", label: "educational/study-positive" },
+      { key: "studyCybersecurityTopic", label: "cybersecurity topic" },
+      { key: "studyAiMlTopic", label: "AI/ML topic" },
+      { key: "studyCloudDevOpsTopic", label: "Cloud/DevOps topic" },
+      { key: "studyGeneralTopic", label: "general study topic" },
       { key: "tutorial", label: "tutorial/walkthrough" },
       { key: "technicalCyberAi", label: "technical/cyber/AI" },
       { key: "evidenceGrounding", label: "evidence/grounding" },
@@ -1192,7 +1369,10 @@
     const normalizedMetrics = {
       continuityBonus: Number(metrics.continuityBonus) || 0,
       durationBonus: Number(metrics.durationBonus) || 0,
+      educationalFormatSignals: metrics.educationalFormatSignals || [],
       emotionalVolatilityScore: Number(metrics.emotionalVolatilityScore) || 0,
+      matchedTopicKeywords: metrics.matchedTopicKeywords || [],
+      selectedStudyPersona: metrics.selectedStudyPersona || "",
       strongestNegativeContributor: negativeSignals[0] || "no strong negative signals",
       strongestPositiveContributor: positiveSignals[0] || "no strong positive signals",
       thumbnailVolatilitySignalCount: Number(metrics.thumbnailVolatilitySignalCount) || 0,
@@ -1254,6 +1434,10 @@
 
   function formatMatches(matches) {
     return matches.slice(0, 3).join(", ");
+  }
+
+  function uniqueMatches(matches) {
+    return Array.from(new Set(matches.filter(Boolean)));
   }
 
   function hasAllCapsSignal(title) {
@@ -1340,6 +1524,17 @@
       `${modeLabel} ${result.score} - ${result.classification}`,
       `Final alignment score: ${result.score}`,
       `Confidence: ${result.confidence}`,
+      result.metrics.selectedStudyPersona ? `Selected study persona: ${result.metrics.selectedStudyPersona}` : "",
+      result.metrics.matchedTopicKeywords.length
+        ? `Matched topic keywords: ${formatMatches(result.metrics.matchedTopicKeywords)}`
+        : result.metrics.selectedStudyPersona
+          ? "Matched topic keywords: none"
+          : "",
+      result.metrics.educationalFormatSignals.length
+        ? `Educational format signals: ${formatMatches(result.metrics.educationalFormatSignals)}`
+        : result.metrics.selectedStudyPersona
+          ? "Educational format signals: none"
+          : "",
       `EMOTIONAL_VOLATILITY_SCORE: ${result.metrics.emotionalVolatilityScore}/100`,
       `Long-form bonus: +${result.metrics.durationBonus}`,
       `Continuity bonus: +${result.metrics.continuityBonus}`,
@@ -1360,7 +1555,7 @@
       "Top negative signals:",
       negative,
       result.buddyExplanation
-    ].join("\n");
+    ].filter(Boolean).join("\n");
   }
 
   function formatSourceSignals(signals, fallback) {
@@ -1467,7 +1662,7 @@
     const shouldPrompt =
       (misaligned >= 3 && misalignedRatio >= 0.35) ||
       (activeMode === "chill" && modeStats.highEmotionalVolatilityItems >= 2 && highVolatilityRatio >= 0.25) ||
-      (activeMode === "study" && modeStats.shortsDetected >= 3) ||
+      (isStudyMode(activeMode) && modeStats.shortsDetected >= 3) ||
       (activeMode === "project" && modeStats.shortsDetected >= 3) ||
       sessionState.rapidSwitchEstimate >= 2;
 
@@ -1483,7 +1678,7 @@
       return "Repeated high-volatility signals are showing up during Chill Mode.";
     }
 
-    if (activeMode === "study" && modeStats.shortsDetected >= 3) {
+    if (isStudyMode(activeMode) && modeStats.shortsDetected >= 3) {
       return "A few Shorts showed up during a focus-oriented mode.";
     }
 

@@ -19,7 +19,10 @@ The system helps users notice when digital media consumption patterns drift away
 
 - Chrome extension overlay for YouTube
 - Persona modes:
-  - Study
+  - Study - Cybersecurity
+  - Study - AI/ML
+  - Study - Cloud/DevOps
+  - Study - General
   - Chill
   - Research
   - Project
@@ -31,7 +34,7 @@ The system helps users notice when digital media consumption patterns drift away
 
 ## Chrome Extension MVP
 
-The current demo lives in [`extension/`](extension/). It is a local-only Chrome extension that detects YouTube video cards and applies green, yellow, or red borders from deterministic scoring heuristics. It now includes lightweight session observability, drift prompts, a schedule-ready local config, and Study, Chill, Research, Project, and Bare Metal modes.
+The current demo lives in [`extension/`](extension/). It is a local-only Chrome extension that detects YouTube video cards and applies green, yellow, or red borders from deterministic scoring heuristics. It now includes lightweight session observability, drift prompts, a schedule-ready local config, and Study - Cybersecurity, Study - AI/ML, Study - Cloud/DevOps, Study - General, Chill, Research, Project, and Bare Metal modes.
 
 To try it:
 
@@ -43,6 +46,8 @@ To try it:
 The extension stores mode, aggregate session telemetry, and schedule-ready configuration locally with `chrome.storage.local`. It has no backend, account system, cloud sync, or AI API integration.
 
 The deterministic scoring architecture is documented in [`docs/source-framework.md`](docs/source-framework.md), including source concepts, heuristic dictionary categories, explanation requirements, and clinical/truth-judgment boundaries.
+
+Study scoring is persona-specific: PersonaLabs evaluates alignment relative to a declared intent, not generic "good content."
 
 Recent scoring refinements prioritize emotional volatility and outrage framing over long-form duration, so extended commentary is not treated as low-conflict simply because it is long. Drift prompts are based on signal density and trajectory relative to the selected mode, not political alignment.
 

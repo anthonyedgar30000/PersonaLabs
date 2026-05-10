@@ -16,7 +16,10 @@ There is no AI service, backend, telemetry upload, account system, or network in
 - Tracks lightweight session aggregates locally in `chrome.storage.local`.
 - Shows a small non-blocking drift prompt when session patterns appear misaligned with the active mode.
 - Popup mode selector:
-  - Study
+  - Study - Cybersecurity
+  - Study - AI/ML
+  - Study - Cloud/DevOps
+  - Study - General
   - Chill
   - Research
   - Project
@@ -49,17 +52,31 @@ Tone principles:
 1. Load the extension unpacked.
 2. Visit YouTube Home or Search.
 3. Open the Persona Labs extension popup.
-4. Switch between Study, Chill, Research, and Project to see cards rescored with different explanations.
+4. Switch between specific Study personas, Chill, Research, and Project to see cards rescored with different explanations.
 5. Hover a badge to inspect positive signals, negative signals, confidence, and a short explanation.
 6. Switch to Bare Metal to hide borders, badges, and prompts.
 
 ## Mode definitions
 
-### Study
+### Study - Cybersecurity
 
-Rewards long-form technical or educational content, tutorial/guide/walkthrough language, coherent topic learning, low emotional volatility, and technical terminology.
+Rewards educational/study format plus cybersecurity topic terms such as SOC, SIEM, EDR, XDR, threat detection, incident response, malware, phishing, IAM, Zero Trust, CVE, MITRE, NIST, logging, authentication, authorization, OAuth, Entra, firewall, and network security.
 
-Flags Shorts, rage/clickbait/outrage wording, rapid novelty content, unrelated entertainment, and high emotional volatility.
+### Study - AI/ML
+
+Rewards educational/study format plus AI/ML topic terms such as AI, machine learning, LLMs, transformers, RAG, embeddings, vector databases, prompt engineering, agents, inference, training, evaluation, hallucination, alignment, Gemini, OpenAI, Claude, LangChain, and MCP.
+
+### Study - Cloud/DevOps
+
+Rewards educational/study format plus cloud/DevOps topic terms such as cloud, Azure, AWS, GCP, Kubernetes, Docker, Linux, Terraform, CI/CD, YAML, containers, networking, load balancers, observability, monitoring, logs, infrastructure, servers, and homelab.
+
+### Study - General
+
+Rewards general educational/study format such as tutorials, guides, courses, lectures, explanations, walkthroughs, lessons, fundamentals, introductions, overviews, documentation, examples, labs, and demos.
+
+All Study personas flag Shorts, rage/clickbait/outrage wording, rapid novelty content, unrelated entertainment, and high emotional volatility. A video should score highest when it matches both the educational format and the selected study topic.
+
+Study badge labels use compact persona names, for example `AI/ML 84`, `Cyber 78`, `Cloud 81`, or `General 65`.
 
 ### Research
 
@@ -97,6 +114,9 @@ Scoring is deterministic and heuristic-based. Each card receives:
 - title signals
 - thumbnail signals
 - metadata/duration signals
+- selected study persona
+- matched topic keywords
+- educational format signals
 - long-form duration bonus
 - topic continuity bonus
 - strongest positive and negative contributors
@@ -106,6 +126,9 @@ Example tooltip shape:
 
 ```text
 Study 84 - aligned
+Selected study persona: Study - AI/ML
+Matched topic keywords: llm, agents
+Educational format signals: explained
 Confidence: high
 EMOTIONAL_VOLATILITY_SCORE: 0/100
 Long-form bonus: +14
@@ -129,6 +152,8 @@ Looks aligned with this mode. Study Mode is tuned for calm, long-form learning a
 The model is intentionally transparent and limited. It does not diagnose, infer mental health state, or claim whether content is true.
 
 The lexical dictionaries are heuristic signal categories, not clinical or truth judgments. See [`../docs/source-framework.md`](../docs/source-framework.md) for the source concepts, dictionary categories, explanation requirements, and governance boundaries.
+
+PersonaLabs evaluates alignment relative to a specific declared intent, not generic "good content." An educational Kubernetes tutorial can be aligned with Study - Cloud/DevOps while being less aligned with Study - AI/ML or Study - Cybersecurity.
 
 Long-form does not necessarily mean low-conflict. The scoring hierarchy prioritizes emotional volatility and outrage framing first, then topic continuity, content type/Shorts signals, and finally duration bonuses. This keeps extended outrage/commentary videos from being treated as relaxing simply because they are long.
 

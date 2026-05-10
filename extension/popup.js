@@ -1,5 +1,5 @@
 const STORAGE_KEY = "personaLabsMode";
-const DEFAULT_MODE = "study";
+const DEFAULT_MODE = "studyGeneral";
 const modeButtons = Array.from(document.querySelectorAll("[data-mode]"));
 
 loadMode();
@@ -23,8 +23,9 @@ function saveMode(mode) {
 }
 
 function setActiveMode(mode) {
+  const normalizedMode = mode === "study" ? DEFAULT_MODE : mode;
   modeButtons.forEach((button) => {
-    const isActive = button.dataset.mode === mode;
+    const isActive = button.dataset.mode === normalizedMode;
     button.classList.toggle("active", isActive);
     button.setAttribute("aria-pressed", String(isActive));
   });

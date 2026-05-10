@@ -197,6 +197,8 @@ Scores must not be presented as:
 - productivity judgments
 - claims about user intent
 
+For Study modes, alignment is relative to the declared study persona. Educational content is not automatically aligned with every study goal. A Kubernetes YAML tutorial may align with Study - Cloud/DevOps, while an LLM agents explanation may align with Study - AI/ML and a SOC detection lab may align with Study - Cybersecurity.
+
 ## Explanation requirements
 
 Every score should expose:
@@ -210,6 +212,9 @@ Every score should expose:
 - title signals
 - thumbnail signals
 - metadata/duration signals
+- selected study persona, when applicable
+- matched topic keywords, when applicable
+- educational format signals, when applicable
 - long-form duration bonus
 - topic continuity bonus
 - strongest positive and negative contributors
