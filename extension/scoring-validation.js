@@ -72,6 +72,19 @@ const cases = [
     }
   },
   {
+    name: "playful wholesome video aligns with Chill",
+    context: makeContext("Cute bunny smiles and playful wholesome funny moments", { durationSeconds: 1200 }),
+    mode: "chill",
+    assert(result) {
+      return (
+        result.score >= 70 &&
+        result.classification === "aligned" &&
+        result.dimensions.smilesPlayfulness >= 35 &&
+        result.dimensions.subjectMatterImpact === 0
+      );
+    }
+  },
+  {
     name: "calm educational content aligns with Chill",
     context: makeContext("Calm beginner lecture on watercolor basics", { durationSeconds: 1800 }),
     mode: "chill",
@@ -102,6 +115,23 @@ const cases = [
         ["mixed", "misaligned"].includes(result.classification) &&
         result.metrics.signalLayers.subjectMatter.sourceMatches.title.includes("attacked") &&
         result.metrics.signalLayers.subjectMatter.sourceMatches.title.includes("horrifying footage")
+      );
+    }
+  },
+  {
+    name: "playful thumbnail does not override disturbing subject matter",
+    context: makeContext("Nun ATTACKED By Israel in Horrifying Footage", {
+      durationSeconds: 420,
+      thumbnailText: "smiling happy cute"
+    }),
+    mode: "chill",
+    assert(result) {
+      return (
+        result.score <= 49 &&
+        result.classification !== "aligned" &&
+        result.dimensions.smilesPlayfulness >= 35 &&
+        result.dimensions.subjectMatterImpact >= 55 &&
+        result.negativeSignals.some((signal) => signal.includes("do not override"))
       );
     }
   },
@@ -206,7 +236,7 @@ const failures = [];
 cases.forEach((testCase) => {
   const result = api.scoreCard(testCase.context, testCase.mode);
   const passed = testCase.assert(result);
-  const summary = `${testCase.name}: ${testCase.mode} score=${result.score} classification=${result.classification} tone=${result.dimensions.emotionalTone} subject=${result.dimensions.subjectMatterImpact} tribal=${result.dimensions.tribalDomination} load=${result.dimensions.cognitiveLoad} drift=${result.dimensions.driftRisk} calm=${result.dimensions.calmAmbient}`;
+  const summary = `${testCase.name}: ${testCase.mode} score=${result.score} classification=${result.classification} smile=${result.dimensions.smilesPlayfulness} tone=${result.dimensions.emotionalTone} subject=${result.dimensions.subjectMatterImpact} tribal=${result.dimensions.tribalDomination} load=${result.dimensions.cognitiveLoad} drift=${result.dimensions.driftRisk} calm=${result.dimensions.calmAmbient}`;
   console.log(`${passed ? "PASS" : "FAIL"} ${summary}`);
   if (!passed) {
     failures.push(summary);

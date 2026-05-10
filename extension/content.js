@@ -70,18 +70,20 @@
       lowEmotionalVolatility: 0.08,
       lowDisturbingSubjectMatter: 0.05,
       lowTribalDomination: 0.03,
-      calmAmbient: 0
+      calmAmbient: 0,
+      smilesPlayfulness: 0
     },
     chill: {
       educationalDepth: 0,
-      continuityAlignment: 0.08,
+      continuityAlignment: 0.05,
       evidenceQuality: 0.01,
       exploratoryValue: 0.01,
-      lowCognitiveLoad: 0.17,
-      lowEmotionalVolatility: 0.15,
-      lowDisturbingSubjectMatter: 0.21,
-      lowTribalDomination: 0.2,
-      calmAmbient: 0.17
+      lowCognitiveLoad: 0.16,
+      lowEmotionalVolatility: 0.14,
+      lowDisturbingSubjectMatter: 0.2,
+      lowTribalDomination: 0.18,
+      calmAmbient: 0.17,
+      smilesPlayfulness: 0.08
     },
     research: {
       educationalDepth: 0.1,
@@ -92,7 +94,8 @@
       lowEmotionalVolatility: 0.08,
       lowDisturbingSubjectMatter: 0.02,
       lowTribalDomination: 0.02,
-      calmAmbient: 0
+      calmAmbient: 0,
+      smilesPlayfulness: 0
     },
     project: {
       educationalDepth: 0.2,
@@ -103,7 +106,8 @@
       lowEmotionalVolatility: 0.08,
       lowDisturbingSubjectMatter: 0.04,
       lowTribalDomination: 0.03,
-      calmAmbient: 0
+      calmAmbient: 0,
+      smilesPlayfulness: 0
     },
     custom: {
       educationalDepth: 0.2,
@@ -114,7 +118,8 @@
       lowEmotionalVolatility: 0.07,
       lowDisturbingSubjectMatter: 0.03,
       lowTribalDomination: 0.02,
-      calmAmbient: 0
+      calmAmbient: 0,
+      smilesPlayfulness: 0
     }
   };
 
@@ -221,6 +226,25 @@
     "lofi",
     "healing",
     "mindful"
+  ]);
+
+  const SMILES_PLAYFULNESS_SIGNALS = Object.freeze([
+    "smile",
+    "smiles",
+    "smiling",
+    "laughter",
+    "laughing",
+    "happy",
+    "joyful",
+    "playful",
+    "adorable",
+    "cute",
+    "fun",
+    "funny",
+    "wholesome",
+    "heartwarming",
+    "giggle",
+    "lol"
   ]);
 
   const COGNITIVE_LOAD_SIGNALS = Object.freeze([
@@ -560,6 +584,7 @@
     EMOTIONAL_TONE_SIGNALS,
     VIOLENCE_DISTURBING_SIGNALS,
     CALM_AMBIENT_SIGNALS,
+    SMILES_PLAYFULNESS_SIGNALS,
     COGNITIVE_LOAD_SIGNALS,
     TRIBAL_DOMINATION_FRAMING_SIGNALS,
     project: [
@@ -1398,6 +1423,7 @@
     const chill = uniqueMatches(
       findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.calmLowConflict).concat(signalLayers.calmAmbient.matches)
     );
+    const playfulness = signalLayers.smilesPlayfulness.matches;
     const conflict = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.conflict);
     const outrage = findMatches(context.searchText, HEURISTIC_SIGNAL_DICTIONARIES.outrageRageBait);
     const emotionalTonePenalty = Math.min(75, Math.round(signalLayers.emotionalTone.score * 0.78));
@@ -1435,6 +1461,13 @@
     }
 
     score += addSignal(positives, chill, "calm ambient or light content", 9, 30);
+    if (playfulness.length) {
+      if (!disturbingSubjectMatter && !elevatedTribalDomination && !elevatedEmotionalTone) {
+        score += addSignal(positives, playfulness, "smiles/playfulness positive affect", 8, 24);
+      } else {
+        negatives.push("smiles/playfulness signals do not override disturbing or conflict-framed content");
+      }
+    }
 
     if (chill.length && !elevatedEmotionalTone && !disturbingSubjectMatter && !elevatedTribalDomination && !highCognitiveLoad) {
       continuityBonus = 12;
@@ -1641,6 +1674,17 @@
       textCap: 75,
       thumbnailCap: 75
     });
+    const smilesPlayfulness = buildSignalLayer({
+      label: "smiles/playfulness signals",
+      text: primaryText,
+      thumbnailText,
+      sourceTexts,
+      dictionary: HEURISTIC_SIGNAL_DICTIONARIES.SMILES_PLAYFULNESS_SIGNALS,
+      textWeight: 18,
+      thumbnailWeight: 24,
+      textCap: 70,
+      thumbnailCap: 76
+    });
     const cognitiveLoad = buildSignalLayer({
       label: "cognitive load / fragmentation",
       text: primaryText,
@@ -1685,6 +1729,7 @@
       calmAmbient,
       cognitiveLoad,
       emotionalTone,
+      smilesPlayfulness,
       subjectMatter,
       tribalDomination
     };
@@ -1837,6 +1882,7 @@
       { key: "currentEvents", label: "current-events metadata" },
       { key: "calmLowConflict", label: "calm/low-conflict" },
       { key: "CALM_AMBIENT_SIGNALS", label: "calm ambient" },
+      { key: "SMILES_PLAYFULNESS_SIGNALS", label: "smiles/playfulness" },
       { key: "EMOTIONAL_TONE_SIGNALS", label: "emotional tone/rage framing" },
       { key: "VIOLENCE_DISTURBING_SIGNALS", label: "disturbing subject matter" },
       { key: "COGNITIVE_LOAD_SIGNALS", label: "cognitive load" },
@@ -2039,6 +2085,7 @@
       personaWeights: metrics.personaWeights || PERSONA_DIMENSION_WEIGHTS.custom,
       selectedStudyPersona: metrics.selectedStudyPersona || "",
       signalLayers,
+      smilesPlayfulnessScore: signalLayers.smilesPlayfulness.score,
       strongestNegativeContributor: negativeSignals[0] || "no strong friction signals",
       strongestPositiveContributor: positiveSignals[0] || "no strong supporting signals",
       subjectMatterImpactScore: signalLayers.subjectMatter.score,
@@ -2082,6 +2129,7 @@
       calmAmbient: normalizeSignalLayer(signalLayers && signalLayers.calmAmbient, emptyLayer),
       cognitiveLoad: normalizeSignalLayer(signalLayers && signalLayers.cognitiveLoad, emptyLayer),
       emotionalTone: normalizeSignalLayer(signalLayers && signalLayers.emotionalTone, emptyLayer),
+      smilesPlayfulness: normalizeSignalLayer(signalLayers && signalLayers.smilesPlayfulness, emptyLayer),
       subjectMatter: normalizeSignalLayer(signalLayers && signalLayers.subjectMatter, emptyLayer),
       tribalDomination: normalizeSignalLayer(signalLayers && signalLayers.tribalDomination, emptyLayer)
     };
@@ -2124,6 +2172,7 @@
     const subjectMatterImpact = clampDimension(metrics.subjectMatterImpactScore);
     const calmAmbient = clampDimension(metrics.calmAmbientScore);
     const tribalDomination = clampDimension(metrics.tribalDominationScore);
+    const smilesPlayfulness = clampDimension(metrics.smilesPlayfulnessScore);
     const emotionalTone = clampDimension(Math.max(metrics.emotionalVolatilityScore, metrics.emotionalToneScore, tribalDomination));
 
     const evidenceQuality = clampDimension(
@@ -2153,7 +2202,8 @@
         (100 - emotionalVolatility) * (weights.lowEmotionalVolatility || 0) +
         (100 - subjectMatterImpact) * (weights.lowDisturbingSubjectMatter || 0) +
         (100 - tribalDomination) * (weights.lowTribalDomination || 0) +
-        calmAmbient * (weights.calmAmbient || 0) -
+        calmAmbient * (weights.calmAmbient || 0) +
+        smilesPlayfulness * (weights.smilesPlayfulness || 0) -
         Math.max(0, noveltyPressure - 75) * 0.15
     );
 
@@ -2174,6 +2224,7 @@
       intentAlignment,
       intentionalAlignment: intentAlignment,
       noveltyPressure,
+      smilesPlayfulness,
       subjectMatterImpact,
       tribalDomination,
       driftRisk
@@ -2190,6 +2241,10 @@
       dimensions.evidenceQuality <= 30
     ].filter(Boolean).length;
     const hasResearchLikeValue = dimensions.evidenceQuality >= 65 || dimensions.exploratoryValue >= 60;
+
+    if (dimensions.subjectMatterImpact >= 25 && dimensions.alignmentScore <= 49) {
+      return dimensions.subjectMatterImpact >= 55 || dimensions.alignmentScore <= 34 ? "misaligned" : "mixed";
+    }
 
     if (dimensions.intentAlignment >= 70 && strongNegativeCount === 0) {
       return "aligned";
@@ -2384,6 +2439,7 @@
     const noveltyLevel = levelFromScore(result.dimensions.noveltyPressure, 65, 35);
     const cognitiveLoadLevel = levelFromScore(result.dimensions.cognitiveLoad, 65, 35);
     const calmAmbientLevel = levelFromScore(result.dimensions.calmAmbient, 65, 35);
+    const smilesPlayfulnessLevel = levelFromScore(result.dimensions.smilesPlayfulness, 65, 35);
     const tribalDominationLevel = levelFromScore(result.dimensions.tribalDomination, 60, 35);
     const driftRiskLevel = levelFromScore(result.dimensions.driftRisk, 70, 40);
     const diversityLevel = levelFromScore(result.dimensions.exploratoryValue, 65, 35);
@@ -2404,6 +2460,9 @@
         : result.metrics.selectedStudyPersona
           ? "Educational format signals: none"
           : "",
+      "Smiles / Playfulness Signals:",
+      `Smiles/playfulness support: ${smilesPlayfulnessLevel} (${result.dimensions.smilesPlayfulness}/100)`,
+      formatLayerSignals(result.metrics.signalLayers.smilesPlayfulness, "no smiles/playfulness signals detected"),
       "Calm / Ambient Signals:",
       `Calm ambient support: ${calmAmbientLevel} (${result.dimensions.calmAmbient}/100)`,
       formatLayerSignals(result.metrics.signalLayers.calmAmbient, "no calm ambient signals detected"),
@@ -2426,6 +2485,7 @@
       `evidenceQuality: ${evidenceLevel} (${result.dimensions.evidenceQuality}/100)`,
       `educationalDepth: ${educationalDepthLevel} (${result.dimensions.educationalDepth}/100)`,
       `emotionalVolatility: ${volatilityLevel} (${result.dimensions.emotionalVolatility}/100)`,
+      `smilesPlayfulness: ${smilesPlayfulnessLevel} (${result.dimensions.smilesPlayfulness}/100)`,
       `subjectMatterImpact: ${subjectMatterLevel} (${result.dimensions.subjectMatterImpact}/100)`,
       `tribalDomination: ${tribalDominationLevel} (${result.dimensions.tribalDomination}/100)`,
       `calmAmbient: ${calmAmbientLevel} (${result.dimensions.calmAmbient}/100)`,
@@ -2472,13 +2532,31 @@
     if (
       result.metrics.activeMode === "chill" &&
       result.dimensions.emotionalTone < 20 &&
-      result.dimensions.subjectMatterImpact >= 25
+      result.dimensions.subjectMatterImpact >= 25 &&
+      result.dimensions.smilesPlayfulness < 35
     ) {
       return "- Low rage framing detected, but disturbing subject matter reduced Chill alignment.";
     }
 
+    if (
+      result.metrics.activeMode === "chill" &&
+      result.dimensions.smilesPlayfulness >= 35 &&
+      result.dimensions.subjectMatterImpact >= 25
+    ) {
+      return "- Smiles/playfulness signals detected, but disturbing subject matter prevents green Chill alignment.";
+    }
+
     if (result.metrics.activeMode === "chill" && result.dimensions.calmAmbient >= 45 && result.dimensions.subjectMatterImpact < 25) {
       return "- Calm ambient content increased Chill alignment.";
+    }
+
+    if (
+      result.metrics.activeMode === "chill" &&
+      result.dimensions.smilesPlayfulness >= 35 &&
+      result.dimensions.subjectMatterImpact < 25 &&
+      result.dimensions.tribalDomination < 25
+    ) {
+      return "- Smiles/playfulness signals increased Chill positive affect.";
     }
 
     if (result.dimensions.cognitiveLoad >= 55) {
@@ -2563,7 +2641,8 @@
       `lowEmotionalVolatility ${weights.lowEmotionalVolatility}`,
       `lowDisturbingSubjectMatter ${weights.lowDisturbingSubjectMatter || 0}`,
       `lowTribalDomination ${weights.lowTribalDomination || 0}`,
-      `calmAmbient ${weights.calmAmbient || 0}`
+      `calmAmbient ${weights.calmAmbient || 0}`,
+      `smilesPlayfulness ${weights.smilesPlayfulness || 0}`
     ].join(" | ");
   }
 

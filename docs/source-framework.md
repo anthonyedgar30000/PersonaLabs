@@ -120,55 +120,59 @@ Dictionary matches are local heuristic indicators. They are signals used to esti
    - Examples: relaxing, nature, gentle, soft music, peaceful, ambience, sleep, calming, meditation, forest, rain, birds, aquarium, bunny, cat tv, dog tv, piano, ocean, waterfall, cozy, lofi, healing, mindful.
    - Intended signal: content may support Chill Mode recovery, low-friction ambience, or stable calming attention.
 
-7. **Cognitive load terms**
+7. **Smiles / playfulness terms**
+   - Examples: smile, smiles, smiling, laughter, laughing, happy, joyful, playful, adorable, cute, fun, funny, wholesome, heartwarming, giggle, LOL.
+   - Intended signal: content may carry positive affect or playful low-friction cues that support Chill Mode when not paired with disturbing subject matter or domination framing.
+
+8. **Cognitive load terms**
    - Examples: debate, analysis, politics, breaking news, investigation, controversy, drama, reaction, argument, live coverage, multi-topic, rapid updates, complex, technical, economic, policy, deep dive, long form analysis.
    - Intended signal: content may increase mental processing burden, switching cost, or attentional fragmentation.
 
-8. **Tribal domination framing terms**
+9. **Tribal domination framing terms**
    - Examples: owned, destroyed, humiliated, revenge, meltdown, obliterated, crushed, wrecked, slams, annihilates, exposed, collapse, disastrous, panic, losing minds, unhinged, final note, bombshell, cringe, fails badly, disaster, destroys, embarrassed, caught lying, takedown, rage, epic fail, backfires badly.
    - Intended signal: content may use conflict-framed attention capture patterns such as enemies vs allies, winners vs losers, humiliation vs dominance, revenge vs punishment, or collapse vs catastrophe.
 
-9. **Calm / low-conflict terms**
+10. **Calm / low-conflict terms**
    - Examples: calm, ambient, lofi, nature, meditation, cozy, cooking, travel.
    - Intended signal: content may support Chill Mode.
 
-10. **Clickbait / urgency terms**
+11. **Clickbait / urgency terms**
    - Examples: must watch, secret, shocking, breaking, urgent, you won't believe.
    - Intended signal: content may be optimized for urgency or impulse, depending on mode.
 
-11. **Outrage / rage-bait terms**
+12. **Outrage / rage-bait terms**
    - Examples: exposed, destroyed, meltdown, slammed, they lied, humiliates, culture war.
    - Intended signal: content may be high-conflict or emotionally activating.
 
-12. **Outrage escalation terms**
+13. **Outrage escalation terms**
    - Examples: destroyed, annihilates, obliterated, crushed, panic mode, total disaster.
    - Intended signal: content may use escalating emotional conflict framing.
 
-13. **Humiliation framing terms**
+14. **Humiliation framing terms**
    - Examples: humiliated, humiliates, owned, shuts down, smoked, embarrassed.
    - Intended signal: content may be framed around interpersonal or tribal dominance.
 
-14. **Tribal conflict language**
+15. **Tribal conflict language**
    - Examples: culture war, us vs them, enemy, traitor, mob, war on.
    - Intended signal: content may invite group conflict rather than low-conflict reflection.
 
-15. **Panic/fear framing**
+16. **Panic/fear framing**
     - Examples: panic, freakout, disaster, catastrophe, crisis, losing their minds, complete shock.
     - Intended signal: content may be emotionally activating or fear-forward.
 
-16. **Absolutist/emotional wording**
+17. **Absolutist/emotional wording**
     - Examples: always, never, everyone, no one, totally, unbelievable, worst.
     - Intended signal: content may use strong certainty or emotional amplification.
 
-17. **Novelty intensity language**
+18. **Novelty intensity language**
     - Examples: urgent, breaking, must watch, can't stop watching, everything is collapsing.
     - Intended signal: content may invite rapid checking, urgency, or escalating novelty.
 
-18. **Speculation / low-evidence terms**
+19. **Speculation / low-evidence terms**
    - Examples: rumor, allegedly, theory, what if, could be, maybe, anonymous source.
    - Intended signal: content may need lower Research confidence unless grounded by evidence terms.
 
-19. **Short-form / novelty-risk terms**
+20. **Short-form / novelty-risk terms**
    - Examples: Shorts, TikTok, viral, compilation, top 10, random.
    - Intended signal: content may be rapid novelty or low-context browsing, especially in Study or Project modes.
 
@@ -176,31 +180,36 @@ Dictionary matches are local heuristic indicators. They are signals used to esti
 
 The deterministic architecture separates observable dimensions before assigning a final alignment classification:
 
-1. Calm / Ambient Signals
+1. Smiles / Playfulness Signals
+   - smiles, laughter, playful expressions, warm visual/text cues
+   - positive affect for Chill Mode
+   - never overrides disturbing subject matter or domination framing
+
+2. Calm / Ambient Signals
    - nature/sleep/music ambience
    - gentle animal/aquarium content
    - low-friction recovery signals
 
-2. Violence / Disturbing Subject Matter
+3. Violence / Disturbing Subject Matter
    - violent or disturbing event terms
    - crisis/heavy themes
    - psychologically intense subjects
    - restrained-language descriptions of violence
 
-3. Tribal Domination Framing
+4. Tribal Domination Framing
    - enemies vs allies framing
    - winners vs losers framing
    - humiliation vs dominance framing
    - revenge/punishment framing
    - collapse/catastrophe framing
 
-4. Cognitive Load
+5. Cognitive Load
    - debate/argument framing
    - live coverage and rapid updates
    - multi-topic formats
    - short-form or highly fragmented formats
 
-5. Evidence Signals
+6. Evidence Signals
    - source/reputation indicators
    - analytical terminology
    - citations/references
@@ -209,29 +218,29 @@ The deterministic architecture separates observable dimensions before assigning 
    - low speculation framing
    - long-form analysis
 
-6. Novelty Pressure
+7. Novelty Pressure
    - breaking/urgent framing
    - must-watch-now language
    - shocking/rapid novelty cues
 
-7. Intentional Alignment
+8. Intentional Alignment
    - fit relative to the current persona or mode
 
-8. Drift Risk
+9. Drift Risk
    - aggregate friction from tribal domination, disturbing subject matter, emotional volatility, novelty pressure, and cognitive load
    - used for local trajectory prompts, never blocking
 
-9. Exploratory Value
+10. Exploratory Value
    - opposing viewpoints
    - analytical debate
    - critical discussion
    - broader perspective exploration
 
-These dimensions prevent speaking style, subject matter, domination framing, and low evidence from being collapsed into one score. A major geopolitical event can show high Evidence Signals, low rage framing, high disturbing subject matter, and high Research value. A conflict-framed commentary item can show low disturbing subject matter but high Tribal Domination Framing and high Drift Risk.
+These dimensions prevent speaking style, playful affect, subject matter, domination framing, and low evidence from being collapsed into one score. A major geopolitical event can show high Evidence Signals, low rage framing, high disturbing subject matter, and high Research value. A conflict-framed commentary item can show low disturbing subject matter but high Tribal Domination Framing and high Drift Risk. A smiling or playful thumbnail can support Chill only when it is not attached to violent/disturbing content.
 
 PersonaLabs separates objective measurable signals from user-defined subjective intent alignment. Objective dimensions describe observed properties of a card. `intentAlignment` estimates fit against the user's currently declared persona and its local dimension weights. This means the system estimates "how aligned this content is with my current intent," not whether the content is true, moral, healthy, politically correct, misinformation, or allowed. PersonaLabs models attentional friction and intentional alignment, not political correctness or objective truth.
 
-High volatility, disturbing subject matter, tribal domination framing, low evidence, and educational/opinion framing are separate dimensions. A high-volatility item may still have strong evidence quality. A low-volatility item may still discuss violent or disturbing subject matter. A calm speaker may still frame reality as enemies vs allies, winners vs losers, humiliation vs dominance, revenge vs punishment, or collapse vs catastrophe. Educational formatting is not the same as truth verification.
+High volatility, playful affect, disturbing subject matter, tribal domination framing, low evidence, and educational/opinion framing are separate dimensions. A high-volatility item may still have strong evidence quality. A low-volatility item may still discuss violent or disturbing subject matter. A calm speaker may still frame reality as enemies vs allies, winners vs losers, humiliation vs dominance, revenge vs punishment, or collapse vs catastrophe. Smiles or playful text do not sanitize disturbing subject matter. Educational formatting is not the same as truth verification.
 
 The deterministic hierarchy should generally prioritize:
 
@@ -241,9 +250,10 @@ The deterministic hierarchy should generally prioritize:
 4. cognitive load / fragmentation
 5. topic continuity
 6. content type and Shorts/novelty risk
-7. duration bonuses
+7. smiles/playfulness and calm ambience bonuses
+8. duration bonuses
 
-Long-form does not necessarily mean low-conflict. A long video with dense domination framing, outrage, humiliation, panic, novelty-intensity language, disturbing subject matter, or rapid-update complexity should score lower in Chill Mode than a shorter low-conflict video. Tribal domination framing, disturbing subject matter, emotional volatility, and cognitive load can outweigh duration when signals are severe, but high Evidence Signals can still support Research alignment.
+Long-form does not necessarily mean low-conflict. A long video with dense domination framing, outrage, humiliation, panic, novelty-intensity language, disturbing subject matter, or rapid-update complexity should score lower in Chill Mode than a shorter low-conflict video. Tribal domination framing, disturbing subject matter, emotional volatility, and cognitive load can outweigh smiles/playfulness, calm ambience, and duration when signals are severe, but high Evidence Signals can still support Research alignment.
 
 Drift detection is based on trajectory and signal density, not political alignment. PersonaLabs should not classify conflict, politics, military topics, ideology, parties, or current-events categories as inherently good or bad. It should evaluate observed tribal/domination framing, subject matter, cognitive-load, and behavioral signals relative to the user's selected mode.
 
@@ -289,6 +299,7 @@ Every score should expose:
 - score
 - mode
 - classification: aligned, neutral, mixed, or misaligned
+- Smiles / Playfulness signals
 - Calm / Ambient signals
 - Violence / Disturbing Subject Matter signals
 - Tribal Domination Framing signals
@@ -304,6 +315,7 @@ Every score should expose:
 - drift risk estimate
 - novelty pressure estimate
 - cognitive load / fragmentation estimate
+- smiles/playfulness support estimate
 - calm ambient support estimate
 - exploratory value estimate
 - title signals
@@ -348,7 +360,7 @@ The thumbnail layer currently uses accessible text only; no OCR or image model i
 - excessive arrows/circles
 - rage expressions
 
-These signals should influence Tribal Domination Framing, Emotional Volatility, Novelty Pressure, Drift Risk, and Cognitive Load / Fragmentation. They should not directly determine Evidence Quality or topic value.
+These signals should influence Smiles / Playfulness, Tribal Domination Framing, Emotional Volatility, Novelty Pressure, Drift Risk, and Cognitive Load / Fragmentation. They should not directly determine Evidence Quality or topic value.
 
 ## Local survey/persona foundation
 

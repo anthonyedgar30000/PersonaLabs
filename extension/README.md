@@ -89,7 +89,7 @@ Flags rage framing, low evidence density for complex/current topics, Shorts form
 
 Rewards calming, low-conflict content such as bunny/nature/sleep ambience, aquarium videos, relaxing piano, soft music, meditation, lofi, gentle rain, forest/bird ambience, and casual recovery browsing.
 
-Flags conflict-framed attention capture patterns: tribal/domination framing, owning/humiliation language, revenge/punishment framing, collapse/catastrophe framing, disturbing/violent subject matter, and high cognitive fragmentation. Low emotional tone is not treated as low emotional impact: a restrained title such as "Military strike hits convoy in Lebanon" can still reduce Chill alignment because the subject matter is psychologically heavy. Political or current-events content is not treated as inherently bad, but tribal domination framing, disturbing subject matter, rage framing, or fragmented live-update formats can outweigh long-form duration in Chill Mode.
+Flags conflict-framed attention capture patterns: tribal/domination framing, owning/humiliation language, revenge/punishment framing, collapse/catastrophe framing, disturbing/violent subject matter, and high cognitive fragmentation. Smiles/playfulness signals are positive for Chill only when they are not paired with disturbing subject matter or domination framing. Low emotional tone is not treated as low emotional impact: a restrained title such as "Military strike hits convoy in Lebanon" can still reduce Chill alignment because the subject matter is psychologically heavy. Political or current-events content is not treated as inherently bad, but tribal domination framing, disturbing subject matter, rage framing, or fragmented live-update formats can outweigh long-form duration in Chill Mode.
 
 ### Project
 
@@ -105,11 +105,12 @@ Hides overlays and suppresses drift prompts. It is always available.
 
 Scoring is deterministic and heuristic-based. Each card is first separated into deterministic signal layers, then weighted against the selected persona:
 
-1. **Calm / Ambient Signals** - recovery-oriented signals such as bunny, aquarium, relaxing music, sleep ambience, nature, rain, birds, meditation, piano, ocean, waterfall, cozy, and lofi.
-2. **Violence / Disturbing Subject Matter** - disturbing/heavy themes such as attacked, injured, execution, gore, explosion, burning alive, war footage, massacre, hostage, raid, war crime, murdered, bombing, slaughter, terror, brutality, violent, killed, airstrike, blood, crisis, stabbed, chaos, dead, military strike, graphic, disaster, beaten, or panic.
-3. **Tribal Domination Framing** - conflict/dominance attention patterns such as owned, destroys, crushed, humiliates, wrecked, revenge, slams, annihilates, meltdown, collapse, disastrous, final note, bombshell, cringe, caught lying, takedown, epic fail, or backfires badly.
-4. **Cognitive Load** - attentional complexity and fragmentation such as debate, analysis, politics, breaking news, investigation, controversy, live coverage, multi-topic, rapid updates, complex, technical, economic, policy, deep dive, or long form analysis.
-5. **Persona Alignment** - persona-specific weighting over the observed layers and mode-positive signals.
+1. **Smiles / Playfulness Signals** - first-class positive signals such as smile, smiling, laughter, happy, joyful, playful, adorable, cute, fun, funny, wholesome, heartwarming, giggle, or LOL.
+2. **Calm / Ambient Signals** - recovery-oriented signals such as bunny, aquarium, relaxing music, sleep ambience, nature, rain, birds, meditation, piano, ocean, waterfall, cozy, and lofi.
+3. **Violence / Disturbing Subject Matter** - disturbing/heavy themes such as attacked, injured, execution, gore, explosion, burning alive, war footage, massacre, hostage, raid, war crime, murdered, bombing, slaughter, terror, brutality, violent, killed, airstrike, blood, crisis, stabbed, chaos, dead, military strike, graphic, disaster, beaten, or panic.
+4. **Tribal Domination Framing** - conflict/dominance attention patterns such as owned, destroys, crushed, humiliates, wrecked, revenge, slams, annihilates, meltdown, collapse, disastrous, final note, bombshell, cringe, caught lying, takedown, epic fail, or backfires badly.
+5. **Cognitive Load** - attentional complexity and fragmentation such as debate, analysis, politics, breaking news, investigation, controversy, live coverage, multi-topic, rapid updates, complex, technical, economic, policy, deep dive, or long form analysis.
+6. **Persona Alignment** - persona-specific weighting over the observed layers and mode-positive signals.
 
 Each card receives objective dimension scores, a persona-weighted intent alignment score, mode, classification, alignment signals, evidence signals, media environment signals, title/thumbnail/metadata provenance, confidence level, selected study persona where applicable, matched topic keywords, long-form and continuity bonuses, primary supporting/friction signals, and a short calm explanation.
 
@@ -117,6 +118,7 @@ Objective dimensions are measured independently from persona alignment:
 
 - `emotionalVolatility`
 - `emotionalTone`
+- `smilesPlayfulness`
 - `subjectMatterImpact`
 - `tribalDomination`
 - `calmAmbient`
@@ -128,7 +130,7 @@ Objective dimensions are measured independently from persona alignment:
 - `cognitiveLoad`
 - `intentAlignment`
 
-Persona profiles weight those dimensions differently. For example, Study personas weight educational depth, continuity, and low emotional volatility; Research weights evidence quality and exploratory value; Chill strongly weights calm ambient support, low disturbing subject matter, low tribal/domination framing, and low cognitive fragmentation. Bare Metal disables alignment scoring and overlays.
+Persona profiles weight those dimensions differently. For example, Study personas weight educational depth, continuity, and low emotional volatility; Research weights evidence quality and exploratory value; Chill strongly weights smiles/playfulness, calm ambient support, low disturbing subject matter, low tribal/domination framing, and low cognitive fragmentation. Bare Metal disables alignment scoring and overlays.
 
 Example tooltip shape:
 
@@ -140,6 +142,8 @@ Final Alignment Score: 84
 Selected study persona: Study - AI/ML
 Matched topic keywords: llm, agents
 Educational format signals: explained
+Smiles / Playfulness Signals:
+Smiles/playfulness support: Low (0/100)
 Calm / Ambient Signals:
 Calm ambient support: Low (0/100)
 Violence / Disturbing Subject Matter:
@@ -158,6 +162,7 @@ Signals:
 evidenceQuality: High (82/100)
 educationalDepth: High (76/100)
 emotionalVolatility: Moderate (44/100)
+smilesPlayfulness: Low (0/100)
 subjectMatterImpact: Low (0/100)
 tribalDomination: Low (0/100)
 calmAmbient: Low (0/100)
@@ -190,6 +195,8 @@ Chill-specific friction example:
 ```text
 Chill 42 - mixed
 Media Observability Panel
+Smiles / Playfulness Signals:
+- no smiles/playfulness signals detected
 Calm / Ambient Signals:
 - no calm ambient signals detected
 Violence / Disturbing Subject Matter:
@@ -203,11 +210,22 @@ Drift risk: Moderate (52/100)
 Explanation: Chill alignment reduced due to disturbing subject matter signals: attacked, horrifying footage.
 ```
 
+If a thumbnail or title contains smiles/playfulness terms alongside violent subject matter, the positive affect layer is shown but does not turn the card green:
+
+```text
+Smiles / Playfulness Signals:
+- thumbnail smiles/playfulness signals: smiling, happy
+Violence / Disturbing Subject Matter:
+- title disturbing subject matter: attacked, horrifying footage
+Persona Alignment:
+Explanation: Smiles/playfulness signals detected, but disturbing subject matter prevents green Chill alignment.
+```
+
 The model is intentionally transparent and limited. It does not diagnose, infer mental health state, or claim whether content is true. PersonaLabs models attentional friction and intentional alignment, not political correctness or objective truth.
 
 The lexical dictionaries are heuristic signal categories, not clinical or truth judgments. See [`../docs/source-framework.md`](../docs/source-framework.md) for the source concepts, dictionary categories, explanation requirements, and governance boundaries.
 
-The scoring architecture is multi-axis. Evidence Signals, Calm / Ambient Signals, Violence / Disturbing Subject Matter, Tribal Domination Framing, Novelty Pressure, Cognitive Load / Fragmentation, Intentionality Alignment, Drift Risk, and Exploratory Diversity are evaluated separately before the final border classification is assigned. This lets a high-evidence major world event remain valuable in Research mode even if it carries disturbing subject matter, while preventing restrained violent content or domination-framed commentary from being treated as Chill-aligned.
+The scoring architecture is multi-axis. Evidence Signals, Smiles / Playfulness Signals, Calm / Ambient Signals, Violence / Disturbing Subject Matter, Tribal Domination Framing, Novelty Pressure, Cognitive Load / Fragmentation, Intentionality Alignment, Drift Risk, and Exploratory Diversity are evaluated separately before the final border classification is assigned. This lets a high-evidence major world event remain valuable in Research mode even if it carries disturbing subject matter, while preventing restrained violent content or domination-framed commentary from being treated as Chill-aligned.
 
 High volatility, low evidence, disturbing subject matter, tribal domination framing, and educational/opinion framing are separate dimensions. PersonaLabs does not treat emotional intensity as the same thing as low evidence, and it does not treat conflict, politics, military topics, or serious world events as inherently negative. The model estimates fit relative to a declared intent, not objective truth, morality, misinformation, political correctness, or viewpoint correctness.
 
