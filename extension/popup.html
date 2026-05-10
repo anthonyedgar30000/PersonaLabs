@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Persona Labs</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main class="popup">
+      <header class="popup-header">
+        <p class="eyebrow">Persona Labs</p>
+        <h1>Media Signals</h1>
+        <p class="description">Choose a declared intent. Persona Labs shows local alignment signals and session drift indicators.</p>
+      </header>
+
+      <section class="mode-list" aria-label="Persona mode">
+        <button class="mode-card" type="button" data-mode="studyCyber">
+          <span class="mode-title">Study - Cybersecurity</span>
+          <span class="mode-copy">Focus on SOC, detection, identity, network security, vulnerabilities, and incident response.</span>
+        </button>
+        <button class="mode-card" type="button" data-mode="studyAi">
+          <span class="mode-title">Study - AI/ML</span>
+          <span class="mode-copy">Focus on LLMs, RAG, embeddings, agents, training, evaluation, and model behavior.</span>
+        </button>
+        <button class="mode-card" type="button" data-mode="studyCloud">
+          <span class="mode-title">Study - Cloud/DevOps</span>
+          <span class="mode-copy">Focus on Kubernetes, Docker, Linux, Terraform, CI/CD, cloud, and observability.</span>
+        </button>
+        <button class="mode-card" type="button" data-mode="studyGeneral">
+          <span class="mode-title">Study - General</span>
+          <span class="mode-copy">Focus on tutorials, lectures, guides, labs, demos, and fundamentals.</span>
+        </button>
+        <button class="mode-card" type="button" data-mode="chill">
+          <span class="mode-title">Chill</span>
+          <span class="mode-copy">Relaxed browsing with entertainment-friendly signals.</span>
+        </button>
+        <button class="mode-card" type="button" data-mode="research">
+          <span class="mode-title">Research</span>
+          <span class="mode-copy">Favor analysis, interviews, documentaries, and reviews.</span>
+        </button>
+        <button class="mode-card" type="button" data-mode="project">
+          <span class="mode-title">Project</span>
+          <span class="mode-copy">Support building, debugging, implementation, and shipping.</span>
+        </button>
+        <button class="mode-card" type="button" data-mode="custom">
+          <span class="mode-title">Custom</span>
+          <span class="mode-copy">Use locally stored persona preferences from the survey foundation.</span>
+        </button>
+        <button class="mode-card" type="button" data-mode="bareMetal">
+          <span class="mode-title">Bare Metal</span>
+          <span class="mode-copy">Hide Persona styling and browse without overlays.</span>
+        </button>
+      </section>
+
+      <section class="survey-panel" aria-label="Persona survey foundation">
+        <h2>Persona survey foundation</h2>
+        <label>
+          Goals
+          <input id="survey-goals" type="text" placeholder="e.g. learn cloud security, track research">
+        </label>
+        <label>
+          Learning domains
+          <input id="survey-domains" type="text" placeholder="e.g. cybersecurity, AI, DevOps">
+        </label>
+        <label>
+          Stress/drift triggers
+          <input id="survey-triggers" type="text" placeholder="e.g. outrage framing, rapid clips">
+        </label>
+        <label>
+          Exploration level
+          <select id="survey-exploration">
+            <option value="focused">Focused</option>
+            <option value="balanced">Balanced</option>
+            <option value="broad">Broad</option>
+          </select>
+        </label>
+        <label>
+          Volatility tolerance
+          <select id="survey-volatility">
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+        </label>
+        <label>
+          Preferred cognitive mode
+          <select id="survey-cognitive-mode">
+            <option value="study">Study</option>
+            <option value="chill">Chill</option>
+            <option value="research">Research</option>
+            <option value="project">Project</option>
+          </select>
+        </label>
+        <button id="survey-save" class="secondary-action" type="button">Save local preferences</button>
+      </section>
+
+      <label class="debug-toggle">
+        <input id="debug-mode" type="checkbox">
+        Show developer debug panel
+      </label>
+
+      <p class="privacy-note">Local-only MVP. No account, backend, cloud sync, or AI API calls.</p>
+
+      <footer class="legend">
+        <span><i class="dot green"></i>Aligned</span>
+        <span><i class="dot yellow"></i>Neutral</span>
+        <span><i class="dot orange"></i>Mixed</span>
+        <span><i class="dot red"></i>Misaligned</span>
+      </footer>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>
