@@ -22,6 +22,62 @@ if (!api) {
   throw new Error("PersonaLabs scoring test API was not exposed.");
 }
 
+function makeFakeNode(attributes = {}, text = "") {
+  return {
+    getAttribute(name) {
+      return attributes[name] || "";
+    },
+    innerText: text,
+    textContent: text
+  };
+}
+
+function makeFakeCard(selectorMap, options = {}) {
+  return {
+    getAttribute(name) {
+      return (options.attributes && options.attributes[name]) || "";
+    },
+    innerText: options.innerText || "",
+    textContent: options.textContent || options.innerText || "",
+    querySelectorAll(selector) {
+      return selectorMap[selector] || [];
+    }
+  };
+}
+
+function assertPreflight(condition, message) {
+  if (!condition) {
+    throw new Error(message);
+  }
+}
+
+const visibleTitleExtraction = api.getTitleExtraction(
+  makeFakeCard({
+    '[id="video-title"]': [makeFakeNode({ href: "/watch?v=test" }, "Nun ATTACKED By Israeli In Horrifying Footage")]
+  })
+);
+assertPreflight(
+  visibleTitleExtraction.title === "Nun ATTACKED By Israeli In Horrifying Footage",
+  `Expected visible title extraction, got "${visibleTitleExtraction.title}"`
+);
+assertPreflight(
+  visibleTitleExtraction.debug.titleExtractionMethod === '[id="video-title"]',
+  `Expected titleExtractionMethod [id="video-title"], got "${visibleTitleExtraction.debug.titleExtractionMethod}"`
+);
+
+const fallbackTitleExtraction = api.getTitleExtraction(
+  makeFakeCard(
+    {},
+    {
+      innerText: "Kash Patel Is In PANIC MODE\n7:26\n35K views\n1 day ago"
+    }
+  )
+);
+assertPreflight(
+  fallbackTitleExtraction.title === "Kash Patel Is In PANIC MODE",
+  `Expected container fallback title extraction, got "${fallbackTitleExtraction.title}"`
+);
+
 function makeContext(title, options = {}) {
   const durationSeconds = options.durationSeconds === undefined ? 1800 : options.durationSeconds;
   const thumbnailText = options.thumbnailText || "";
@@ -35,6 +91,9 @@ function makeContext(title, options = {}) {
     channelMetadataText,
     durationSeconds,
     durationText: "",
+    extractionDebug: options.extractionDebug || {
+      titleExtractionMethod: "provided context"
+    },
     href: "",
     isShort: Boolean(options.isShort) || durationSeconds <= 60,
     key: title,
@@ -140,13 +199,14 @@ const cases = [
   },
   {
     name: "horrifying attacked footage is not Chill aligned",
-    context: makeContext("Nun ATTACKED By Israel in Horrifying Footage", { durationSeconds: 420 }),
+    context: makeContext("Nun ATTACKED By Israeli In Horrifying Footage", { durationSeconds: 420 }),
     mode: "chill",
     assert(result) {
       return (
         result.score <= 42 &&
         ["mixed", "misaligned"].includes(result.classification) &&
-        result.metrics.debugObservability.rawObservableInputs.rawExtractedTitle === "Nun ATTACKED By Israel in Horrifying Footage" &&
+        result.metrics.debugObservability.rawObservableInputs.rawExtractedTitle === "Nun ATTACKED By Israeli In Horrifying Footage" &&
+        result.metrics.debugObservability.titleExtractionMethod === "provided context" &&
         result.metrics.debugObservability.matchedSignals.matchedViolenceSignals.some((signal) => signal.term === "attacked") &&
         result.metrics.debugObservability.matchedSignals.matchedViolenceSignals.some((signal) => signal.term === "horrifying") &&
         result.metrics.signalLayers.subjectMatter.sourceMatches.title.includes("attacked") &&
@@ -170,7 +230,7 @@ const cases = [
   },
   {
     name: "playful thumbnail does not override disturbing subject matter",
-    context: makeContext("Nun ATTACKED By Israel in Horrifying Footage", {
+    context: makeContext("Nun ATTACKED By Israeli In Horrifying Footage", {
       durationSeconds: 420,
       thumbnailText: "smiling happy cute"
     }),
@@ -280,7 +340,7 @@ const cases = [
       return (
         result.metrics.debugObservability.extraction.titleExtractionIncomplete === true &&
         result.metrics.debugObservability.rawObservableInputs.rawExtractedTitle === "" &&
-        result.calmExplanation.includes("Low confidence")
+        result.calmExplanation.includes("Title extraction failed")
       );
     }
   },

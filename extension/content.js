@@ -1049,6 +1049,7 @@
       "#video-title",
       "a#video-title",
       "yt-formatted-string#video-title",
+      '[id="video-title"]',
       "h3 a[href*='/watch']",
       "a[href*='/watch']",
       "a[href*='/shorts/']",
@@ -1058,7 +1059,9 @@
       ".yt-lockup-metadata-view-model-wiz__title",
       "a.yt-lockup-metadata-view-model-wiz__title",
       "[aria-label][href*='/watch']",
-      "[title][href*='/watch']"
+      "[title][href*='/watch']",
+      "[aria-label]",
+      "[title]"
     ];
     const candidates = [];
 
@@ -1111,7 +1114,8 @@
       debug: {
         candidateCount: normalizedCandidates.length,
         selectedSource: best.source,
-        weakTitle: isWeakExtractedTitle(best.text),
+        titleExtractionMethod: best.source,
+        weakTitle: isWeakExtractedTitle(best.text || best.ariaTitle),
         titleCandidates: normalizedCandidates.slice(0, 5).map((candidate) => ({
           source: candidate.source,
           text: candidate.text || candidate.ariaTitle
@@ -1127,20 +1131,38 @@
       return { ariaTitle: "", href: "", source, text: "" };
     }
 
+    const textOptions = [
+      node.getAttribute && node.getAttribute("title"),
+      node.innerText,
+      node.textContent,
+      node.getAttribute && node.getAttribute("aria-label")
+    ];
+    const text = bestTitleTextOption(textOptions);
+
     return {
       ariaTitle: node.getAttribute && node.getAttribute("aria-label"),
       href: (node.getAttribute && node.getAttribute("href")) || "",
       source,
-      text: normalizeWhitespace([
-        node.getAttribute && node.getAttribute("title"),
-        node.innerText,
-        node.textContent
-      ])
+      text
     };
   }
 
+  function bestTitleTextOption(values) {
+    const options = values
+      .map((value) => cleanTitleText(value))
+      .filter(Boolean)
+      .sort((a, b) => titleTextQualityScore(b) - titleTextQualityScore(a));
+    return options[0] || "";
+  }
+
   function cleanTitleText(text) {
-    const value = normalizeWhitespace([text])
+    const raw = String(text || "").trim();
+    const firstUsefulLine = raw
+      .split(/\n/)
+      .map((line) => line.trim())
+      .filter((line) => line && !isNonTitleLine(line))[0];
+    const value = normalizeWhitespace([firstUsefulLine || raw])
+      .replace(/\s+by\s+.+?\s+\d+(\.\d+)?[KMB]?\s+views?.*$/i, " ")
       .replace(/\b\d+:\d{2}(?::\d{2})?\b/g, " ")
       .replace(/\b\d+\s+(views?|hours?|minutes?|seconds?|days?|weeks?|months?|years?)\b/gi, " ")
       .replace(/\s+/g, " ")
@@ -1153,12 +1175,43 @@
   }
 
   function extractTitleFromContainerText(card) {
-    const text = normalizeWhitespace([card.innerText, card.textContent]);
+    const text = String(card.innerText || card.textContent || "");
     const lines = text
       .split(/\n|\s{3,}/)
       .map((line) => cleanTitleText(line))
-      .filter((line) => line && !/^\d+:\d{2}/.test(line));
+      .filter((line) => line && !isNonTitleLine(line))
+      .sort((a, b) => titleTextQualityScore(b) - titleTextQualityScore(a));
     return lines[0] || "";
+  }
+
+  function isNonTitleLine(line) {
+    const value = String(line || "").trim();
+    return (
+      !value ||
+      /^\d+:\d{2}(?::\d{2})?$/.test(value) ||
+      /^\d+(\.\d+)?[KMB]?\s+views?/i.test(value) ||
+      /^\d+\s+(seconds?|minutes?|hours?|days?|weeks?|months?|years?)\s+ago$/i.test(value) ||
+      /^(subscribed|subscribe|join|home|videos|shorts|live|podcasts|playlists|posts|store)$/i.test(value)
+    );
+  }
+
+  function titleTextQualityScore(text) {
+    const value = String(text || "");
+    const tokens = value.match(/[a-z0-9]+/gi) || [];
+    let score = tokens.length * 6;
+    if (tokens.length >= 4) {
+      score += 12;
+    }
+    if (findMatches(value, HEURISTIC_SIGNAL_DICTIONARIES.VIOLENCE_DISTURBING_SIGNALS).length) {
+      score += 8;
+    }
+    if (findMatches(value, HEURISTIC_SIGNAL_DICTIONARIES.TRIBAL_DOMINATION_FRAMING_SIGNALS).length) {
+      score += 8;
+    }
+    if (/\bviews?\b|\bsubscribers?\b|\bago\b/i.test(value)) {
+      score -= 18;
+    }
+    return score;
   }
 
   function titleCandidateScore(candidate) {
@@ -2185,6 +2238,9 @@
       rawExtractedMetadataText: context.rawExtractedMetadataText || context.metadataText || "",
       transcriptStatus: context.transcriptText ? "available" : "unavailable"
     };
+    const titleExtractionMethod =
+      (context.extractionDebug && (context.extractionDebug.titleExtractionMethod || context.extractionDebug.selectedSource)) ||
+      "provided context";
     const normalizedInputs = {
       normalizedTitle: normalizeText([rawInputs.rawExtractedTitle]),
       normalizedThumbnailText: normalizeText([rawInputs.rawExtractedThumbnailText]),
@@ -2197,6 +2253,7 @@
 
     return {
       rawObservableInputs: rawInputs,
+      titleExtractionMethod,
       normalizedInputs,
       matchedSignals: {
         matchedTitleSignals,
@@ -2854,7 +2911,7 @@
 
     const caveats = [];
     if (debugObservability.extraction.titleExtractionIncomplete) {
-      caveats.push("Low confidence: title extraction incomplete.");
+      caveats.push("Title extraction failed — low confidence.");
     }
     if (debugObservability.extraction.limitedMetadata) {
       caveats.push("Limited metadata: score based on visible title/duration/session only.");
@@ -3040,6 +3097,7 @@
       "Debug Observability Layer:",
       "RAW OBSERVABLE INPUTS:",
       `rawExtractedTitle: ${debugObservability.rawObservableInputs.rawExtractedTitle || "[missing]"}`,
+      `titleExtractionMethod: ${debugObservability.titleExtractionMethod || "unknown"}`,
       `rawExtractedThumbnailText: ${debugObservability.rawObservableInputs.rawExtractedThumbnailText || "[missing]"}`,
       `rawExtractedChannelName: ${debugObservability.rawObservableInputs.rawExtractedChannelName || "[missing]"}`,
       `rawExtractedDuration: ${debugObservability.rawObservableInputs.rawExtractedDuration || "[missing]"}`,
@@ -3049,7 +3107,7 @@
       `normalizedTitle: ${debugObservability.normalizedInputs.normalizedTitle || "[missing]"}`,
       `normalizedThumbnailText: ${debugObservability.normalizedInputs.normalizedThumbnailText || "[missing]"}`,
       `normalizedMetadataText: ${debugObservability.normalizedInputs.normalizedMetadataText || "[missing]"}`,
-      debugObservability.extraction.titleExtractionIncomplete ? "Low confidence: title extraction incomplete." : "",
+      debugObservability.extraction.titleExtractionIncomplete ? "Title extraction failed — low confidence." : "",
       debugObservability.extraction.limitedMetadata ? "Limited metadata: score based on visible title/duration/session only." : "",
       "MATCHED SIGNALS:",
       `matchedTitleSignals: ${formatDebugSignalEntries(debugObservability.matchedSignals.matchedTitleSignals)}`,
@@ -3558,6 +3616,7 @@
   if (typeof globalThis !== "undefined" && globalThis.__PERSONA_LABS_ENABLE_TEST_API__) {
     globalThis.__PersonaLabsScoring = {
       analyzeSignalLayers,
+      getTitleExtraction,
       normalizeText,
       scoreCard
     };
