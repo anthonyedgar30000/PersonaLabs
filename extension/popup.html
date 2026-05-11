@@ -29,12 +29,23 @@
       </section>
 
       <section class="legend" aria-label="Overlay legend">
-        <h2>Legend</h2>
-        <p><span class="dot green"></span>Chill fit: relaxed entertainment signals.</p>
-        <p><span class="dot yellow"></span>Maybe chill: mixed title signals.</p>
-        <p><span class="dot gray"></span>No clear signal: title has no keyword match.</p>
-        <p><span class="dot red"></span>Focus / not chill: study, news, analysis, or intense signals.</p>
+        <h2>Friendly labels</h2>
+        <p><span class="dot strong-green"></span>ultra chill / vibes immaculate</p>
+        <p><span class="dot green"></span>good vibes</p>
+        <p><span class="dot yellow-green"></span>mostly chill</p>
+        <p><span class="dot yellow"></span>mixed energy</p>
+        <p><span class="dot orange"></span>drama creeping in</p>
+        <p><span class="dot red"></span>high friction</p>
+        <p><span class="dot dark-red"></span>doomscroll fuel</p>
       </section>
+
+      <label class="developer-toggle">
+        <input id="developer-mode" type="checkbox">
+        <span>
+          <strong>Developer Mode</strong>
+          <small>Show raw title matches and internal signal terminology in tooltips.</small>
+        </span>
+      </label>
 
       <p class="privacy-note">Local-only MVP. Settings stay in Chrome extension storage.</p>
     </main>

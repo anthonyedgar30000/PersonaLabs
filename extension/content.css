@@ -8,25 +8,39 @@
   box-shadow: 0 0 0 5px var(--personalabs-glow, rgba(148, 163, 184, 0.2)) !important;
 }
 
-.personalabs-chill {
+.personalabs-band-strong-green {
+  --personalabs-color: #16a34a;
+  --personalabs-glow: rgba(22, 163, 74, 0.24);
+}
+
+.personalabs-band-green {
   --personalabs-color: #22c55e;
   --personalabs-glow: rgba(34, 197, 94, 0.2);
 }
 
-.personalabs-mixed {
+.personalabs-band-yellow-green {
+  --personalabs-color: #84cc16;
+  --personalabs-glow: rgba(132, 204, 22, 0.2);
+}
+
+.personalabs-band-yellow {
   --personalabs-color: #eab308;
   --personalabs-glow: rgba(234, 179, 8, 0.22);
 }
 
-.personalabs-neutral {
-  --personalabs-color: #94a3b8;
-  --personalabs-glow: rgba(148, 163, 184, 0.2);
+.personalabs-band-orange {
+  --personalabs-color: #f97316;
+  --personalabs-glow: rgba(249, 115, 22, 0.22);
 }
 
-.personalabs-focus,
-.personalabs-intense {
+.personalabs-band-red {
   --personalabs-color: #ef4444;
   --personalabs-glow: rgba(239, 68, 68, 0.2);
+}
+
+.personalabs-band-dark-red {
+  --personalabs-color: #991b1b;
+  --personalabs-glow: rgba(153, 27, 27, 0.24);
 }
 
 .personalabs-badge {
@@ -72,11 +86,13 @@
   bottom: calc(100% + 8px);
   box-shadow: 0 16px 34px rgba(15, 23, 42, 0.35);
   color: #e5e7eb;
+  display: grid;
+  gap: 7px;
   font-size: 12px;
   font-weight: 500;
   left: 0;
   line-height: 1.35;
-  max-width: 260px;
+  max-width: 320px;
   opacity: 0;
   padding: 9px 10px;
   pointer-events: none;
@@ -93,6 +109,55 @@
   opacity: 1;
   transform: translateY(0);
   visibility: visible;
+}
+
+.personalabs-tooltip-title {
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.personalabs-tooltip-summary,
+.personalabs-tooltip-confidence {
+  color: #cbd5e1;
+}
+
+.personalabs-tooltip-heading {
+  color: #bfdbfe;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.personalabs-tooltip-reasons,
+.personalabs-developer-panel {
+  display: grid;
+  gap: 4px;
+}
+
+.personalabs-tooltip-reasons span {
+  color: #e5e7eb;
+}
+
+.personalabs-tooltip-confidence {
+  border-top: 1px solid rgba(148, 163, 184, 0.22);
+  padding-top: 7px;
+}
+
+.personalabs-developer-panel {
+  background: rgba(15, 23, 42, 0.78);
+  border: 1px solid rgba(45, 212, 191, 0.3);
+  border-radius: 10px;
+  color: #ccfbf1;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 10px;
+  margin-top: 2px;
+  max-height: 170px;
+  overflow: auto;
+  padding: 8px;
+  white-space: normal;
 }
 
 .personalabs-bare-metal .personalabs-card {

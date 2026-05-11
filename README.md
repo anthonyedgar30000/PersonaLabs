@@ -14,6 +14,7 @@ multi-mode scoring, transcript assumptions, telemetry, or AI calls.
 - Color-coded overlays
 - Hover tooltips explaining matched title keywords
 - Bare Metal toggle to hide all overlays
+- Optional Developer Mode for raw title/debug signals
 
 ## Out of scope for this MVP
 
@@ -26,13 +27,33 @@ multi-mode scoring, transcript assumptions, telemetry, or AI calls.
 - backend services
 - telemetry
 
-## Classification labels
+## User-facing label bands
 
-- **Chill fit**: relaxed entertainment signals in the title.
-- **Maybe chill**: both relaxed and focused title signals.
-- **No clear signal**: no keyword match in the title.
-- **Focus content**: study, news, analysis, or learning signals.
-- **Not chill**: high-intensity title signals.
+- **ultra chill** / **vibes immaculate**: strong green calm fit.
+- **good vibes**: green calm fit.
+- **mostly chill**: yellow-green, chill signals with some focus energy.
+- **mixed energy**: yellow, ambiguous or low-confidence title signals.
+- **drama creeping in**: orange, higher friction for Chill Mode.
+- **high friction**: red, strong friction signals.
+- **doomscroll fuel**: dark red, multiple escalation signals.
+
+## Internal technical terminology
+
+The UI can stay playful while the implementation remains explainable. Developer
+Mode and technical docs preserve professional signal names:
+
+- `calmAlignment`
+- `conflictIntensity`
+- `cognitiveFriction`
+- `signalConfidence`
+- `volatilitySignals`
+- `escalationSignals`
+- `metadataConfidence`
+
+This is a presentation refactor. It preserves deterministic, title-based
+heuristics, local-only processing, explainable overlays, Chill Mode focus, and
+confidence display. It does not add AI APIs, transcripts, backend services,
+embeddings, or LLMs.
 
 See [`extension/README.md`](extension/README.md) for local installation and
 popup controls.
