@@ -10,9 +10,9 @@ multi-mode scoring, transcript assumptions, telemetry, or AI calls.
 
 - Chrome extension shell
 - YouTube card detection
-- Title-based Chill Mode classification
+- Weighted title-based Chill Mode classification
 - Color-coded overlays
-- Hover tooltips explaining matched title keywords
+- Hover tooltips explaining matched categories, terms, score impact, and confidence
 - Bare Metal toggle to hide all overlays
 - Optional Developer Mode for raw title/debug signals
 
@@ -36,6 +36,21 @@ multi-mode scoring, transcript assumptions, telemetry, or AI calls.
 - **drama creeping in**: orange, higher friction for Chill Mode.
 - **high friction**: red, strong friction signals.
 - **doomscroll fuel**: dark red, multiple escalation signals.
+
+## Weighted dictionary categories
+
+The local scoring dictionaries are stored in `extension/dictionaries.js`:
+
+- `calm_positive`
+- `educational_low_friction`
+- `high_friction`
+- `violence_disturbing`
+- `tribal_domination`
+- `urgency_novelty`
+
+Each category has 75-150 deterministic terms/phrases. Multi-word phrases carry
+higher weight than single words, and strong `violence_disturbing` or
+`tribal_domination` matches prevent green Chill Mode labels.
 
 ## Internal technical terminology
 

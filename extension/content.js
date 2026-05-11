@@ -24,132 +24,7 @@
     "[aria-label]"
   ];
 
-  const CHILL_TERMS = [
-    "ambient",
-    "asmr",
-    "beautiful",
-    "best moments",
-    "calm",
-    "chill",
-    "cozy",
-    "cute",
-    "funny",
-    "gameplay",
-    "gaming",
-    "highlights",
-    "lofi",
-    "lo-fi",
-    "mix",
-    "music",
-    "peaceful",
-    "playlist",
-    "relax",
-    "relaxing",
-    "sleep",
-    "slow",
-    "stand up",
-    "stream",
-    "travel",
-    "vlog",
-    "walkthrough"
-  ];
-
-  const FOCUS_TERMS = [
-    "analysis",
-    "breaking",
-    "course",
-    "crash course",
-    "debate",
-    "deep dive",
-    "explained",
-    "how to",
-    "lecture",
-    "lesson",
-    "news",
-    "podcast",
-    "politics",
-    "research",
-    "study",
-    "tutorial",
-    "war",
-    "workshop"
-  ];
-
-  const INTENSE_TERMS = [
-    "angry",
-    "controversy",
-    "disaster",
-    "exposed",
-    "fight",
-    "meltdown",
-    "rage",
-    "scandal",
-    "shocking"
-  ];
-
-  const VOLATILITY_TERMS = [
-    "breaking",
-    "controversy",
-    "debate",
-    "disaster",
-    "news",
-    "politics",
-    "scandal",
-    "shocking",
-    "war"
-  ];
-
-  const STATUS_CLASSES = ["chill", "focus", "intense", "mixed", "neutral"];
-  const BAND_CLASSES = [
-    "strong-green",
-    "green",
-    "yellow-green",
-    "yellow",
-    "orange",
-    "red",
-    "dark-red"
-  ];
-
-  const LABEL_BANDS = {
-    strongGreen: {
-      className: "strong-green",
-      label: "ultra chill",
-      alternateLabel: "vibes immaculate",
-      summary: "Strong calm signals with low friction."
-    },
-    green: {
-      className: "green",
-      label: "good vibes",
-      summary: "Relaxed title signals are leading."
-    },
-    yellowGreen: {
-      className: "yellow-green",
-      label: "mostly chill",
-      summary: "Chill signals are present with a little focus energy."
-    },
-    yellow: {
-      className: "yellow",
-      label: "mixed energy",
-      summary: "The title does not clearly resolve into a chill fit."
-    },
-    orange: {
-      className: "orange",
-      label: "drama creeping in",
-      summary: "Focused or high-friction title signals are present."
-    },
-    red: {
-      className: "red",
-      label: "high friction",
-      summary: "The title carries strong friction signals for Chill Mode."
-    },
-    darkRed: {
-      className: "dark-red",
-      label: "doomscroll fuel",
-      rareLabel: "cortisol cannon",
-      summary: "Multiple escalation signals are present."
-    }
-  };
-
+  const scoring = window.PersonaLabsChillScoring;
   let currentMode = DEFAULT_MODE;
   let developerMode = false;
   let scanQueued = false;
@@ -157,6 +32,10 @@
   init();
 
   function init() {
+    if (!scoring) {
+      return;
+    }
+
     loadSettings();
     watchStorage();
     startObserver();
@@ -244,7 +123,7 @@
         return;
       }
 
-      renderOverlay(card, classifyTitle(title));
+      renderOverlay(card, scoring.classifyTitle(title));
     });
   }
 
@@ -271,263 +150,7 @@
       element.textContent ||
       "";
 
-    return cleanTitle(title);
-  }
-
-  function cleanTitle(title) {
     return title.replace(/\s+/g, " ").trim();
-  }
-
-  function classifyTitle(title) {
-    const normalizedTitle = title.toLowerCase();
-    const chillMatches = matchTerms(normalizedTitle, CHILL_TERMS);
-    const focusMatches = matchTerms(normalizedTitle, FOCUS_TERMS);
-    const intenseMatches = matchTerms(normalizedTitle, INTENSE_TERMS);
-    const baseSignals = {
-      rawExtractedTitle: title,
-      calmMatches: chillMatches,
-      focusMatches,
-      intenseMatches
-    };
-
-    if (intenseMatches.length > 0) {
-      return buildClassification(baseSignals, {
-        status: "intense",
-        matches: intenseMatches
-      });
-    }
-
-    if (chillMatches.length > 0 && focusMatches.length === 0) {
-      return buildClassification(baseSignals, {
-        status: "chill",
-        matches: chillMatches
-      });
-    }
-
-    if (chillMatches.length > 0 && focusMatches.length > 0) {
-      return buildClassification(baseSignals, {
-        status: "mixed",
-        matches: chillMatches.concat(focusMatches)
-      });
-    }
-
-    if (focusMatches.length > 0) {
-      return buildClassification(baseSignals, {
-        status: "focus",
-        matches: focusMatches
-      });
-    }
-
-    return buildClassification(baseSignals, {
-      status: "neutral",
-      matches: []
-    });
-  }
-
-  function buildClassification(baseSignals, baseClassification) {
-    const internalSignals = buildInternalSignals(baseSignals, baseClassification);
-    const presentation = buildPresentation(baseClassification, internalSignals);
-
-    return {
-      status: baseClassification.status,
-      matches: baseClassification.matches,
-      internalSignals,
-      presentation
-    };
-  }
-
-  function buildInternalSignals(baseSignals, baseClassification) {
-    const matchedTerms = {
-      calmSignals: baseSignals.calmMatches,
-      focusSignals: baseSignals.focusMatches,
-      escalationSignals: baseSignals.intenseMatches
-    };
-    const volatilitySignals = uniqueTerms(
-      baseSignals.focusMatches.concat(baseSignals.intenseMatches).filter((term) => {
-        return VOLATILITY_TERMS.includes(term);
-      })
-    );
-    const totalMatches =
-      baseSignals.calmMatches.length +
-      baseSignals.focusMatches.length +
-      baseSignals.intenseMatches.length;
-    const internalCategoryWeights = {
-      calmAlignment: baseSignals.calmMatches.length,
-      conflictIntensity: baseSignals.intenseMatches.length + volatilitySignals.length,
-      cognitiveFriction: baseSignals.focusMatches.length + baseSignals.intenseMatches.length,
-      volatilitySignals: volatilitySignals.length,
-      escalationSignals: baseSignals.intenseMatches.length
-    };
-
-    return {
-      rawExtractedTitle: baseSignals.rawExtractedTitle,
-      matchedTerms,
-      internalCategoryWeights,
-      calmAlignment: calmAlignmentFor(baseClassification.status, baseSignals.calmMatches.length),
-      conflictIntensity: conflictIntensityFor(
-        baseClassification.status,
-        volatilitySignals.length,
-        baseSignals.intenseMatches.length
-      ),
-      cognitiveFriction: cognitiveFrictionFor(baseClassification.status),
-      signalConfidence: confidenceFor(totalMatches),
-      volatilitySignals,
-      escalationSignals: baseSignals.intenseMatches,
-      metadataConfidence: "high"
-    };
-  }
-
-  function buildPresentation(baseClassification, internalSignals) {
-    const labelBand = labelBandFor(baseClassification.status, internalSignals);
-    const band = LABEL_BANDS[labelBand];
-
-    return {
-      labelBand,
-      bandClassName: band.className,
-      userLabel: band.label,
-      summary: band.summary,
-      reasons: reasonsFor(baseClassification.status, internalSignals),
-      signalConfidence: internalSignals.signalConfidence
-    };
-  }
-
-  function labelBandFor(status, internalSignals) {
-    if (status === "chill") {
-      return internalSignals.matchedTerms.calmSignals.length >= 2 ? "strongGreen" : "green";
-    }
-
-    if (status === "mixed") {
-      return internalSignals.matchedTerms.calmSignals.length >
-        internalSignals.matchedTerms.focusSignals.length
-        ? "yellowGreen"
-        : "yellow";
-    }
-
-    if (status === "focus") {
-      return "orange";
-    }
-
-    if (status === "intense") {
-      return internalSignals.escalationSignals.length >= 2 ? "darkRed" : "red";
-    }
-
-    return "yellow";
-  }
-
-  function reasonsFor(status, internalSignals) {
-    const calmSignals = internalSignals.matchedTerms.calmSignals;
-    const focusSignals = internalSignals.matchedTerms.focusSignals;
-    const escalationSignals = internalSignals.escalationSignals;
-    const volatilitySignals = internalSignals.volatilitySignals;
-
-    if (status === "chill") {
-      return [
-        `+ calm signals: ${formatTerms(calmSignals)}`,
-        "+ low conflict intensity",
-        "+ title-only metadata confidence is high"
-      ];
-    }
-
-    if (status === "mixed") {
-      return [
-        `+ calm signals: ${formatTerms(calmSignals)}`,
-        `- focus signals: ${formatTerms(focusSignals)}`,
-        "- mixed cognitive friction"
-      ];
-    }
-
-    if (status === "focus") {
-      return [
-        `- focus signals: ${formatTerms(focusSignals)}`,
-        "- higher cognitive friction for Chill Mode",
-        "+ no escalation signal detected"
-      ];
-    }
-
-    if (status === "intense") {
-      const firstReason = escalationSignals.length > 0
-        ? `- escalation signals: ${formatTerms(escalationSignals)}`
-        : `- volatility signals: ${formatTerms(volatilitySignals)}`;
-
-      return [
-        firstReason,
-        "- high cognitive friction",
-        "- low calm alignment"
-      ];
-    }
-
-    return [
-      "+ no escalation signal detected",
-      "- no clear calm keyword match",
-      "- signal confidence remains low"
-    ];
-  }
-
-  function calmAlignmentFor(status, calmMatchCount) {
-    if (status === "chill" && calmMatchCount >= 2) {
-      return "high";
-    }
-
-    if (status === "chill" || status === "mixed") {
-      return "medium";
-    }
-
-    return "low";
-  }
-
-  function conflictIntensityFor(status, volatilityCount, escalationCount) {
-    if (status === "intense" || escalationCount > 0) {
-      return "high";
-    }
-
-    if (volatilityCount > 0 || status === "focus" || status === "mixed") {
-      return "medium";
-    }
-
-    return "low";
-  }
-
-  function cognitiveFrictionFor(status) {
-    if (status === "focus" || status === "intense") {
-      return "high";
-    }
-
-    if (status === "mixed" || status === "neutral") {
-      return "medium";
-    }
-
-    return "low";
-  }
-
-  function confidenceFor(matchCount) {
-    if (matchCount >= 2) {
-      return "high";
-    }
-
-    if (matchCount === 1) {
-      return "medium";
-    }
-
-    return "low";
-  }
-
-  function uniqueTerms(terms) {
-    return Array.from(new Set(terms));
-  }
-
-  function formatTerms(terms) {
-    return terms.length > 0 ? terms.join(", ") : "none";
-  }
-
-  function matchTerms(title, terms) {
-    return terms.filter((term) => titleMatchesTerm(title, term));
-  }
-
-  function titleMatchesTerm(title, term) {
-    const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const pattern = new RegExp(`(^|[^a-z0-9])${escapedTerm}([^a-z0-9]|$)`, "i");
-
-    return pattern.test(title);
   }
 
   function renderOverlay(card, classification) {
@@ -617,28 +240,32 @@
     tooltip.append(title, summary, whyLabel, reasons, confidence);
 
     if (developerMode) {
-      tooltip.append(developerPanelFor(classification.internalSignals));
+      tooltip.append(developerPanelFor(classification));
     }
 
     return tooltip;
   }
 
-  function developerPanelFor(internalSignals) {
+  function developerPanelFor(classification) {
+    const internalSignals = classification.internalSignals;
     const panel = document.createElement("span");
     const heading = document.createElement("span");
     const rows = [
       ["rawExtractedTitle", internalSignals.rawExtractedTitle],
-      ["matchedTerms.calmSignals", formatTerms(internalSignals.matchedTerms.calmSignals)],
-      ["matchedTerms.focusSignals", formatTerms(internalSignals.matchedTerms.focusSignals)],
-      ["matchedTerms.escalationSignals", formatTerms(internalSignals.matchedTerms.escalationSignals)],
+      ["matchedCategory", internalSignals.matchedCategory],
+      ["matchedTerms", JSON.stringify(internalSignals.matchedTerms)],
+      ["scoreImpact", JSON.stringify(classification.scoreImpact)],
       ["internalCategoryWeights", JSON.stringify(internalSignals.internalCategoryWeights)],
       ["calmAlignment", internalSignals.calmAlignment],
       ["conflictIntensity", internalSignals.conflictIntensity],
       ["cognitiveFriction", internalSignals.cognitiveFriction],
       ["signalConfidence", internalSignals.signalConfidence],
-      ["volatilitySignals", formatTerms(internalSignals.volatilitySignals)],
-      ["escalationSignals", formatTerms(internalSignals.escalationSignals)],
-      ["metadataConfidence", internalSignals.metadataConfidence]
+      ["volatilitySignals", scoring.formatTerms(internalSignals.volatilitySignals)],
+      ["escalationSignals", scoring.formatTerms(internalSignals.escalationSignals)],
+      ["metadataConfidence", internalSignals.metadataConfidence],
+      ["positiveScore", internalSignals.positiveScore],
+      ["negativeScore", internalSignals.negativeScore],
+      ["netScore", internalSignals.netScore]
     ];
 
     panel.className = "personalabs-developer-panel";
@@ -658,6 +285,7 @@
   function tooltipTextFor(classification) {
     const developerDetails = developerMode
       ? [
+          `matchedCategory: ${classification.internalSignals.matchedCategory}`,
           `calmAlignment: ${classification.internalSignals.calmAlignment}`,
           `conflictIntensity: ${classification.internalSignals.conflictIntensity}`,
           `cognitiveFriction: ${classification.internalSignals.cognitiveFriction}`,
@@ -679,12 +307,8 @@
   function removeOverlay(card) {
     card.classList.remove(
       "personalabs-card",
-      "personalabs-chill",
-      "personalabs-focus",
-      "personalabs-intense",
-      "personalabs-mixed",
-      "personalabs-neutral",
-      ...BAND_CLASSES.map((className) => `personalabs-band-${className}`)
+      ...scoring.STATUS_CLASSES.map((className) => `personalabs-${className}`),
+      ...scoring.BAND_CLASSES.map((className) => `personalabs-band-${className}`)
     );
 
     const badge = card.querySelector(":scope > .personalabs-badge");
@@ -694,13 +318,13 @@
   }
 
   function removeOldStatusClasses(card, status) {
-    STATUS_CLASSES.forEach((candidate) => {
+    scoring.STATUS_CLASSES.forEach((candidate) => {
       card.classList.toggle(`personalabs-${candidate}`, candidate === status);
     });
   }
 
   function removeOldBandClasses(card, bandClassName) {
-    BAND_CLASSES.forEach((candidate) => {
+    scoring.BAND_CLASSES.forEach((candidate) => {
       card.classList.toggle(`personalabs-band-${candidate}`, candidate === bandClassName);
     });
   }
