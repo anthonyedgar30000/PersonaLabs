@@ -31,6 +31,7 @@
     paths: [],
     activePathId: null,
     suggestions: [],
+    scoredResultCount: 0,
     lastUrl: location.href,
     panel: null,
     scanTimer: null,
@@ -211,6 +212,7 @@
     state.paths = semantic.buildExplorationPaths(anchor);
     state.activePathId = state.paths[0] && state.paths[0].id;
     state.suggestions = [];
+    state.scoredResultCount = 0;
 
     persistState();
     scheduleRender();
@@ -246,6 +248,7 @@
 
     state.activePathId = path.id;
     state.suggestions = [];
+    state.scoredResultCount = 0;
     persistState();
     scheduleRender();
     window.location.assign(path.url);
@@ -271,7 +274,9 @@
       return;
     }
 
-    state.suggestions = semantic.rankCandidates(candidates, state.anchor, path, 5);
+    const explorationSet = semantic.buildIntentionalExplorationSet(candidates, state.anchor, path, 5);
+    state.suggestions = explorationSet.suggestions;
+    state.scoredResultCount = explorationSet.scored.length;
     scheduleRender();
   }
 
@@ -283,7 +288,7 @@
         return;
       }
 
-      const titleKey = candidate.title;
+      const titleKey = `${candidate.title}:${state.anchor ? state.anchor.subjectAnchor : "no-anchor"}:${state.activePathId || "no-lens"}`;
       if (card.dataset.personaLabsTitle === titleKey) {
         return;
       }
@@ -301,17 +306,17 @@
         titleElement.insertAdjacentElement("afterend", badge);
       }
 
+      const scoring = state.anchor ? semantic.scoreCandidate(candidate, state.anchor, activePath()) : null;
       const styleSignals = semantic.classifyStyleTerms(candidate.title);
-      const score = state.anchor ? semantic.scoreCandidate(candidate, state.anchor, activePath()).score : null;
-      const label = score === null ? (styleSignals.length ? "PL style signal" : "PL calm signal") : `PL ${score}`;
-      const category = styleSignals.length ? "elevated" : "calm";
+      const label = scoring === null ? (styleSignals.length ? "PL style signal" : "PL calm signal") : `PL ${scoring.classification.color} ${scoring.score}`;
+      const category = scoring === null ? (styleSignals.length ? "yellow" : "green") : scoring.classification.color.toLowerCase();
 
       badge.textContent = label;
       badge.dataset.signal = category;
       badge.title =
-        score === null
+        scoring === null
           ? "PersonaLabs contextual observability signal"
-          : "PersonaLabs deterministic exploration score for the current contextual anchor";
+          : scoring.classification.meaning;
     });
   }
 
@@ -353,9 +358,9 @@
     header.innerHTML = [
       "<div>",
       "<p class='personalabs-eyebrow'>PersonaLabs</p>",
-      "<h2>Intentional semantic navigation</h2>",
+      "<h2>Observability-driven semantic navigation</h2>",
       "</div>",
-      "<p class='personalabs-muted'>Exploration style changes. Topic, event, and entities stay anchored.</p>"
+      "<p class='personalabs-muted'>Score first. Filter second. Topic, event, and entities stay anchored.</p>"
     ].join("");
     return header;
   }
@@ -365,7 +370,7 @@
     section.className = "personalabs-section personalabs-empty";
     section.innerHTML = [
       "<h3>No contextual anchor yet</h3>",
-      "<p>Click a YouTube video or card to anchor exploration. PersonaLabs will extract entities, remove escalation wording, and offer subject-preserving paths.</p>"
+      "<p>Click a YouTube video or card to anchor exploration. PersonaLabs will extract entities, detect observability signals, remove escalation wording, and offer subject-preserving paths.</p>"
     ].join("");
     return section;
   }
@@ -398,6 +403,10 @@
       "<div class='personalabs-field'>",
       "<span>Removed escalation terms</span>",
       `<ul class='personalabs-term-list'>${removedHtml}</ul>`,
+      "</div>",
+      "<div class='personalabs-field'>",
+      "<span>Detected observability signals</span>",
+      `<strong>${escapeHtml(renderSignalSummary(anchor))}</strong>`,
       "</div>"
     ].join("");
 
@@ -435,7 +444,8 @@
       query.className = "personalabs-query";
       query.innerHTML = [
         `<span>${escapeHtml(path.description)}</span>`,
-        `<code>${escapeHtml(path.query)}</code>`
+        `<code>${escapeHtml(path.query)}</code>`,
+        `<small>Selected exploration lens: ${escapeHtml(path.lensLabel || path.label)} | Filter: ${escapeHtml(describeFilterPolicy(path.filterPolicy))}</small>`
       ].join("");
       section.appendChild(query);
     }
@@ -449,15 +459,16 @@
 
     const intro = document.createElement("div");
     intro.innerHTML = [
-      "<p class='personalabs-eyebrow'>Related Exploration Scan</p>",
-      "<h3>Suggested Exploration Paths</h3>"
+      "<p class='personalabs-eyebrow'>Exploration Result Filtering</p>",
+      "<h3>Suggested Exploration Paths</h3>",
+      `<p class='personalabs-muted'>${escapeHtml(renderFilteringSummary())}</p>`
     ].join("");
     section.appendChild(intro);
 
     if (!state.suggestions.length) {
       const empty = document.createElement("p");
       empty.className = "personalabs-muted";
-      empty.textContent = "Open a transformed search to scan visible YouTube results with deterministic, explainable scoring.";
+      empty.textContent = "Open a transformed search to scan visible YouTube results, score every result first, then apply the selected exploration lens filter.";
       section.appendChild(empty);
       return section;
     }
@@ -472,10 +483,13 @@
         .slice(0, 3)
         .map((reason) => `<span>${escapeHtml(reason)}</span>`)
         .join("");
+      const color = suggestion.scoring.classification.color.toLowerCase();
 
+      item.dataset.classification = color;
       item.innerHTML = [
-        `<div class='personalabs-score'>${suggestion.scoring.score}</div>`,
+        `<div class='personalabs-score' data-classification='${color}'>${suggestion.scoring.score}</div>`,
         "<div>",
+        `<div class='personalabs-classification' data-classification='${color}'>${escapeHtml(suggestion.scoring.classification.color)} | ${escapeHtml(suggestion.scoring.classification.label)}</div>`,
         `<h4>${link}</h4>`,
         `<p>${escapeHtml(suggestion.channel || "Visible YouTube result")}</p>`,
         `<div class='personalabs-reasons'>${reasons}</div>`,
@@ -495,12 +509,63 @@
       "<p class='personalabs-eyebrow'>Operating principles</p>",
       "<ul>",
       "<li>Deterministic-first and local-first.</li>",
-      "<li>No truth, political correctness, or censorship judgments.</li>",
-      "<li>Transparent scoring; user-controlled exploration.</li>",
+      "<li>No truth, ideology ranking, censorship, or YouTube replacement judgments.</li>",
+      "<li>Score first; filter second by the selected exploration lens.</li>",
+      "<li>GREEN is allowed for calmer/lower-friction exploration.</li>",
+      "<li>YELLOW is mixed but can support educational or deeper exploration.</li>",
+      "<li>RED is high-friction/escalatory and excluded from suggestions.</li>",
       "<li>Contextual observability badges support guided exploration.</li>",
       "</ul>"
     ].join("");
     return section;
+  }
+
+  function renderSignalSummary(anchor) {
+    const signals = semantic.detectObservabilitySignals(anchor.originalTitle || "");
+    const parts = [];
+    if (signals.friction.length) {
+      parts.push(`${signals.friction.length} friction`);
+    }
+    if (signals.educational.length) {
+      parts.push(`${signals.educational.length} educational`);
+    }
+    if (signals.lowFriction.length) {
+      parts.push(`${signals.lowFriction.length} low-friction`);
+    }
+
+    return parts.length ? parts.join(", ") : "calm/low-friction baseline";
+  }
+
+  function describeFilterPolicy(policy) {
+    if (policy === "green-only") {
+      return "GREEN only";
+    }
+    if (policy === "green-or-explanatory-yellow") {
+      return "GREEN plus strong explanatory YELLOW";
+    }
+    if (policy === "green-or-deep-yellow") {
+      return "GREEN plus high-quality relevant YELLOW";
+    }
+    if (policy === "green-or-simple-yellow") {
+      return "GREEN plus simple explanatory YELLOW";
+    }
+    if (policy === "green-or-longform-yellow") {
+      return "GREEN plus relevant long-form YELLOW";
+    }
+    return "GREEN only";
+  }
+
+  function renderFilteringSummary() {
+    const path = activePath();
+    if (!path) {
+      return "No exploration lens selected.";
+    }
+
+    if (!state.scoredResultCount) {
+      return `Lens: ${path.lensLabel || path.label}. Score first, then filter visible results.`;
+    }
+
+    return `Lens: ${path.lensLabel || path.label}. Scored ${state.scoredResultCount} visible results; showing ${state.suggestions.length} allowed by ${describeFilterPolicy(path.filterPolicy)}.`;
   }
 
   function escapeHtml(value) {

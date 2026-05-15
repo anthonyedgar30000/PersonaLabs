@@ -108,6 +108,33 @@
     "podcast"
   ];
 
+  const CALM_LOW_FRICTION_TERMS = [
+    "calm",
+    "context",
+    "explained",
+    "overview",
+    "discussion",
+    "balanced",
+    "measured",
+    "nuanced",
+    "background",
+    "primer",
+    "guide",
+    "civil"
+  ];
+
+  const BEGINNER_TERMS = [
+    "beginner",
+    "intro",
+    "introduction",
+    "basics",
+    "simple",
+    "overview",
+    "primer",
+    "guide",
+    "explained"
+  ];
+
   const STOP_WORDS = new Set([
     "a",
     "about",
@@ -241,45 +268,55 @@
       id: "calmer",
       label: "Calmer",
       buttonLabel: "calmer",
+      lensLabel: "CALMER",
       description: "Like this, but calmer",
       suffix: "calm context analysis",
       preferredTerms: ["context", "analysis", "discussion"],
+      filterPolicy: "green-only",
       explanation: "Lower-friction framing with the same subject anchor"
     },
     {
       id: "educational",
       label: "Educational",
       buttonLabel: "educational",
+      lensLabel: "EDUCATIONAL",
       description: "Like this, but educational",
       suffix: "explained educational analysis",
       preferredTerms: ["explained", "educational", "overview"],
+      filterPolicy: "green-or-explanatory-yellow",
       explanation: "Educational framing while preserving topic continuity"
     },
     {
       id: "deeper",
       label: "Deeper dive",
       buttonLabel: "deeper dive",
+      lensLabel: "DEEPER DIVE",
       description: "Like this, but deeper",
       suffix: "deep dive background analysis",
       preferredTerms: ["deep dive", "background", "analysis"],
+      filterPolicy: "green-or-deep-yellow",
       explanation: "More background and explanatory depth"
     },
     {
       id: "beginner",
       label: "Beginner friendly",
       buttonLabel: "beginner friendly",
+      lensLabel: "BEGINNER FRIENDLY",
       description: "Like this, but beginner-friendly",
       suffix: "beginner friendly explained overview",
       preferredTerms: ["beginner", "explained", "overview"],
+      filterPolicy: "green-or-simple-yellow",
       explanation: "Beginner-friendly entry point for the same topic"
     },
     {
       id: "longform",
       label: "Longer-form",
       buttonLabel: "longer-form",
+      lensLabel: "LONGER-FORM",
       description: "Like this, but longer-form",
       suffix: "long-form discussion analysis",
       preferredTerms: ["long-form", "discussion", "interview"],
+      filterPolicy: "green-or-longform-yellow",
       explanation: "Long-form structure with topic continuity preserved"
     }
   ];
@@ -349,6 +386,36 @@
     });
 
     return matches.sort((a, b) => a.index - b.index);
+  }
+
+  function detectTerms(text, terms, category) {
+    const normalizedText = String(text || "");
+    const matches = [];
+
+    terms.forEach((term) => {
+      const pattern = new RegExp(`(^|[^a-z0-9])(${escapeRegExp(term)})(?=$|[^a-z0-9])`, "gi");
+      let match;
+      while ((match = pattern.exec(normalizedText)) !== null) {
+        matches.push({
+          term: match[2],
+          normalizedTerm: term,
+          category,
+          index: match.index + match[1].length
+        });
+      }
+    });
+
+    return matches.sort((a, b) => a.index - b.index);
+  }
+
+  function detectObservabilitySignals(text) {
+    return {
+      friction: classifyStyleTerms(text),
+      educational: detectTerms(text, EXPLANATORY_TERMS, "educational"),
+      lowFriction: detectTerms(text, CALM_LOW_FRICTION_TERMS, "low-friction"),
+      longForm: detectTerms(text, LONG_FORM_TERMS, "long-form"),
+      beginner: detectTerms(text, BEGINNER_TERMS, "beginner-friendly")
+    };
   }
 
   function removeSensationalTerms(text) {
@@ -592,10 +659,12 @@
         id: style.id,
         label: style.label,
         buttonLabel: style.buttonLabel,
+        lensLabel: style.lensLabel,
         description: style.description,
         query,
         url: `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`,
         preferredTerms: style.preferredTerms,
+        filterPolicy: style.filterPolicy,
         explanation: style.explanation,
         continuity: {
           subjectAnchor,
@@ -648,6 +717,43 @@
     return Math.max(0, Math.min(100, Math.round(value)));
   }
 
+  function classifyScoredCandidate(metrics) {
+    const severeFriction = metrics.styleTermCount >= 2 || metrics.capitalizationRatio > 0.5 || metrics.penalty >= 16;
+    const hasContinuity = metrics.topicRelevance >= 14 || metrics.continuity >= 4;
+    const strongExplanatory = metrics.educationalFraming >= 8;
+    const lowFriction = metrics.calmLanguage >= 16 && metrics.styleTermCount === 0 && metrics.capitalizationRatio <= 0.36;
+
+    if (severeFriction || metrics.score < 34 || !hasContinuity) {
+      return {
+        color: "RED",
+        label: "high-friction/escalatory",
+        meaning: "High-friction or weak subject-continuity result; filtered out of guided exploration."
+      };
+    }
+
+    if (metrics.score >= 64 && hasContinuity && lowFriction) {
+      return {
+        color: "GREEN",
+        label: "safe candidate",
+        meaning: "Safe candidate for calmer and lower-friction exploration."
+      };
+    }
+
+    if (metrics.score >= 56 && hasContinuity && strongExplanatory && metrics.styleTermCount === 0) {
+      return {
+        color: "GREEN",
+        label: "safe candidate",
+        meaning: "Relevant explanatory result with low-friction wording."
+      };
+    }
+
+    return {
+      color: "YELLOW",
+      label: "mixed but useful",
+      meaning: "Mixed result that can be useful for educational, deeper, or structured exploration lenses."
+    };
+  }
+
   function scoreCandidate(candidate, anchorOrTitle, explorationPath) {
     const anchor = typeof anchorOrTitle === "string" ? analyzeAnchor(anchorOrTitle) : anchorOrTitle;
     const title = candidate.title || "";
@@ -657,8 +763,11 @@
     const titleTokens = tokenize(title);
     const anchorTerms = unique(anchor.keyTerms || tokenize(anchor.subjectAnchor || anchor.originalTitle || ""));
     const namedEntityTokens = tokenize((anchor.namedEntities || []).join(" "));
-    const styleTerms = classifyStyleTerms(title);
+    const signals = detectObservabilitySignals(title);
+    const styleTerms = signals.friction;
     const educationalMatches = countMatches(tokens, EXPLANATORY_TERMS);
+    const lowFrictionMatches = countMatches(tokens, CALM_LOW_FRICTION_TERMS);
+    const beginnerMatches = countMatches(tokens, BEGINNER_TERMS);
     const preferredMatches = countMatches(tokens, (explorationPath && explorationPath.preferredTerms) || []);
     const continuityMatches = countMatches(titleTokens, namedEntityTokens);
     const topicMatches = countMatches(titleTokens, anchorTerms);
@@ -667,35 +776,53 @@
 
     const topicRelevance = Math.min(40, topicMatches * 7 + continuityMatches * 4);
     const educationalFraming = Math.min(20, educationalMatches * 4 + preferredMatches * 4);
-    const calmLanguage = Math.max(0, 20 - styleTerms.length * 5 - (capRatio > 0.36 ? 6 : 0));
+    const calmLanguage = Math.max(0, 20 + Math.min(4, lowFrictionMatches * 2) - styleTerms.length * 5 - (capRatio > 0.36 ? 6 : 0));
     const continuity = Math.min(12, continuityMatches * 4 + (topicMatches >= 2 ? 4 : 0));
     const format =
       Math.min(8, countMatches(tokens, LONG_FORM_TERMS) * 3 + (durationSeconds >= 20 * 60 ? 5 : durationSeconds >= 8 * 60 ? 2 : 0));
     const penalty = Math.min(24, styleTerms.length * 4 + (capRatio > 0.5 ? 8 : 0));
     const score = clampScore(topicRelevance + educationalFraming + calmLanguage + continuity + format - penalty);
+    const classification = classifyScoredCandidate({
+      score,
+      topicRelevance,
+      educationalFraming,
+      calmLanguage,
+      continuity,
+      format,
+      penalty,
+      styleTermCount: styleTerms.length,
+      capitalizationRatio: capRatio
+    });
 
     const reasons = [];
     if (topicMatches > 0 || continuityMatches > 0) {
-      reasons.push("Topic continuity preserved");
+      reasons.push("topic continuity preserved");
     }
     if (educationalMatches > 0 || preferredMatches > 0) {
-      reasons.push("Lower-friction educational framing");
+      reasons.push("explanatory framing");
     }
     if (format > 3) {
-      reasons.push("Long-form discussion format");
+      reasons.push("long-form discussion");
     }
     if (styleTerms.length === 0 && capRatio <= 0.36) {
-      reasons.push("Lower sensational wording");
+      reasons.push("lower-friction language");
+    }
+    if (educationalMatches > 0) {
+      reasons.push("educational terminology detected");
+    }
+    if (beginnerMatches > 0) {
+      reasons.push("beginner-friendly terminology detected");
     }
     if (styleTerms.length > 0) {
-      reasons.push("Contains escalation signals; ranked lower");
+      reasons.push("escalation signals detected; ranked lower");
     }
     if (reasons.length === 0) {
-      reasons.push("Visible result with partial subject overlap");
+      reasons.push("visible result with partial subject overlap");
     }
 
     return {
       score,
+      classification,
       breakdown: {
         topicRelevance,
         educationalFraming,
@@ -705,9 +832,61 @@
         penalty
       },
       reasons,
+      observabilitySignals: signals,
       detectedStyleTerms: styleTerms,
       capitalizationRatio: capRatio
     };
+  }
+
+  function hasStrongExplanatoryValue(scoring) {
+    return scoring.breakdown.educationalFraming >= 8 && scoring.breakdown.topicRelevance >= 14;
+  }
+
+  function hasHighQualityRelevantValue(scoring) {
+    return scoring.breakdown.topicRelevance >= 18 && (scoring.breakdown.format >= 3 || scoring.breakdown.educationalFraming >= 8);
+  }
+
+  function hasSimpleExplanatoryValue(scoring) {
+    return scoring.breakdown.topicRelevance >= 14 && scoring.observabilitySignals.beginner.length > 0;
+  }
+
+  function hasLongFormValue(scoring) {
+    return scoring.breakdown.topicRelevance >= 14 && scoring.breakdown.format >= 3;
+  }
+
+  function isAllowedByLens(scoring, explorationPath) {
+    const color = scoring.classification.color;
+    const policy = (explorationPath && explorationPath.filterPolicy) || "green-or-explanatory-yellow";
+
+    if (color === "RED") {
+      return false;
+    }
+
+    if (policy === "green-only") {
+      return color === "GREEN";
+    }
+
+    if (color === "GREEN") {
+      return true;
+    }
+
+    if (policy === "green-or-explanatory-yellow") {
+      return color === "YELLOW" && hasStrongExplanatoryValue(scoring);
+    }
+
+    if (policy === "green-or-deep-yellow") {
+      return color === "YELLOW" && hasHighQualityRelevantValue(scoring);
+    }
+
+    if (policy === "green-or-simple-yellow") {
+      return color === "YELLOW" && hasSimpleExplanatoryValue(scoring);
+    }
+
+    if (policy === "green-or-longform-yellow") {
+      return color === "YELLOW" && hasLongFormValue(scoring);
+    }
+
+    return color === "GREEN";
   }
 
   function rankCandidates(candidates, anchorOrTitle, explorationPath, limit) {
@@ -726,17 +905,60 @@
       .slice(0, limit || 6);
   }
 
+  function scoreCandidates(candidates, anchorOrTitle, explorationPath) {
+    return (candidates || [])
+      .map((candidate) => ({
+        ...candidate,
+        scoring: scoreCandidate(candidate, anchorOrTitle, explorationPath)
+      }))
+      .filter((candidate) => candidate.title);
+  }
+
+  function sortScoredCandidates(scoredCandidates) {
+    return [...(scoredCandidates || [])].sort((a, b) => {
+      if (b.scoring.score !== a.scoring.score) {
+        return b.scoring.score - a.scoring.score;
+      }
+      return String(a.title).localeCompare(String(b.title));
+    });
+  }
+
+  function filterCandidatesByLens(scoredCandidates, explorationPath, limit) {
+    return sortScoredCandidates(scoredCandidates)
+      .filter((candidate) => isAllowedByLens(candidate.scoring, explorationPath))
+      .slice(0, limit || 6);
+  }
+
+  function buildIntentionalExplorationSet(candidates, anchorOrTitle, explorationPath, limit) {
+    const scored = scoreCandidates(candidates, anchorOrTitle, explorationPath);
+    const filtered = filterCandidatesByLens(scored, explorationPath, limit);
+
+    return {
+      pipeline: ["generate transformed search", "scan visible results", "score results", "apply exploration lens filtering", "display intentional exploration set"],
+      lens: explorationPath || null,
+      scored: sortScoredCandidates(scored),
+      suggestions: filtered
+    };
+  }
+
   return {
+    BEGINNER_TERMS,
+    CALM_LOW_FRICTION_TERMS,
     STYLE_TAXONOMY,
     EXPLORATION_STYLES,
     analyzeAnchor,
+    buildIntentionalExplorationSet,
     buildExplorationPaths,
     classifyStyleTerms,
+    detectObservabilitySignals,
     extractNamedEntities,
     extractSubjectAnchor,
+    filterCandidatesByLens,
+    isAllowedByLens,
     rankCandidates,
     removeSensationalTerms,
     scoreCandidate,
+    scoreCandidates,
     tokenize
   };
 });

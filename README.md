@@ -1,14 +1,15 @@
 # PersonaLabs
 
-PersonaLabs is an intentional semantic navigation layer for YouTube exploration.
+PersonaLabs is an observability-driven semantic navigation layer for YouTube
+exploration.
 
 The system helps users preserve topic and event continuity while changing the style
 of exploration. It is designed to feel like: "I am exploring this topic
 intentionally" instead of "I am trapped inside a recommendation funnel."
 
-PersonaLabs does not judge political correctness, determine truth, censor content,
-or replace YouTube recommendations. It gives users transparent, local-first tools
-for generating calmer and more explanatory paths from a selected contextual anchor.
+PersonaLabs does not determine truth, rank ideology, censor content, or replace
+YouTube. It gives users transparent, local-first tools for generating calmer and
+more explanatory paths from a selected contextual anchor.
 
 ## Core Principles
 
@@ -20,6 +21,7 @@ for generating calmer and more explanatory paths from a selected contextual anch
 - Calm, non-judgmental interaction design
 - Privacy-aware architecture
 - Behavioral observability over coercive filtering
+- Score first; filter second
 - Bare Metal mode always available
 
 ## Current Chrome Extension UX
@@ -32,10 +34,12 @@ for generating calmer and more explanatory paths from a selected contextual anch
    - subject nouns
    - named people, organizations, and events
 4. PersonaLabs detects style signals:
-   - sensational framing
    - escalation language
+   - outrage framing
    - domination framing
-   - clickbait and outrage terms
+   - clickbait signals
+   - educational signals
+   - calm/low-friction signals
 5. PersonaLabs creates subject-preserving transformed searches:
    - Like this, but calmer
    - Like this, but educational
@@ -56,13 +60,15 @@ Bad:      educational politics video
 
 ## Persistent Side Panel
 
-The content script renders a persistent PersonaLabs panel on YouTube. It shows:
+The content script renders a persistent PersonaLabs control panel on YouTube. It
+shows:
 
 - selected contextual anchor
 - original title
 - extracted subject anchor
 - removed escalation terms
-- transformed exploration paths
+- transformed exploration query
+- selected exploration lens
 - Suggested Exploration Paths after a transformed search is opened
 
 The exploration buttons generate and open transformed YouTube searches while
@@ -74,10 +80,19 @@ preserving event continuity:
 - beginner friendly
 - longer-form
 
-## Related Exploration Scan
+## Exploration Result Filtering
 
 After a transformed search is opened, PersonaLabs scans visible YouTube results and
-scores the returned videos/channels with deterministic logic.
+scores the returned videos/channels with deterministic logic. The selected
+exploration lens controls filtering/routing behavior.
+
+Pipeline:
+
+1. Generate transformed search
+2. Scan visible results
+3. Score results
+4. Apply exploration lens filtering
+5. Display the intentional exploration set
 
 It prioritizes:
 
@@ -95,19 +110,38 @@ It deprioritizes:
 - domination language
 - panic/escalation wording
 
-Suggested results include the title, channel, score, and plain-language reasons
-such as:
+### Lens Filtering Rules
 
-- Lower-friction educational framing
-- Long-form discussion format
-- Topic continuity preserved
+The color system has operational meaning:
+
+- GREEN: safe candidate for calmer/lower-friction exploration
+- YELLOW: mixed but potentially useful for educational/deeper exploration
+- RED: high-friction/escalatory
+
+Lens behavior:
+
+- CALMER: only GREEN videos allowed
+- LOWER FRICTION: only GREEN videos allowed
+- EDUCATIONAL: GREEN prioritized; strong explanatory YELLOW allowed
+- DEEPER DIVE: GREEN plus high-quality relevant YELLOW
+- BEGINNER FRIENDLY: GREEN plus simple explanatory YELLOW
+- LONGER-FORM: GREEN plus relevant long-form YELLOW
+
+Suggested results include the title, channel, classification color, score, and
+plain-language explanations such as:
+
+- lower-friction language
+- explanatory framing
+- long-form discussion
+- topic continuity preserved
+- educational terminology detected
 
 ## Overlay Badges
 
 PersonaLabs badges are contextual observability signals. They do not block,
 approve, censor, or fact-check videos. They help users notice when a visible card
-contains escalation language or how strongly a result fits the active contextual
-anchor.
+contains escalation language, which GREEN/YELLOW/RED class a result falls into,
+and how strongly a result fits the active contextual anchor.
 
 ## Architecture
 
@@ -122,8 +156,9 @@ test/
 ```
 
 The semantic core is dependency-free and can run in both the browser content
-script and Node tests. It does not use embeddings, vector databases, autonomous AI
-ranking systems, or network calls.
+script and Node tests. It does not use cloud APIs, LLM calls, embeddings, vector
+databases, autonomous AI ranking systems, opaque recommendation systems, or
+network calls.
 
 ## Development
 
