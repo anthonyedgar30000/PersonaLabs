@@ -134,6 +134,8 @@ test("does not require cloud, embeddings, or opaque recommendation inputs", () =
     "format",
     "informationalTone",
     "sourceFormat",
+    "calmAnimalScore",
+    "harmlessEnergy",
     "penalty"
   ]);
   assert.equal(score.classification.color, "GREEN");
@@ -233,7 +235,12 @@ test("classifies calm animal and relaxing content as GREEN", () => {
   const cases = [
     "Cute Baby Bunny Compilation",
     "Relaxing Rabbit Videos",
-    "Calm Animal Sounds"
+    "Calm Animal Sounds",
+    "Relaxing Bird Sounds",
+    "Cozy Cat Videos",
+    "Calm Aquarium Ambient Video",
+    "Peaceful Forest Animal Sounds",
+    "Cute Puppy Sleep Compilation"
   ];
 
   cases.forEach((title) => {
@@ -251,6 +258,60 @@ test("classifies calm animal and relaxing content as GREEN", () => {
 
     assert.equal(score.classification.color, "GREEN", title);
     assert(score.reasons.includes("calm/relaxing positive signals"));
+    assert(score.reasons.includes("calm animal/nature signals"));
+    assert(score.debug.calm_animal_score >= 2);
+    assert.equal(score.debug.escalation_score, 0);
+    assert.match(score.debug.final_classification_reason, /calm|relaxing|animal/i);
+  });
+});
+
+test("classifies energetic harmless pet pacing as YELLOW without escalation", () => {
+  const cases = [
+    "Funny Hyper Puppy Shorts Compilation",
+    "Loud Meme Cat Reactions"
+  ];
+
+  cases.forEach((title) => {
+    const anchor = semantic.analyzeAnchor(title);
+    const path = semantic.buildExplorationPaths(anchor).find((lens) => lens.id === "calmer");
+    const score = semantic.scoreCandidate(
+      {
+        title,
+        channel: "Pet Shorts",
+        duration: "0:58"
+      },
+      anchor,
+      path
+    );
+
+    assert.equal(score.classification.color, "YELLOW", title);
+    assert(score.reasons.includes("harmless energetic pacing"));
+    assert.equal(score.debug.escalation_score, 0);
+  });
+});
+
+test("classifies animal distress and escalation framing as RED", () => {
+  const cases = [
+    "SHOCKING Animal Attack Compilation",
+    "Terrifying Pet Emergency Breakdown"
+  ];
+
+  cases.forEach((title) => {
+    const anchor = semantic.analyzeAnchor(title);
+    const path = semantic.buildExplorationPaths(anchor).find((lens) => lens.id === "calmer");
+    const score = semantic.scoreCandidate(
+      {
+        title,
+        channel: "Breaking Clips",
+        duration: "8:00"
+      },
+      anchor,
+      path
+    );
+
+    assert.equal(score.classification.color, "RED", title);
+    assert(score.debug.escalation_score > 0);
+    assert.match(score.debug.final_classification_reason, /escalation|distress/i);
   });
 });
 

@@ -24,6 +24,13 @@
       "doomed",
       "disaster",
       "catastrophe",
+      "disturbing",
+      "attacked",
+      "attack",
+      "died",
+      "terrifying",
+      "emotional breakdown",
+      "brutal",
       "war room",
       "just happened"
     ],
@@ -73,6 +80,7 @@
       "terrorist",
       "shameful",
       "unhinged",
+      "freakout",
       "loses it",
       "freaks out",
       "goes off",
@@ -186,14 +194,27 @@
     "civil"
   ];
 
-  const CALM_POSITIVE_TERMS = [
+  const CALM_NATURE_ANIMAL_SIGNALS = [
     "cute",
+    "adorable",
     "bunny",
     "rabbit",
+    "kitten",
+    "cat",
+    "puppy",
+    "dog",
+    "hamster",
+    "guinea pig",
+    "bird",
+    "parrot",
+    "aquarium",
+    "fish",
     "relaxing",
     "calm",
     "ambient",
     "nature",
+    "forest",
+    "rain",
     "animal",
     "animals",
     "pet",
@@ -205,6 +226,21 @@
     "chill",
     "meditation",
     "wholesome"
+  ];
+
+  const CALM_POSITIVE_TERMS = CALM_NATURE_ANIMAL_SIGNALS;
+
+  const HARMLESS_ENERGETIC_TERMS = [
+    "funny",
+    "hyper",
+    "loud",
+    "meme",
+    "memes",
+    "shorts",
+    "reaction",
+    "reactions",
+    "fast-cut",
+    "fast cut"
   ];
 
   const BEGINNER_TERMS = [
@@ -499,6 +535,8 @@
       educational: detectTerms(text, EXPLANATORY_TERMS, "educational"),
       lowFriction: detectTerms(text, CALM_LOW_FRICTION_TERMS, "low-friction"),
       calmPositive: detectTerms(text, CALM_POSITIVE_TERMS, "calm-positive"),
+      calmNatureAnimal: detectTerms(text, CALM_NATURE_ANIMAL_SIGNALS, "calm-nature-animal"),
+      harmlessEnergetic: detectTerms(text, HARMLESS_ENERGETIC_TERMS, "harmless-energetic"),
       interviewDiscussion: detectTerms(text, INTERVIEW_DISCUSSION_TERMS, "interview-discussion"),
       lowerFrictionSource: detectTerms(text, LOWER_FRICTION_SOURCE_TERMS, "lower-friction-source"),
       mixedSource: detectTerms(text, MIXED_SOURCE_TERMS, "mixed-source"),
@@ -815,6 +853,9 @@
     const strongExplanatory = metrics.educationalFraming >= 8;
     const hasFormatTrust = metrics.informationalTone >= 6 || metrics.sourceFormat >= 5;
     const strongCalmPositive = metrics.calmPositive >= 2;
+    const strongCalmAnimal = metrics.calmAnimalScore >= 2;
+    const noEscalation = metrics.escalationScore === 0;
+    const harmlessEnergyWithoutCompression = metrics.harmlessEnergy >= 2 && noEscalation;
     const lowFriction =
       metrics.calmLanguage >= 16 &&
       metrics.styleTermCount === 0 &&
@@ -824,7 +865,26 @@
       return {
         color: "RED",
         label: "high-friction/escalatory",
-        meaning: "High-friction or escalatory framing; filtered out of guided exploration."
+        meaning: "High-friction or escalatory framing; filtered out of guided exploration.",
+        reason: "explicit escalation or distress framing detected"
+      };
+    }
+
+    if (strongCalmAnimal && noEscalation) {
+      return {
+        color: "GREEN",
+        label: "safe candidate",
+        meaning: "Calm animal, pet, nature, or ambient relaxation presentation.",
+        reason: "calm nature/animal override: high calm_animal_score with no escalation"
+      };
+    }
+
+    if (harmlessEnergyWithoutCompression) {
+      return {
+        color: "YELLOW",
+        label: "mixed but useful",
+        meaning: "Energetic or meme-paced content without true escalation.",
+        reason: "harmless energetic pacing without escalation"
       };
     }
 
@@ -832,7 +892,8 @@
       return {
         color: "GREEN",
         label: "safe candidate",
-        meaning: "Calm, relaxing, or low-friction subject presentation."
+        meaning: "Calm, relaxing, or low-friction subject presentation.",
+        reason: "strong calm/relaxing positive signals"
       };
     }
 
@@ -840,7 +901,8 @@
       return {
         color: "GREEN",
         label: "safe candidate",
-        meaning: "Safe candidate for calmer and lower-friction exploration."
+        meaning: "Safe candidate for calmer and lower-friction exploration.",
+        reason: "low-friction candidate with continuity and trusted explanatory/format signals"
       };
     }
 
@@ -848,14 +910,16 @@
       return {
         color: "GREEN",
         label: "safe candidate",
-        meaning: "Relevant explanatory result with low-friction wording."
+        meaning: "Relevant explanatory result with low-friction wording.",
+        reason: "explanatory or trusted source format with no escalation"
       };
     }
 
     return {
       color: "YELLOW",
       label: "mixed but useful",
-      meaning: "Neutral or mixed result that can be useful for educational, deeper, or structured exploration lenses."
+      meaning: "Neutral or mixed result that can be useful for educational, deeper, or structured exploration lenses.",
+      reason: "neutral default: no explicit escalation, but not enough GREEN evidence"
     };
   }
 
@@ -874,7 +938,9 @@
     const styleTerms = signals.friction;
     const educationalMatches = countMatches(tokens, EXPLANATORY_TERMS);
     const lowFrictionMatches = countMatches(tokens, CALM_LOW_FRICTION_TERMS);
-    const calmPositiveMatches = countMatches(tokens, CALM_POSITIVE_TERMS);
+    const calmPositiveMatches = countMatches(titleTokens, CALM_POSITIVE_TERMS);
+    const calmNatureAnimalMatches = countMatches(titleTokens, CALM_NATURE_ANIMAL_SIGNALS);
+    const harmlessEnergeticMatches = countMatches(titleTokens, HARMLESS_ENERGETIC_TERMS);
     const beginnerMatches = countMatches(tokens, BEGINNER_TERMS);
     const neutralReportingMatches = countMatches(tokens, NEUTRAL_REPORTING_TERMS);
     const interviewDiscussionMatches = countMatches(tokens, INTERVIEW_DISCUSSION_TERMS);
@@ -917,6 +983,9 @@
       informationalTone,
       sourceFormat,
       calmPositive: calmPositiveMatches,
+      calmAnimalScore: calmNatureAnimalMatches,
+      escalationScore: styleTerms.length,
+      harmlessEnergy: harmlessEnergeticMatches,
       penalty,
       styleTermCount: styleTerms.length,
       capitalizationRatio: capRatio
@@ -937,6 +1006,12 @@
     }
     if (calmPositiveMatches > 0) {
       reasons.push("calm/relaxing positive signals");
+    }
+    if (calmNatureAnimalMatches > 0) {
+      reasons.push("calm animal/nature signals");
+    }
+    if (harmlessEnergeticMatches > 0) {
+      reasons.push("harmless energetic pacing");
     }
     if (sourceFormat > 0) {
       reasons.push("lower-friction source format");
@@ -960,6 +1035,11 @@
     return {
       score,
       classification,
+      debug: {
+        calm_animal_score: calmNatureAnimalMatches,
+        escalation_score: styleTerms.length,
+        final_classification_reason: classification.reason
+      },
       breakdown: {
         topicRelevance,
         educationalFraming,
@@ -968,6 +1048,8 @@
         format,
         informationalTone,
         sourceFormat,
+        calmAnimalScore: calmNatureAnimalMatches,
+        harmlessEnergy: harmlessEnergeticMatches,
         penalty
       },
       reasons,
@@ -1086,7 +1168,9 @@
   return {
     BEGINNER_TERMS,
     CALM_LOW_FRICTION_TERMS,
+    CALM_NATURE_ANIMAL_SIGNALS,
     CALM_POSITIVE_TERMS,
+    HARMLESS_ENERGETIC_TERMS,
     STYLE_TAXONOMY,
     EXPLORATION_STYLES,
     analyzeAnchor,
