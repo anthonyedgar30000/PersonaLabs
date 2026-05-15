@@ -211,8 +211,6 @@ const DOMAIN_DEFINITIONS = [
       "gardening",
       "painting",
       "drawing",
-      "guitar tutorial",
-      "beginner guitar",
       "hobby",
       "diy",
     ],
@@ -529,8 +527,9 @@ export function detectDomain(content = {}) {
     .map((definition) => {
       const domainMatches = findTerms(textParts.domainText, definition.terms);
       const metadataMatches = findTerms(textParts.metadataText, definition.terms);
-      const score = scoreTerms(domainMatches, 1)
-        + scoreTerms(metadataMatches, 1.25)
+      const domainWeight = definition.domain === DOMAINS.EDUCATIONAL_TUTORIAL ? 1.25 : 1;
+      const score = scoreTerms(domainMatches, domainWeight)
+        + scoreTerms(metadataMatches, domainWeight + 0.25)
         + (domainMatches.length > 0 || metadataMatches.length > 0 ? definition.priority / 100 : 0);
 
       return {
@@ -552,6 +551,8 @@ export function detectDomain(content = {}) {
   return {
     domain: selected.domain,
     matches: selected.matches,
+    score: selected.score,
+    priority: selected.priority,
     candidates,
     baseline: DOMAIN_BASELINES[selected.domain],
   };
@@ -891,6 +892,10 @@ export function calculateFrictionTerms({
         "shocking",
         "drama",
         "clickbait",
+        "crazy",
+        "wild",
+        "fails",
+        "fail",
       ].includes(term))])
       : unique([...red, ...mild]),
   };
