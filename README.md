@@ -1,60 +1,74 @@
 # PersonaLabs
 
-PersonaLabs is a cognitive observability and intentionality support platform.
+PersonaLabs is currently a simple Chill Mode Chrome extension MVP for YouTube.
 
-The system helps users notice when digital media consumption patterns drift away from their stated goals, modes, schedules, or values using explainable AI, behavioral telemetry, and human-centered observability principles.
+The extension adds lightweight overlays to YouTube cards and classifies each
+card from its visible title only. The goal is reliable local feedback without
+multi-mode scoring, transcript assumptions, telemetry, or AI calls.
 
-## Core Principles
+## Current MVP
 
-- Flag, do not block
-- User agency first
-- Explainable AI outputs
-- Human-in-the-loop control
-- Calm, non-judgmental interaction design
-- Privacy-aware architecture
-- Behavioral observability over coercive filtering
-- Bare Metal mode always available
+- Chrome extension shell
+- YouTube card detection
+- Weighted title-based Chill Mode classification
+- Color-coded overlays
+- Hover tooltips explaining matched categories, terms, score impact, and confidence
+- Bare Metal toggle to hide all overlays
+- Optional Developer Mode for raw title/debug signals
 
-## MVP Goals
+## Out of scope for this MVP
 
-- Chrome extension overlay for YouTube
-- Persona modes:
-  - Study
-  - Chill
-  - Research
-  - Bare Metal
-- Color-coded alignment borders
-- Lightweight telemetry signals
-- Explainable scoring summaries
-- Adaptive schedule renegotiation prompts
+- Study Mode
+- Research Mode
+- evidence scoring
+- exploratory scoring
+- persona weighting
+- transcript analysis
+- backend services
+- telemetry
 
-## Example Prompt
+## User-facing label bands
 
-"Looks like your activity drifted away from Study Mode.
-Would you like to:
-- Continue Study Mode
-- Switch to Chill Mode
-- Enter Bare Metal Mode
-- Snooze prompts for 30 mins"
+- **ultra chill** / **vibes immaculate**: strong green calm fit.
+- **good vibes**: green calm fit.
+- **mostly chill**: yellow-green, chill signals with some focus energy.
+- **mixed energy**: yellow, ambiguous or low-confidence title signals.
+- **drama creeping in**: orange, higher friction for Chill Mode.
+- **high friction**: red, strong friction signals.
+- **doomscroll fuel**: dark red, multiple escalation signals.
 
-## Development Model
+## Weighted dictionary categories
 
-PersonaLabs is being developed using governed AI-assisted iterative development.
+The local scoring dictionaries are stored in `extension/dictionaries.js`:
 
-Agent roles include:
-- Product Architect
-- Frontend Builder
-- AI Scoring Engineer
-- Security/Governance Reviewer
-- QA/Test Agent
-- Documentation Agent
+- `calm_positive`
+- `educational_low_friction`
+- `high_friction`
+- `violence_disturbing`
+- `tribal_domination`
+- `urgency_novelty`
 
-All AI-generated outputs require:
-- feature validation
-- governance review
-- hallucination mitigation review
-- human approval
+Each category has 75-150 deterministic terms/phrases. Multi-word phrases carry
+higher weight than single words, and strong `violence_disturbing` or
+`tribal_domination` matches prevent green Chill Mode labels.
 
-## Vision
+## Internal technical terminology
 
-AI helping people notice when they are no longer acting intentionally.
+The UI can stay playful while the implementation remains explainable. Developer
+Mode and technical docs preserve professional signal names:
+
+- `calmAlignment`
+- `conflictIntensity`
+- `cognitiveFriction`
+- `signalConfidence`
+- `volatilitySignals`
+- `escalationSignals`
+- `metadataConfidence`
+
+This is a presentation refactor. It preserves deterministic, title-based
+heuristics, local-only processing, explainable overlays, Chill Mode focus, and
+confidence display. It does not add AI APIs, transcripts, backend services,
+embeddings, or LLMs.
+
+See [`extension/README.md`](extension/README.md) for local installation and
+popup controls.
