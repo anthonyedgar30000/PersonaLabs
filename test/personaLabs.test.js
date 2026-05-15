@@ -213,7 +213,7 @@ test("funny cat fails is suppressed by animal playful context", () => {
 
   assert.equal(result.label, LABELS.GREEN);
   assert.equal(result.domain, DOMAINS.ANIMAL_PET_NATURE);
-  assert.ok(result.frictionTerms.suppressed.includes("fail"));
+  assert.ok(result.frictionTerms.suppressed.includes("fails"));
 });
 
 test("explainability exposes baseline status, overrides, suppression, friction, score, and color", () => {
