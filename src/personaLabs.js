@@ -956,7 +956,7 @@ function decideColor({ domain, lens, escalation, scores, format }) {
   }
 
   if (lens === LENSES.EDUCATIONAL && format.lowerFrictionScore > 0) {
-    if (scores.finalScore >= 7 || escalation.hasSevereDistress) {
+    if (scores.finalScore >= 7 || escalation.hasSevereDistress || escalation.score >= 5) {
       return {
         color: LABELS.YELLOW,
         code: "yellow.educational_difficult_context",
@@ -1016,6 +1016,10 @@ function buildHumanExplanation({
 
   if (decision.code === "yellow.educational_difficult_context") {
     return "Marked YELLOW because a difficult topic is presented through explanatory or documentary context.";
+  }
+
+  if (decision.code === "green.educational_context") {
+    return "Marked GREEN because Educational lens prioritized depth, context, and explanation.";
   }
 
   if (format.signals.higherFriction.length > 0 && lens === LENSES.CALMER) {

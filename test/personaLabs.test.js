@@ -62,7 +62,7 @@ test("animal rescue emergency overrides animal GREEN default", () => {
   assert.equal(result.label, LABELS.RED);
   assert.equal(result.domain, DOMAINS.ANIMAL_PET_NATURE);
   assert.equal(result.escalation.hasSevereDistress, true);
-  assert.deepEqual(result.escalation.signals.severeDistressTerms, [
+  assert.deepEqual([...result.escalation.signals.severeDistressTerms].sort(), [
     "emergency",
     "rescue crisis",
   ]);
