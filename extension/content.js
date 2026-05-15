@@ -16,44 +16,6 @@
     lowerScreenTime: "Lower Screen Time",
     curiosityGuidedLearning: "Curiosity-Guided Learning"
   };
-  const GUIDED_DISCOVERY_ACTIONS = [
-    {
-      id: "calmer",
-      label: "Calmer",
-      suffix: "calm discussion"
-    },
-    {
-      id: "educational",
-      label: "More educational",
-      suffix: "educational explanation overview"
-    },
-    {
-      id: "lessSensational",
-      label: "Less sensational",
-      suffix: "balanced analysis discussion"
-    },
-    {
-      id: "beginnerFriendly",
-      label: "More beginner-friendly",
-      suffix: "beginner friendly explanation"
-    }
-  ];
-  const SENSATIONAL_REWRITES = [
-    ["exposed", "analysis"],
-    ["destroyed", "discussion"],
-    ["destroys", "discussion"],
-    ["destroy", "discussion"],
-    ["obliterated", "overview"],
-    ["annihilated", "overview"],
-    ["shocking", "analysis"],
-    ["insane", "overview"],
-    ["crazy", "overview"],
-    ["scandal", "analysis"],
-    ["meltdown", "discussion"],
-    ["urgent", "overview"],
-    ["breaking", "overview"],
-    ["must watch", "explanation"]
-  ];
   const CARD_SELECTOR = [
     "ytd-rich-item-renderer",
     "ytd-video-renderer",
@@ -73,6 +35,7 @@
   ];
 
   const scoring = window.PersonaLabsChillScoring;
+  const queryRewriting = window.PersonaLabsQueryRewriting;
   let currentMode = DEFAULT_MODE;
   let developerMode = false;
   let adaptiveGuidance = false;
@@ -82,7 +45,7 @@
   init();
 
   function init() {
-    if (!scoring) {
+    if (!scoring || !queryRewriting) {
       return;
     }
 
@@ -397,7 +360,8 @@
       "Why:",
       classification.presentation.reasons.join("; "),
       "Guided Discovery: Find similar, but:",
-      GUIDED_DISCOVERY_ACTIONS.map((action) => action.label).join("; ")
+      guidedDiscoveryPresets().map((preset) => preset.label).join("; "),
+      guidedDiscoveryTextFor(classification)
     ].join(" ");
 
     return developerDetails ? `${baseTooltip} Developer signals: ${developerDetails}` : baseTooltip;
@@ -419,61 +383,77 @@
     return scoring.formatTerms(Array.from(new Set(terms)));
   }
 
+  function guidedDiscoveryPresets() {
+    return [
+      queryRewriting.PRESETS.calmer,
+      queryRewriting.PRESETS.moreEducational,
+      queryRewriting.PRESETS.lessSensational,
+      queryRewriting.PRESETS.beginnerFriendly
+    ];
+  }
+
   function guidedDiscoveryElementFor(classification) {
     const container = document.createElement("span");
     const heading = document.createElement("span");
     const buttons = document.createElement("span");
+    const debug = document.createElement("span");
+    const rewrites = guidedDiscoveryPresets().map((preset) => {
+      return queryRewriting.searchUrlFor(classification.internalSignals.rawExtractedTitle, preset.id);
+    });
 
     container.className = "personalabs-guided-discovery";
     heading.className = "personalabs-tooltip-heading";
     heading.textContent = "Find similar, but:";
     buttons.className = "personalabs-guided-discovery-actions";
+    debug.className = "personalabs-guided-discovery-debug";
 
-    GUIDED_DISCOVERY_ACTIONS.forEach((action) => {
+    rewrites.forEach((rewrite) => {
       const button = document.createElement("button");
       button.type = "button";
-      button.textContent = action.label;
+      button.textContent = rewrite.presetLabel;
       button.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
-        openGuidedDiscovery(classification, action);
+        openGuidedDiscovery(rewrite);
       });
       buttons.append(button);
     });
 
-    container.append(heading, buttons);
+    debug.append(debugRowFor("Original title", rewrites[0].originalTitle || "untitled"));
+    rewrites.forEach((rewrite) => {
+      debug.append(
+        debugRowFor(
+          `${rewrite.presetLabel} preset`,
+          `${rewrite.transformedQuery} (transformation preset used: ${rewrite.preset})`
+        )
+      );
+    });
+
+    container.append(heading, buttons, debug);
     return container;
   }
 
-  function openGuidedDiscovery(classification, action) {
-    const query = rewriteDiscoveryQuery(classification.internalSignals.rawExtractedTitle, action);
-    const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
-    window.open(url, "_blank", "noopener,noreferrer");
+  function guidedDiscoveryTextFor(classification) {
+    const rewrites = guidedDiscoveryPresets().map((preset) => {
+      return queryRewriting.rewriteTitle(classification.internalSignals.rawExtractedTitle, preset.id);
+    });
+
+    return [
+      `Original title: ${rewrites[0].originalTitle || "untitled"}.`,
+      ...rewrites.map((rewrite) => {
+        return `Transformation preset used: ${rewrite.preset}; transformed query: ${rewrite.transformedQuery}.`;
+      })
+    ].join(" ");
   }
 
-  function rewriteDiscoveryQuery(title, action) {
-    const rewrittenTitle = SENSATIONAL_REWRITES.reduce((query, [term, replacement]) => {
-      return query.replace(new RegExp(`\\b${escapeRegExp(term)}\\b`, "gi"), replacement);
-    }, normalizeDiscoveryTitle(title));
-
-    return appendUniqueTerms(rewrittenTitle, action.suffix);
+  function debugRowFor(label, value) {
+    const row = document.createElement("span");
+    row.textContent = `${label}: ${value}`;
+    return row;
   }
 
-  function normalizeDiscoveryTitle(title) {
-    return String(title || "")
-      .replace(/[!?]+/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-  }
-
-  function appendUniqueTerms(query, suffix) {
-    const queryWords = new Set(query.toLowerCase().split(/\s+/).filter(Boolean));
-    const suffixWords = suffix.split(/\s+/).filter((word) => !queryWords.has(word.toLowerCase()));
-    return [query, suffixWords.join(" ")].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
-  }
-
-  function escapeRegExp(value) {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  function openGuidedDiscovery(rewrite) {
+    window.open(rewrite.url, "_blank", "noopener,noreferrer");
   }
 
   function removeOverlay(card) {

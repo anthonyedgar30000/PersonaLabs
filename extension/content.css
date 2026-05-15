@@ -184,6 +184,19 @@
   outline: none;
 }
 
+.personalabs-guided-discovery-debug {
+  background: rgba(15, 23, 42, 0.64);
+  border: 1px dashed rgba(147, 197, 253, 0.28);
+  border-radius: 8px;
+  color: #bfdbfe;
+  display: grid;
+  font-size: 10px;
+  font-weight: 500;
+  gap: 3px;
+  margin-top: 2px;
+  padding: 6px;
+}
+
 .personalabs-developer-panel {
   background: rgba(15, 23, 42, 0.78);
   border: 1px solid rgba(45, 212, 191, 0.3);

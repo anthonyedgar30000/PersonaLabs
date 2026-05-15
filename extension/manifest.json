@@ -13,7 +13,7 @@
     {
       "matches": ["https://www.youtube.com/*"],
       "css": ["content.css"],
-      "js": ["dictionaries.js", "scoring.js", "content.js"],
+      "js": ["dictionaries.js", "scoring.js", "query-rewriting.js", "content.js"],
       "run_at": "document_idle"
     }
   ]
