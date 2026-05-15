@@ -228,3 +228,45 @@ test("requires actual escalation framing for RED classifications", () => {
     assert.equal(score.classification.color, "RED", item.title);
   });
 });
+
+test("classifies calm animal and relaxing content as GREEN", () => {
+  const cases = [
+    "Cute Baby Bunny Compilation",
+    "Relaxing Rabbit Videos",
+    "Calm Animal Sounds"
+  ];
+
+  cases.forEach((title) => {
+    const anchor = semantic.analyzeAnchor(title);
+    const path = semantic.buildExplorationPaths(anchor).find((lens) => lens.id === "calmer");
+    const score = semantic.scoreCandidate(
+      {
+        title,
+        channel: "Wholesome Pets",
+        duration: "12:00"
+      },
+      anchor,
+      path
+    );
+
+    assert.equal(score.classification.color, "GREEN", title);
+    assert(score.reasons.includes("calm/relaxing positive signals"));
+  });
+});
+
+test("unknown low-friction content defaults to YELLOW-neutral, not RED", () => {
+  const anchor = semantic.analyzeAnchor("Thomas Massie Iran vote");
+  const path = semantic.buildExplorationPaths(anchor).find((lens) => lens.id === "educational");
+  const score = semantic.scoreCandidate(
+    {
+      title: "Community Garden Walkthrough",
+      channel: "Neighborhood Archive",
+      duration: "9:00"
+    },
+    anchor,
+    path
+  );
+
+  assert.equal(score.classification.color, "YELLOW");
+  assert.equal(score.detectedStyleTerms.length, 0);
+});

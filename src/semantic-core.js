@@ -186,6 +186,27 @@
     "civil"
   ];
 
+  const CALM_POSITIVE_TERMS = [
+    "cute",
+    "bunny",
+    "rabbit",
+    "relaxing",
+    "calm",
+    "ambient",
+    "nature",
+    "animal",
+    "animals",
+    "pet",
+    "pets",
+    "soothing",
+    "sleep",
+    "peaceful",
+    "cozy",
+    "chill",
+    "meditation",
+    "wholesome"
+  ];
+
   const BEGINNER_TERMS = [
     "beginner",
     "intro",
@@ -477,6 +498,7 @@
       neutralReporting: detectTerms(text, NEUTRAL_REPORTING_TERMS, "neutral-reporting"),
       educational: detectTerms(text, EXPLANATORY_TERMS, "educational"),
       lowFriction: detectTerms(text, CALM_LOW_FRICTION_TERMS, "low-friction"),
+      calmPositive: detectTerms(text, CALM_POSITIVE_TERMS, "calm-positive"),
       interviewDiscussion: detectTerms(text, INTERVIEW_DISCUSSION_TERMS, "interview-discussion"),
       lowerFrictionSource: detectTerms(text, LOWER_FRICTION_SOURCE_TERMS, "lower-friction-source"),
       mixedSource: detectTerms(text, MIXED_SOURCE_TERMS, "mixed-source"),
@@ -792,16 +814,25 @@
     const hasContinuity = metrics.topicRelevance >= 14 || metrics.continuity >= 4;
     const strongExplanatory = metrics.educationalFraming >= 8;
     const hasFormatTrust = metrics.informationalTone >= 6 || metrics.sourceFormat >= 5;
+    const strongCalmPositive = metrics.calmPositive >= 2;
     const lowFriction =
       metrics.calmLanguage >= 16 &&
       metrics.styleTermCount === 0 &&
       metrics.capitalizationRatio <= 0.36;
 
-    if (severeFriction || (metrics.styleTermCount >= 1 && metrics.score < 34) || !hasContinuity) {
+    if (severeFriction || (metrics.styleTermCount >= 1 && metrics.score < 34)) {
       return {
         color: "RED",
         label: "high-friction/escalatory",
-        meaning: "High-friction or weak subject-continuity result; filtered out of guided exploration."
+        meaning: "High-friction or escalatory framing; filtered out of guided exploration."
+      };
+    }
+
+    if (metrics.score >= 50 && hasContinuity && lowFriction && strongCalmPositive) {
+      return {
+        color: "GREEN",
+        label: "safe candidate",
+        meaning: "Calm, relaxing, or low-friction subject presentation."
       };
     }
 
@@ -824,7 +855,7 @@
     return {
       color: "YELLOW",
       label: "mixed but useful",
-      meaning: "Mixed result that can be useful for educational, deeper, or structured exploration lenses."
+      meaning: "Neutral or mixed result that can be useful for educational, deeper, or structured exploration lenses."
     };
   }
 
@@ -843,6 +874,7 @@
     const styleTerms = signals.friction;
     const educationalMatches = countMatches(tokens, EXPLANATORY_TERMS);
     const lowFrictionMatches = countMatches(tokens, CALM_LOW_FRICTION_TERMS);
+    const calmPositiveMatches = countMatches(tokens, CALM_POSITIVE_TERMS);
     const beginnerMatches = countMatches(tokens, BEGINNER_TERMS);
     const neutralReportingMatches = countMatches(tokens, NEUTRAL_REPORTING_TERMS);
     const interviewDiscussionMatches = countMatches(tokens, INTERVIEW_DISCUSSION_TERMS);
@@ -856,7 +888,7 @@
 
     const topicRelevance = Math.min(40, topicMatches * 7 + continuityMatches * 4);
     const educationalFraming = Math.min(20, educationalMatches * 4 + preferredMatches * 4);
-    const informationalTone = Math.min(12, neutralReportingMatches * 3 + interviewDiscussionMatches * 3);
+    const informationalTone = Math.min(12, neutralReportingMatches * 3 + interviewDiscussionMatches * 3 + calmPositiveMatches * 2);
     const sourceFormat = Math.max(
       0,
       Math.min(10, lowerFrictionSourceMatches * 4 + sourceSignals.lowerFrictionSource.length * 2 + interviewDiscussionMatches * 2 - mixedSourceMatches * 2)
@@ -865,7 +897,8 @@
       0,
       20 +
         Math.min(8, lowFrictionMatches * 2 + neutralReportingMatches * 2 + interviewDiscussionMatches * 2 + lowerFrictionSourceMatches * 2) -
-        styleTerms.length * 5 -
+        styleTerms.length * 5 +
+        Math.min(8, calmPositiveMatches * 2) -
         (capRatio > 0.36 ? 6 : 0)
     );
     const continuity = Math.min(12, continuityMatches * 4 + (topicMatches >= 2 ? 4 : 0));
@@ -883,6 +916,7 @@
       format,
       informationalTone,
       sourceFormat,
+      calmPositive: calmPositiveMatches,
       penalty,
       styleTermCount: styleTerms.length,
       capitalizationRatio: capRatio
@@ -900,6 +934,9 @@
     }
     if (informationalTone > 0) {
       reasons.push("neutral reporting language");
+    }
+    if (calmPositiveMatches > 0) {
+      reasons.push("calm/relaxing positive signals");
     }
     if (sourceFormat > 0) {
       reasons.push("lower-friction source format");
@@ -1049,6 +1086,7 @@
   return {
     BEGINNER_TERMS,
     CALM_LOW_FRICTION_TERMS,
+    CALM_POSITIVE_TERMS,
     STYLE_TAXONOMY,
     EXPLORATION_STYLES,
     analyzeAnchor,
