@@ -3,9 +3,19 @@
 
   const STORAGE_KEY = "personaLabsChillMode";
   const DEVELOPER_MODE_STORAGE_KEY = "personaLabsDeveloperMode";
+  const ADAPTIVE_GUIDANCE_STORAGE_KEY = "personaLabsAdaptiveGuidance";
+  const USER_GOAL_STORAGE_KEY = "personaLabsUserGoal";
   const MODE_CHILL = "chill";
   const MODE_BARE_METAL = "bareMetal";
   const DEFAULT_MODE = MODE_CHILL;
+  const DEFAULT_USER_GOAL = "relaxDecompress";
+  const USER_GOAL_LABELS = {
+    relaxDecompress: "Relax / Decompress",
+    reduceDoomscrolling: "Reduce Doomscrolling",
+    focusLearn: "Focus / Learn",
+    lowerScreenTime: "Lower Screen Time",
+    curiosityGuidedLearning: "Curiosity-Guided Learning"
+  };
   const CARD_SELECTOR = [
     "ytd-rich-item-renderer",
     "ytd-video-renderer",
@@ -27,6 +37,8 @@
   const scoring = window.PersonaLabsChillScoring;
   let currentMode = DEFAULT_MODE;
   let developerMode = false;
+  let adaptiveGuidance = false;
+  let userGoal = DEFAULT_USER_GOAL;
   let scanQueued = false;
 
   init();
@@ -46,11 +58,15 @@
     chrome.storage.local.get(
       {
         [STORAGE_KEY]: DEFAULT_MODE,
-        [DEVELOPER_MODE_STORAGE_KEY]: false
+        [DEVELOPER_MODE_STORAGE_KEY]: false,
+        [ADAPTIVE_GUIDANCE_STORAGE_KEY]: false,
+        [USER_GOAL_STORAGE_KEY]: DEFAULT_USER_GOAL
       },
       (items) => {
         setMode(items[STORAGE_KEY]);
         setDeveloperMode(items[DEVELOPER_MODE_STORAGE_KEY]);
+        setAdaptiveGuidance(items[ADAPTIVE_GUIDANCE_STORAGE_KEY]);
+        setUserGoal(items[USER_GOAL_STORAGE_KEY]);
       }
     );
   }
@@ -68,6 +84,14 @@
       if (changes[DEVELOPER_MODE_STORAGE_KEY]) {
         setDeveloperMode(changes[DEVELOPER_MODE_STORAGE_KEY].newValue);
       }
+
+      if (changes[ADAPTIVE_GUIDANCE_STORAGE_KEY]) {
+        setAdaptiveGuidance(changes[ADAPTIVE_GUIDANCE_STORAGE_KEY].newValue);
+      }
+
+      if (changes[USER_GOAL_STORAGE_KEY]) {
+        setUserGoal(changes[USER_GOAL_STORAGE_KEY].newValue);
+      }
     });
   }
 
@@ -83,6 +107,16 @@
   function setDeveloperMode(enabled) {
     developerMode = Boolean(enabled);
     document.documentElement.classList.toggle("personalabs-developer-mode", developerMode);
+    queueScan();
+  }
+
+  function setAdaptiveGuidance(enabled) {
+    adaptiveGuidance = Boolean(enabled);
+    queueScan();
+  }
+
+  function setUserGoal(goal) {
+    userGoal = USER_GOAL_LABELS[goal] ? goal : DEFAULT_USER_GOAL;
     queueScan();
   }
 
@@ -173,8 +207,10 @@
     const tooltip = tooltipTextFor(classification);
     const renderKey = JSON.stringify({
       tooltip,
+      adaptiveGuidance,
       developerMode,
       status: classification.status,
+      userGoal,
       labelBand: presentation.labelBand,
       rawExtractedTitle: developerMode ? classification.internalSignals.rawExtractedTitle : ""
     });
@@ -211,18 +247,34 @@
     const tooltip = document.createElement("span");
     const title = document.createElement("span");
     const summary = document.createElement("span");
+    const details = document.createElement("span");
     const whyLabel = document.createElement("span");
     const reasons = document.createElement("span");
     const confidence = document.createElement("span");
+    const currentLabel = currentLabelFor(classification);
 
     tooltip.className = "personalabs-tooltip";
     tooltip.setAttribute("role", "tooltip");
 
     title.className = "personalabs-tooltip-title";
-    title.textContent = classification.presentation.userLabel.toUpperCase();
+    title.textContent = currentLabel.toUpperCase();
 
     summary.className = "personalabs-tooltip-summary";
     summary.textContent = classification.presentation.summary;
+
+    details.className = "personalabs-tooltip-details";
+    [
+      ["Current goal", currentGoalLabel()],
+      ["Adaptive guidance", adaptiveGuidance ? "on" : "off"],
+      ["Matched positive signals", matchedSignalsFor(classification, "positive")],
+      ["Matched negative signals", matchedSignalsFor(classification, "negative")],
+      ["Confidence", classification.presentation.signalConfidence],
+      ["Current label", currentLabel]
+    ].forEach(([label, value]) => {
+      const item = document.createElement("span");
+      item.textContent = `${label}: ${value}`;
+      details.append(item);
+    });
 
     whyLabel.className = "personalabs-tooltip-heading";
     whyLabel.textContent = "Why:";
@@ -237,7 +289,7 @@
     confidence.className = "personalabs-tooltip-confidence";
     confidence.textContent = `Confidence: ${classification.presentation.signalConfidence}`;
 
-    tooltip.append(title, summary, whyLabel, reasons, confidence);
+    tooltip.append(title, summary, details, whyLabel, reasons, confidence);
 
     if (developerMode) {
       tooltip.append(developerPanelFor(classification));
@@ -283,6 +335,7 @@
   }
 
   function tooltipTextFor(classification) {
+    const currentLabel = currentLabelFor(classification);
     const developerDetails = developerMode
       ? [
           `matchedCategory: ${classification.internalSignals.matchedCategory}`,
@@ -294,14 +347,35 @@
         ].join(". ")
       : "";
     const baseTooltip = [
-      classification.presentation.userLabel.toUpperCase(),
+      currentLabel.toUpperCase(),
       classification.presentation.summary,
+      `Current goal: ${currentGoalLabel()}.`,
+      `Adaptive guidance: ${adaptiveGuidance ? "on" : "off"}.`,
+      `Matched positive signals: ${matchedSignalsFor(classification, "positive")}.`,
+      `Matched negative signals: ${matchedSignalsFor(classification, "negative")}.`,
+      `Confidence: ${classification.presentation.signalConfidence}.`,
+      `Current label: ${currentLabel}.`,
       "Why:",
-      classification.presentation.reasons.join("; "),
-      `Confidence: ${classification.presentation.signalConfidence}`
+      classification.presentation.reasons.join("; ")
     ].join(" ");
 
     return developerDetails ? `${baseTooltip} Developer signals: ${developerDetails}` : baseTooltip;
+  }
+
+  function currentGoalLabel() {
+    return USER_GOAL_LABELS[userGoal] || USER_GOAL_LABELS[DEFAULT_USER_GOAL];
+  }
+
+  function currentLabelFor(classification) {
+    return classification.presentation.userLabel;
+  }
+
+  function matchedSignalsFor(classification, direction) {
+    const terms = classification.scoreImpact
+      .filter((impact) => impact.direction === direction)
+      .flatMap((impact) => impact.matchedTerms);
+
+    return scoring.formatTerms(Array.from(new Set(terms)));
   }
 
   function removeOverlay(card) {

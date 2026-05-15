@@ -119,6 +119,7 @@
 }
 
 .personalabs-tooltip-summary,
+.personalabs-tooltip-details,
 .personalabs-tooltip-confidence {
   color: #cbd5e1;
 }
@@ -132,9 +133,17 @@
 }
 
 .personalabs-tooltip-reasons,
+.personalabs-tooltip-details,
 .personalabs-developer-panel {
   display: grid;
   gap: 4px;
+}
+
+.personalabs-tooltip-details {
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 10px;
+  padding: 7px;
 }
 
 .personalabs-tooltip-reasons span {
