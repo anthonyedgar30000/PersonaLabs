@@ -41,6 +41,8 @@
   let adaptiveGuidance = false;
   let userGoal = DEFAULT_USER_GOAL;
   let scanQueued = false;
+  let selectedAnchor = null;
+  let discoveryPanel = null;
 
   init();
 
@@ -51,6 +53,8 @@
 
     loadSettings();
     watchStorage();
+    createDiscoveryPanel();
+    bindCardSelection();
     startObserver();
     queueScan();
   }
@@ -159,6 +163,10 @@
       }
 
       renderOverlay(card, scoring.classifyTitle(title));
+      card.classList.toggle(
+        "personalabs-selected-anchor",
+        Boolean(selectedAnchor && selectedAnchor.card === card)
+      );
     });
   }
 
@@ -252,7 +260,6 @@
     const whyLabel = document.createElement("span");
     const reasons = document.createElement("span");
     const confidence = document.createElement("span");
-    const guidedDiscovery = guidedDiscoveryElementFor(classification);
     const currentLabel = currentLabelFor(classification);
 
     tooltip.className = "personalabs-tooltip";
@@ -292,7 +299,7 @@
     confidence.className = "personalabs-tooltip-confidence";
     confidence.textContent = `Confidence: ${classification.presentation.signalConfidence}`;
 
-    tooltip.append(title, summary, details, whyLabel, reasons, confidence, guidedDiscovery);
+    tooltip.append(title, summary, details, whyLabel, reasons, confidence);
 
     if (developerMode) {
       tooltip.append(developerPanelFor(classification));
@@ -360,11 +367,7 @@
       `Confidence: ${classification.presentation.signalConfidence}.`,
       `Current label: ${currentLabel}.`,
       "Why:",
-      classification.presentation.reasons.join("; "),
-      "Explore This Topic Differently:",
-      guidedDiscoveryPresets().map((preset) => preset.label).join("; "),
-      "PersonaLabs is helping you explore this topic differently based on your browsing intent.",
-      guidedDiscoveryTextFor(classification)
+      classification.presentation.reasons.join("; ")
     ].join(" ");
 
     return developerDetails ? `${baseTooltip} Developer signals: ${developerDetails}` : baseTooltip;
@@ -394,74 +397,151 @@
     return queryRewriting.PRESET_ORDER.map((presetId) => queryRewriting.PRESETS[presetId]);
   }
 
-  function guidedDiscoveryElementFor(classification) {
-    const container = document.createElement("span");
-    const heading = document.createElement("span");
-    const explanation = document.createElement("span");
-    const buttons = document.createElement("span");
-    const debug = document.createElement("span");
-    const debugHeading = document.createElement("span");
-    const rewrites = guidedDiscoveryPresets().map((preset) => {
-      return queryRewriting.searchUrlFor(classification.internalSignals.rawExtractedTitle, preset.id);
-    });
+  function openGuidedDiscovery(rewrite) {
+    window.open(rewrite.url, "_blank", "noopener,noreferrer");
+  }
 
-    container.className = "personalabs-guided-discovery";
-    heading.className = "personalabs-discovery-heading";
-    heading.textContent = "Explore This Topic Differently";
-    explanation.className = "personalabs-discovery-copy";
-    explanation.textContent =
-      "PersonaLabs is helping you explore this topic differently based on your browsing intent.";
-    buttons.className = "personalabs-guided-discovery-actions";
-    debug.className = "personalabs-guided-discovery-debug";
-    debugHeading.className = "personalabs-guided-discovery-debug-heading";
-    debugHeading.textContent = "Transformation transparency";
+  function createDiscoveryPanel() {
+    discoveryPanel = document.createElement("aside");
+    discoveryPanel.className = "personalabs-discovery-panel";
+    discoveryPanel.setAttribute("aria-label", "PersonaLabs guided discovery panel");
+    const host = document.body || document.documentElement;
+    host.append(discoveryPanel);
+    renderDiscoveryPanel();
+  }
 
-    rewrites.forEach((rewrite) => {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.textContent = rewrite.presetLabel;
-      button.addEventListener("click", (event) => {
+  function bindCardSelection() {
+    document.addEventListener(
+      "click",
+      (event) => {
+        if (discoveryPanel && discoveryPanel.contains(event.target)) {
+          return;
+        }
+
+        const card = closestCardFor(event.target);
+        if (!card) {
+          return;
+        }
+
+        const title = readTitle(card);
+        if (!title) {
+          return;
+        }
+
         event.preventDefault();
         event.stopPropagation();
+        selectAnchor(card, title);
+      },
+      true
+    );
+  }
+
+  function closestCardFor(target) {
+    if (!target || typeof target.closest !== "function") {
+      return null;
+    }
+
+    return target.closest(CARD_SELECTOR);
+  }
+
+  function selectAnchor(card, title) {
+    if (selectedAnchor && selectedAnchor.card && selectedAnchor.card !== card) {
+      selectedAnchor.card.classList.remove("personalabs-selected-anchor");
+    }
+
+    const classification = scoring.classifyTitle(title);
+    selectedAnchor = {
+      card,
+      title,
+      classification,
+      rewrite: null
+    };
+    card.classList.add("personalabs-selected-anchor");
+    renderDiscoveryPanel();
+  }
+
+  function renderDiscoveryPanel() {
+    if (!discoveryPanel) {
+      return;
+    }
+
+    const title = document.createElement("h2");
+    const subtitle = document.createElement("p");
+
+    title.textContent = "PersonaLabs Discovery";
+    subtitle.className = "personalabs-discovery-panel-subtitle";
+    subtitle.textContent = "Observe the media environment, select an anchor, redirect exploration.";
+
+    if (!selectedAnchor) {
+      const empty = document.createElement("p");
+      empty.className = "personalabs-discovery-empty";
+      empty.textContent = "Click a video to use it as your discovery anchor.";
+      discoveryPanel.replaceChildren(title, subtitle, empty);
+      return;
+    }
+
+    const classification = selectedAnchor.classification;
+    const details = document.createElement("div");
+    const actions = document.createElement("div");
+    const transparency = document.createElement("div");
+
+    details.className = "personalabs-discovery-panel-details";
+    actions.className = "personalabs-discovery-panel-actions";
+    transparency.className = "personalabs-discovery-panel-transparency";
+
+    details.append(
+      panelRowFor("Selected video", selectedAnchor.title),
+      panelRowFor("Current classification", currentLabelFor(classification)),
+      panelRowFor("Detected signals", panelSignalSummaryFor(classification)),
+      panelRowFor("Original title/query", selectedAnchor.title)
+    );
+
+    guidedDiscoveryPresets().forEach((preset) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = preset.label;
+      button.addEventListener("click", () => {
+        const rewrite = queryRewriting.searchUrlFor(selectedAnchor.title, preset.id);
+        selectedAnchor.rewrite = rewrite;
+        renderDiscoveryPanel();
         openGuidedDiscovery(rewrite);
       });
-      buttons.append(button);
+      actions.append(button);
     });
 
-    debug.append(debugHeading, debugRowFor("Original title", rewrites[0].originalTitle || "untitled"));
-    rewrites.forEach((rewrite) => {
-      const mode = document.createElement("span");
-      const rewritten = document.createElement("span");
-      mode.textContent = `Mode selected: ${rewrite.presetLabel}`;
-      rewritten.textContent = `Rewritten query: ${rewrite.transformedQuery}`;
-      debug.append(mode, rewritten);
-    });
+    transparency.append(
+      panelRowFor("Original title", selectedAnchor.title),
+      panelRowFor(
+        "Rewritten query",
+        selectedAnchor.rewrite ? selectedAnchor.rewrite.transformedQuery : "Choose a direction above."
+      ),
+      panelRowFor("Mode selected", selectedAnchor.rewrite ? selectedAnchor.rewrite.presetLabel : "none yet")
+    );
 
-    container.append(heading, explanation, buttons, debug);
-    return container;
+    discoveryPanel.replaceChildren(title, subtitle, details, panelActionsLabel(), actions, transparency);
   }
 
-  function guidedDiscoveryTextFor(classification) {
-    const rewrites = guidedDiscoveryPresets().map((preset) => {
-      return queryRewriting.rewriteTitle(classification.internalSignals.rawExtractedTitle, preset.id);
-    });
-
-    return [
-      `Original title: ${rewrites[0].originalTitle || "untitled"}.`,
-      ...rewrites.map((rewrite) => {
-        return `Mode selected: ${rewrite.presetLabel}; rewritten query: ${rewrite.transformedQuery}.`;
-      })
-    ].join(" ");
-  }
-
-  function debugRowFor(label, value) {
-    const row = document.createElement("span");
-    row.textContent = `${label}: ${value}`;
+  function panelRowFor(label, value) {
+    const row = document.createElement("div");
+    const labelElement = document.createElement("span");
+    const valueElement = document.createElement("strong");
+    labelElement.textContent = label;
+    valueElement.textContent = value;
+    row.append(labelElement, valueElement);
     return row;
   }
 
-  function openGuidedDiscovery(rewrite) {
-    window.open(rewrite.url, "_blank", "noopener,noreferrer");
+  function panelActionsLabel() {
+    const label = document.createElement("p");
+    label.className = "personalabs-discovery-panel-action-label";
+    label.textContent = "Like this, but...";
+    return label;
+  }
+
+  function panelSignalSummaryFor(classification) {
+    const positive = matchedSignalsFor(classification, "positive");
+    const negative = matchedSignalsFor(classification, "negative");
+    return `positive: ${positive}; negative: ${negative}; confidence: ${classification.presentation.signalConfidence}`;
   }
 
   function removeOverlay(card) {
