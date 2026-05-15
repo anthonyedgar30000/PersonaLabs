@@ -2,11 +2,17 @@
   "use strict";
 
   const semantic = window.PersonaLabsSemantic;
+  const retrieval = window.PersonaLabsRetrieval;
   const LOG_PREFIX = "[PersonaLabs rendering]";
   const DEBUG_RENDERING = true;
 
   if (!semantic) {
     console.warn(LOG_PREFIX, "content.js executed, but semantic core is unavailable");
+    return;
+  }
+
+  if (!retrieval) {
+    console.warn(LOG_PREFIX, "content.js executed, but retrieval pipeline is unavailable");
     return;
   }
 
@@ -72,6 +78,9 @@
     activePathId: null,
     suggestions: [],
     scoredResultCount: 0,
+    retrievalPipeline: null,
+    lastRetrievalSource: "",
+    lastPipelineStages: [],
     lastUrl: location.href,
     panel: null,
     observer: null,
@@ -151,7 +160,7 @@
     }
 
     state.anchor = payload.anchor;
-    state.paths = Array.isArray(payload.paths) ? payload.paths : semantic.buildExplorationPaths(payload.anchor);
+    state.paths = semantic.buildExplorationPaths(payload.anchor);
     state.activePathId = payload.activePathId || (state.paths[0] && state.paths[0].id);
   }
 
@@ -330,6 +339,43 @@
     };
   }
 
+  function getVisibleResultMetadata() {
+    return getCandidateCards()
+      .map(extractCandidateFromCard)
+      .filter(Boolean)
+      .filter((candidate) => candidate.url || location.pathname === "/results")
+      .map((candidate) => ({
+        title: candidate.title,
+        channel: candidate.channel,
+        duration: candidate.duration,
+        url: candidate.url,
+        source: "visible-page-structured-metadata"
+      }));
+  }
+
+  function getRetrievalPipeline() {
+    if (state.retrievalPipeline) {
+      return state.retrievalPipeline;
+    }
+
+    state.retrievalPipeline = retrieval.createExplorationPipeline({
+      semantic,
+      retrievalProvider: retrieval.createVisiblePageRetrievalProvider({
+        getVisibleMetadata: getVisibleResultMetadata,
+        logger: debugLog
+      }),
+      logger: debugLog,
+      limit: 5
+    });
+
+    debugLog("structured retrieval pipeline initialized", {
+      stages: retrieval.PIPELINE_STAGES,
+      retrievalSource: state.retrievalPipeline.layers.retrieval.source
+    });
+
+    return state.retrievalPipeline;
+  }
+
   function setAnchor(video, source) {
     if (!video || !video.title) {
       warnLog("anchor assignment skipped; missing video title", { source, video });
@@ -403,7 +449,7 @@
     window.location.assign(path.url);
   }
 
-  function scanVisibleResults() {
+  async function scanVisibleResults() {
     if (!state.anchor) {
       return;
     }
@@ -411,28 +457,50 @@
     annotateVisibleCards("scan visible results");
 
     const path = activePath();
-    const cards = getCandidateCards();
-    const candidates = cards
-      .map(extractCandidateFromCard)
-      .filter(Boolean)
-      .filter((candidate) => candidate.url || location.pathname === "/results");
+    const pipeline = getRetrievalPipeline();
+    let explorationSet;
 
-    debugLog("scan visible results: extracted candidates", {
-      cardCount: cards.length,
-      candidateCount: candidates.length,
-      activeLens: path && (path.lensLabel || path.label),
-      location: location.href
-    });
-
-    if (candidates.length === 0) {
+    try {
+      explorationSet = await pipeline.run({
+        anchor: state.anchor,
+        lensId: path && path.id,
+        limit: 5
+      });
+    } catch (error) {
+      warnLog("structured retrieval pipeline failed", {
+        message: error && error.message,
+        stack: error && error.stack
+      });
       state.suggestions = [];
       state.scoredResultCount = 0;
-      warnLog("scan visible results found no candidates", { path: location.pathname });
       scheduleRender();
       return;
     }
 
-    const explorationSet = semantic.buildIntentionalExplorationSet(candidates, state.anchor, path, 5);
+    state.lastRetrievalSource = explorationSet.retrieval.source;
+    state.lastPipelineStages = explorationSet.pipeline;
+
+    debugLog("structured retrieval pipeline result", {
+      source: explorationSet.retrieval.source,
+      mode: explorationSet.retrieval.mode,
+      query: explorationSet.transformedQuery.query,
+      retrieved: explorationSet.retrieval.items.length,
+      activeLens: explorationSet.lens && (explorationSet.lens.lensLabel || explorationSet.lens.label),
+      location: location.href
+    });
+
+    if (explorationSet.retrieval.items.length === 0) {
+      state.suggestions = [];
+      state.scoredResultCount = 0;
+      warnLog("retrieval pipeline found no structured metadata candidates", {
+        source: explorationSet.retrieval.source,
+        mode: explorationSet.retrieval.mode,
+        path: location.pathname
+      });
+      scheduleRender();
+      return;
+    }
+
     state.suggestions = explorationSet.suggestions;
     state.scoredResultCount = explorationSet.scored.length;
     debugLog("score-first/filter-second pipeline completed", {
@@ -631,7 +699,7 @@
       "<p class='personalabs-eyebrow'>PersonaLabs</p>",
       "<h2>Observability-driven semantic navigation</h2>",
       "</div>",
-      "<p class='personalabs-muted'>Score first. Filter second. Topic, event, and entities stay anchored.</p>"
+      "<p class='personalabs-muted'>Structured retrieval. Deterministic scoring. Lens-aware navigation.</p>"
     ].join("");
     return header;
   }
@@ -739,7 +807,7 @@
     if (!state.suggestions.length) {
       const empty = document.createElement("p");
       empty.className = "personalabs-muted";
-      empty.textContent = "Open a transformed search to scan visible YouTube results, score every result first, then apply the selected exploration lens filter.";
+      empty.textContent = "Open a transformed search to retrieve structured metadata, score every result first, then apply the selected exploration lens filter.";
       section.appendChild(empty);
       return section;
     }
@@ -833,10 +901,10 @@
     }
 
     if (!state.scoredResultCount) {
-      return `Lens: ${path.lensLabel || path.label}. Score first, then filter visible results.`;
+      return `Lens: ${path.lensLabel || path.label}. Retrieve structured metadata, score first, then filter.`;
     }
 
-    return `Lens: ${path.lensLabel || path.label}. Scored ${state.scoredResultCount} visible results; showing ${state.suggestions.length} allowed by ${describeFilterPolicy(path.filterPolicy)}.`;
+    return `Lens: ${path.lensLabel || path.label}. ${state.lastRetrievalSource || "retrieval"} scored ${state.scoredResultCount} results; showing ${state.suggestions.length} allowed by ${describeFilterPolicy(path.filterPolicy)}.`;
   }
 
   function escapeHtml(value) {

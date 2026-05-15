@@ -80,19 +80,26 @@ preserving event continuity:
 - beginner friendly
 - longer-form
 
-## Exploration Result Filtering
+## Structured Retrieval and Result Filtering
 
-After a transformed search is opened, PersonaLabs scans visible YouTube results and
-scores the returned videos/channels with deterministic logic. The selected
-exploration lens controls filtering/routing behavior.
+After a transformed search is opened, PersonaLabs runs a retrieval pipeline that
+returns structured video metadata, scores the returned videos/channels with
+deterministic logic, and applies the selected exploration lens.
+
+The current browser extension still includes a temporary visible-page metadata
+provider so the UI works before a YouTube Data API key/configuration exists. The
+ranking architecture no longer depends on content-script scoring of scraped DOM
+nodes; the DOM adapter is isolated behind the Retrieval Layer and can be replaced
+by YouTube Data API retrieval.
 
 Pipeline:
 
-1. Generate transformed search
-2. Scan visible results
-3. Score results
-4. Apply exploration lens filtering
-5. Display the intentional exploration set
+1. Contextual anchor
+2. Transformation query generation
+3. Structured metadata retrieval
+4. Deterministic observability scoring
+5. Lens-aware reranking/filtering
+6. Intentional exploration presentation
 
 It prioritizes:
 
@@ -148,17 +155,33 @@ and how strongly a result fits the active contextual anchor.
 ```text
 manifest.json
 src/
-  semantic-core.js   Deterministic extraction, transformation, and scoring
-  content.js         YouTube anchor capture, side panel, result scanning
-  content.css        Panel and badge styling
+  semantic-core.js        Anchor extraction, observability signals, deterministic scoring
+  retrieval-pipeline.js  Retrieval/query/scoring/ranking interfaces
+  content.js             YouTube anchor selector and presentation layer
+  content.css            Panel, badge, and overlay styling
 test/
   semantic-core.test.js
+  retrieval-pipeline.test.js
 ```
 
-The semantic core is dependency-free and can run in both the browser content
-script and Node tests. It does not use cloud APIs, LLM calls, embeddings, vector
-databases, autonomous AI ranking systems, opaque recommendation systems, or
-network calls.
+Layer boundaries:
+
+- Retrieval Layer: structured metadata retrieval via mock providers, temporary
+  visible-page metadata provider, and a YouTube Data API provider interface.
+- Observability Layer: deterministic scoring, emotional compression/framing
+  analysis, escalation/clickbait detection, educational density, calmness, and
+  long-form signals.
+- Transformation Layer: subject-preserving "this but calmer/educational/deeper"
+  query generation.
+- Ranking Layer: GREEN/YELLOW/RED reranking and lens-aware filtering.
+- Presentation Layer: browser extension control panel, contextual anchor
+  selection, and visible classification UI.
+
+The semantic and retrieval modules are dependency-free and can run in both the
+browser content script and Node tests. They do not use cloud APIs by default, LLM
+calls, embeddings, vector databases, autonomous AI ranking systems, opaque
+recommendation systems, or network calls. YouTube Data API support is represented
+as a clean provider interface and remains optional future configuration.
 
 ## Development
 
