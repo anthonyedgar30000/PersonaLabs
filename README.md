@@ -28,51 +28,69 @@ The system helps users notice when digital media consumption patterns drift away
 - Explainable scoring summaries
 - Adaptive schedule renegotiation prompts
 
-## Lens-Aware Deterministic Tone Labeling
+## Source-Inspired Heuristic Engine
 
 PersonaLabs includes a dependency-free JavaScript classifier for explainable
-GREEN/YELLOW/RED labeling. It evaluates how content is framed, not only which
-keywords appear:
+GREEN/YELLOW/RED labeling. It stays deterministic-first: no embeddings, vector
+databases, LLM APIs, or opaque sentiment models.
 
 ```js
 import { labelContent } from "personalabs";
 
 const result = labelContent({
-  title: "Funny Rabbit Compilation",
-  channel: "Cozy Bunny Shorts",
+  title: "Public Radio Political Interview with Policy Context",
+  channel: "NPR Politics",
   lens: "calmer",
 });
 
-// result.label === "GREEN"
-// result.domain === "ANIMAL_PET_NATURE"
-// result.tone.calmToneScore, escalationToneScore, harmlessEnergyScore
-// result.reasons explains the domain, baseline, tone, heuristics, and decision.
+// result.finalColor === "GREEN"
+// result.detectedDomain.domain === "POLITICS_NEWS"
+// result.toneSignals, sourceFormatSignals, escalationSignals, and reasons
+// explain how the deterministic decision was made.
 ```
 
-The deterministic tone layer combines:
+The engine evaluates how content is framed, not just which isolated words appear:
 
-- domain baseline weighting, such as strongly GREEN for animal/pet/nature and
-  nature ambience, moderately GREEN for educational long-form, neutral for
-  politics/news, and elevated scrutiny for outrage/drama
-- calm tone signals, including `relaxing`, `peaceful`, `soothing`, `cozy`,
-  `gentle`, `quiet`, `nature sounds`, `bonding`, `routine`, `study`,
-  `explained`, and `walkthrough`
-- escalation tone signals, including `you won't believe`, `insane`,
-  `shocking`, `exposed`, `meltdown`, `disaster`, `panic`, `outrage`,
-  `terrifying`, `urgent`, `massive problem`, and `emergency`
-- harmless high-energy signals, including `funny`, `zoomies`, `playful`,
-  `chaotic`, `silly`, `compilation`, `memes`, `excited`, `goofy`,
-  `energetic`, and `hyper`
-- transparent punctuation and pacing heuristics for all caps, exclamation
-  count, punctuation density, urgency phrase density, title pacing, and
-  repetition patterns
+1. **Domain detection first**
+   - animal/pet/nature
+   - educational/tutorial
+   - politics/news
+   - drama/reaction
+   - entertainment
+   - music/ambient
 
-For the CALMER/lower-friction lens, animal, pet, and nature content keeps a
-strong GREEN baseline unless explicit distress, danger, or escalation framing is
-present. Harmless high-energy animal content can become YELLOW for pacing, not
-because generic engagement is suppressed. RED remains reserved for explicit
-distress/danger framing such as `attack`, `injured`, `death`, `abuse`,
-`terrifying`, `emergency`, or `rescue crisis`.
+2. **VADER-style tone heuristics**
+   - ALL CAPS intensity
+   - exclamation density
+   - urgency phrases
+   - intensifiers
+   - emotionally loaded words
+   - calm/regulating words
+
+3. **Emotion categories**
+   - calm/regulation
+   - anger/outrage
+   - fear/panic
+   - joy/playfulness
+   - trust/informational
+   - disgust/shock
+   - sadness/distress
+
+4. **Source/format heuristics**
+   - Lower-friction formats: public radio, PBS/NPR-style, university, lecture,
+     documentary, interview, long-form discussion, tutorial
+   - Higher-friction formats: reaction clips, rant, exposed, meltdown, breaking
+     outrage, debate fight, drama compilation
+
+5. **Lens-aware rules**
+   - CALMER keeps animal/pet/nature content GREEN unless explicit distress or
+     emergency terms are present.
+   - EDUCATIONAL preserves the subject anchor and prefers explained, analysis,
+     context, lecture, documentary, interview, and tutorial formats. Intense but
+     explanatory content can remain strong YELLOW instead of being suppressed.
+
+Every classification includes the detected domain, tone signals,
+source/format signals, escalation signals, final color, and reason.
 
 ## Example Prompt
 
