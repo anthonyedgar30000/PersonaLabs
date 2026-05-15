@@ -240,7 +240,11 @@ test("classifies calm animal and relaxing content as GREEN", () => {
     "Cozy Cat Videos",
     "Calm Aquarium Ambient Video",
     "Peaceful Forest Animal Sounds",
-    "Cute Puppy Sleep Compilation"
+    "Cute Puppy Sleep Compilation",
+    "Pet Videos",
+    "Dog Videos",
+    "Cat Videos",
+    "Pet Compilation"
   ];
 
   cases.forEach((title) => {
@@ -259,7 +263,7 @@ test("classifies calm animal and relaxing content as GREEN", () => {
     assert.equal(score.classification.color, "GREEN", title);
     assert(score.reasons.includes("calm/relaxing positive signals"));
     assert(score.reasons.includes("calm animal/nature signals"));
-    assert(score.debug.calm_animal_score >= 2);
+    assert(score.debug.calm_animal_score >= 1);
     assert.equal(score.debug.escalation_score, 0);
     assert.match(score.debug.final_classification_reason, /calm|relaxing|animal/i);
   });

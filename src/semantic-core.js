@@ -853,7 +853,7 @@
     const strongExplanatory = metrics.educationalFraming >= 8;
     const hasFormatTrust = metrics.informationalTone >= 6 || metrics.sourceFormat >= 5;
     const strongCalmPositive = metrics.calmPositive >= 2;
-    const strongCalmAnimal = metrics.calmAnimalScore >= 2;
+    const clearCalmAnimalSubject = metrics.calmAnimalScore >= 1;
     const noEscalation = metrics.escalationScore === 0;
     const harmlessEnergyWithoutCompression = metrics.harmlessEnergy >= 2 && noEscalation;
     const lowFriction =
@@ -870,21 +870,21 @@
       };
     }
 
-    if (strongCalmAnimal && noEscalation) {
-      return {
-        color: "GREEN",
-        label: "safe candidate",
-        meaning: "Calm animal, pet, nature, or ambient relaxation presentation.",
-        reason: "calm nature/animal override: high calm_animal_score with no escalation"
-      };
-    }
-
     if (harmlessEnergyWithoutCompression) {
       return {
         color: "YELLOW",
         label: "mixed but useful",
         meaning: "Energetic or meme-paced content without true escalation.",
         reason: "harmless energetic pacing without escalation"
+      };
+    }
+
+    if (clearCalmAnimalSubject && noEscalation) {
+      return {
+        color: "GREEN",
+        label: "safe candidate",
+        meaning: "Calm animal, pet, nature, or ambient relaxation presentation.",
+        reason: "calm nature/animal override: animal/pet/nature subject with no escalation"
       };
     }
 
