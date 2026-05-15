@@ -316,7 +316,7 @@ export function analyzeTone(content = {}, detectedDomain = detectDomain(content)
 
   return {
     calmToneScore: scoreSignalMatches(calmMatches),
-    escalationToneScore: scoreSignalMatches(escalationMatches, { phraseBonus: 1 }),
+    escalationToneScore: scoreSignalMatches(escalationMatches, { phraseBonus: 2 }),
     harmlessEnergyScore: scoreSignalMatches(harmlessEnergyMatches),
     baselineWeighting: DOMAIN_BASELINE_WEIGHTINGS[detectedDomain],
     matchedSignals: {
