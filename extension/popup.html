@@ -28,6 +28,34 @@
         </button>
       </section>
 
+      <section class="settings-panel" aria-label="Intentional browsing settings">
+        <h2>Intentional browsing</h2>
+
+        <label class="setting-toggle">
+          <input id="adaptive-guidance" type="checkbox">
+          <span>
+            <strong>Adaptive Guidance</strong>
+            <small>
+              <span id="adaptive-guidance-status">Off</span> - optional local guidance setting.
+            </small>
+          </span>
+        </label>
+
+        <label class="goal-selector" for="user-goal">
+          <span>
+            <strong>User goal</strong>
+            <small>Choose the lightweight goal this browsing session should support.</small>
+          </span>
+          <select id="user-goal">
+            <option value="relaxDecompress">Relax / Decompress</option>
+            <option value="reduceDoomscrolling">Reduce Doomscrolling</option>
+            <option value="focusLearn">Focus / Learn</option>
+            <option value="lowerScreenTime">Lower Screen Time</option>
+            <option value="curiosityGuidedLearning">Curiosity-Guided Learning</option>
+          </select>
+        </label>
+      </section>
+
       <section class="legend" aria-label="Overlay legend">
         <h2>Friendly labels</h2>
         <p><span class="dot strong-green"></span>ultra chill / vibes immaculate</p>
