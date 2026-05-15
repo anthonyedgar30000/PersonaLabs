@@ -1,45 +1,59 @@
 # PersonaLabs
 
-PersonaLabs is currently a simple Chill Mode Chrome extension MVP for YouTube.
+PersonaLabs is a deterministic-first, human-centered media observability browser
+extension.
 
-The extension adds lightweight overlays to YouTube cards and classifies each
-card from its visible title only. The goal is reliable local feedback without
-multi-mode scoring, transcript assumptions, telemetry, or AI calls.
+The v0.1 MVP helps users browse more intentionally by adding explainable,
+local-first overlays to YouTube video cards. It classifies visible video titles
+with deterministic lexical scoring, shows calm/non-judgmental alignment labels,
+and keeps user-facing controls simple.
+
+PersonaLabs is not a truth engine, not a diagnosis tool, and not censorship. It
+does not decide whether content is true, healthy, allowed, or forbidden. It
+shows locally computed signals so users can make their own choices.
 
 ## Current MVP
 
-- Chrome extension shell
-- YouTube card detection
-- Weighted title-based Chill Mode classification
-- Color-coded overlays
-- Hover tooltips explaining matched categories, terms, score impact, and confidence
-- Bare Metal toggle to hide all overlays
-- Optional Developer Mode for raw title/debug signals
+- Manifest V3 Chrome extension for YouTube.
+- Visible-title-only card detection and classification.
+- Explainable lexical scoring using deterministic local dictionaries.
+- Color-coded overlay labels and hover tooltips.
+- Local popup settings for:
+  - Adaptive Guidance on/off.
+  - Lightweight user goal selection.
+  - Developer Mode debug details.
+- Tooltip explanations showing:
+  - current goal
+  - Adaptive Guidance state
+  - matched positive signals
+  - matched negative signals
+  - confidence
+  - current label
+- Guided Discovery scaffold with local query rewriting.
+- No cloud AI, backend service, transcript fetching, embeddings, or LLM calls in
+  v0.1.
 
-## Out of scope for this MVP
+## Intentional Browsing
 
-- Study Mode
-- Research Mode
-- evidence scoring
-- exploratory scoring
-- persona weighting
-- transcript analysis
-- backend services
-- telemetry
+PersonaLabs is designed to support intentional browsing rather than maximize
+engagement. The extension surfaces lightweight context about the media in front
+of the user and keeps control in the user's hands.
 
-## User-facing label bands
+The current popup includes a user goal selector:
 
-- **ultra chill** / **vibes immaculate**: strong green calm fit.
-- **good vibes**: green calm fit.
-- **mostly chill**: yellow-green, chill signals with some focus energy.
-- **mixed energy**: yellow, ambiguous or low-confidence title signals.
-- **drama creeping in**: orange, higher friction for Chill Mode.
-- **high friction**: red, strong friction signals.
-- **doomscroll fuel**: dark red, multiple escalation signals.
+- Relax / Decompress
+- Reduce Doomscrolling
+- Focus / Learn
+- Lower Screen Time
+- Curiosity-Guided Learning
 
-## Weighted dictionary categories
+The selected goal is stored locally and displayed in tooltips. It does not yet
+change scoring weights.
 
-The local scoring dictionaries are stored in `extension/dictionaries.js`:
+## Explainable Lexical Scoring
+
+The MVP uses deterministic title matching instead of opaque ranking models.
+Scoring dictionaries live in `extension/dictionaries.js` and include:
 
 - `calm_positive`
 - `educational_low_friction`
@@ -48,27 +62,100 @@ The local scoring dictionaries are stored in `extension/dictionaries.js`:
 - `tribal_domination`
 - `urgency_novelty`
 
-Each category has 75-150 deterministic terms/phrases. Multi-word phrases carry
-higher weight than single words, and strong `violence_disturbing` or
-`tribal_domination` matches prevent green Chill Mode labels.
+Each category has deterministic terms and phrases. The tooltip explains matched
+positive and negative signals, score impact, confidence, and the current label.
+Developer Mode can show raw extracted titles and internal signal terminology for
+debugging.
 
-## Internal technical terminology
+## Local-First Processing
 
-The UI can stay playful while the implementation remains explainable. Developer
-Mode and technical docs preserve professional signal names:
+Core v0.1 behavior runs locally in the browser extension:
 
-- `calmAlignment`
-- `conflictIntensity`
-- `cognitiveFriction`
-- `signalConfidence`
-- `volatilitySignals`
-- `escalationSignals`
-- `metadataConfidence`
+- Title extraction happens on the YouTube page.
+- Lexical scoring happens in the content script.
+- User settings are stored in `chrome.storage.local`.
+- Guided Discovery query rewriting is deterministic and local.
 
-This is a presentation refactor. It preserves deterministic, title-based
-heuristics, local-only processing, explainable overlays, Chill Mode focus, and
-confidence display. It does not add AI APIs, transcripts, backend services,
-embeddings, or LLMs.
+PersonaLabs v0.1 does not send browsing content to cloud AI services.
+
+## Adaptive Guidance Toggle
+
+Adaptive Guidance is currently an optional local setting. The toggle is stored
+locally and shown in overlay tooltips as `on` or `off`.
+
+In v0.1, Adaptive Guidance is a scaffold for user-controlled guidance. It does
+not override choices, change scoring weights, call AI, or create new browsing
+modes.
+
+## Guided Discovery Scaffold
+
+Guided Discovery is a local scaffold for curiosity expansion. Each tooltip can
+offer:
+
+- Calmer
+- More educational
+- Less sensational
+- More beginner-friendly
+
+Clicking a Guided Discovery option creates a YouTube search URL from the current
+video title using deterministic query rewriting. High-friction terms are mapped
+to lower-friction alternatives, for example:
+
+- `exposed` -> `analysis`
+- `destroyed` -> `discussion`
+- `panic` -> `overview`
+- `shocking` -> `explained`
+- `meltdown` -> `analysis`
+- `humiliation` -> `interview`
+- `breaking` -> `update`
+- `disaster` -> `context`
+
+The tooltip debug output shows the original title, transformed query, and
+transformation preset used. Guided Discovery does not call AI or external APIs.
+
+## Boundaries for v0.1
+
+PersonaLabs v0.1 intentionally avoids:
+
+- truth scoring
+- factuality ranking
+- diagnosis or mental health assessment
+- censorship framing
+- automatic blocking
+- transcript analysis
+- telemetry collection
+- backend services
+- cloud AI calls
+- embeddings or LLM-based personalization
+
+The extension flags and explains local lexical signals; it does not judge,
+diagnose, censor, or enforce.
+
+## Bounded AI Future Roadmap
+
+AI may become an optional future enrichment layer, but it is not part of the
+v0.1 core. Future AI-assisted features, if added, should remain bounded,
+inspectable, opt-in, and secondary to deterministic local scoring.
+
+Potential future areas include:
+
+- clearer explanation phrasing
+- goal refinement assistance
+- privacy-preserving sync for user preferences
+- richer Guided Discovery suggestions
+- audit views showing why labels and suggestions appeared
+
+The roadmap keeps user control, local-first processing, and explainability as
+core constraints.
+
+## Local Validation
+
+Run:
+
+```sh
+node extension/scoring-validation.js
+node extension/query-rewriting-validation.js
+```
 
 See [`extension/README.md`](extension/README.md) for local installation and
-popup controls.
+extension-specific controls.
