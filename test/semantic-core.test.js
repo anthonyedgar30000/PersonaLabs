@@ -132,7 +132,99 @@ test("does not require cloud, embeddings, or opaque recommendation inputs", () =
     "calmLanguage",
     "continuity",
     "format",
+    "informationalTone",
+    "sourceFormat",
     "penalty"
   ]);
   assert.equal(score.classification.color, "GREEN");
+});
+
+test("treats interview and public radio format as lower-friction despite controversial topic terms", () => {
+  const anchor = semantic.analyzeAnchor("Thomas Massie Trump Big Beautiful Bill Epstein Files");
+  const path = semantic.buildExplorationPaths(anchor).find((item) => item.id === "calmer");
+  const score = semantic.scoreCandidate(
+    {
+      title: "Rep. Thomas Massie on Trump, the Big Beautiful Bill, and the Epstein Files",
+      channel: "Cincinnati Public Radio",
+      duration: "32:10"
+    },
+    anchor,
+    path
+  );
+
+  assert.notEqual(score.classification.color, "RED");
+  assert(["GREEN", "YELLOW"].includes(score.classification.color));
+  assert(score.reasons.includes("lower-friction source format"));
+});
+
+test("does not treat neutral claim-response verbs as high-friction by default", () => {
+  const anchor = semantic.analyzeAnchor("Thomas Massie hush money allegations");
+  const path = semantic.buildExplorationPaths(anchor).find((item) => item.id === "educational");
+  const score = semantic.scoreCandidate(
+    {
+      title: "Thomas Massie denies allegations he offered hush money",
+      channel: "Local News",
+      duration: "6:30"
+    },
+    anchor,
+    path
+  );
+
+  assert.notEqual(score.classification.color, "RED");
+  assert(score.reasons.includes("neutral reporting language"));
+});
+
+test("boosts discussion of sensitive topics on lower-friction source formats", () => {
+  const anchor = semantic.analyzeAnchor("Thomas Massie Iran vote");
+  const path = semantic.buildExplorationPaths(anchor).find((item) => item.id === "educational");
+  const score = semantic.scoreCandidate(
+    {
+      title: "Thomas Massie discusses Iran vote on public radio",
+      channel: "Public Radio Forum",
+      duration: "24:00"
+    },
+    anchor,
+    path
+  );
+
+  assert.notEqual(score.classification.color, "RED");
+  assert(["GREEN", "YELLOW"].includes(score.classification.color));
+  assert(score.reasons.includes("neutral reporting language"));
+  assert(score.reasons.includes("lower-friction source format"));
+});
+
+test("requires actual escalation framing for RED classifications", () => {
+  const cases = [
+    {
+      anchor: "Thomas Massie Epstein",
+      title: "Thomas Massie EXPOSED in Epstein BOMBSHELL",
+      channel: "Breaking Update"
+    },
+    {
+      anchor: "Trump Admin Iran",
+      title: "Trump Admin HUMILIATED After Iran Backfires BADLY",
+      channel: "Reaction Clips"
+    },
+    {
+      anchor: "Kash Patel reporter behavior",
+      title: "Kash Patel PANICS as Reporter EXPOSES Behavior",
+      channel: "Live Rant"
+    }
+  ];
+
+  cases.forEach((item) => {
+    const anchor = semantic.analyzeAnchor(item.anchor);
+    const path = semantic.buildExplorationPaths(anchor).find((lens) => lens.id === "educational");
+    const score = semantic.scoreCandidate(
+      {
+        title: item.title,
+        channel: item.channel,
+        duration: "8:00"
+      },
+      anchor,
+      path
+    );
+
+    assert.equal(score.classification.color, "RED", item.title);
+  });
 });

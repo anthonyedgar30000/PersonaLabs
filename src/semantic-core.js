@@ -16,6 +16,7 @@
       "alert",
       "crisis",
       "panic",
+      "panics",
       "meltdown",
       "emergency",
       "explosive",
@@ -51,7 +52,13 @@
       "crazy",
       "secret",
       "exposed",
+      "exposes",
       "bombshell",
+      "cover-up",
+      "cover up",
+      "lies",
+      "wild",
+      "badly",
       "truth about",
       "what happens next",
       "this changes everything"
@@ -62,6 +69,9 @@
       "furious",
       "rage",
       "ragebait",
+      "traitor",
+      "terrorist",
+      "shameful",
       "unhinged",
       "loses it",
       "freaks out",
@@ -95,6 +105,22 @@
     "guide"
   ];
 
+  const NEUTRAL_REPORTING_TERMS = [
+    "denies",
+    "says",
+    "responds",
+    "discusses",
+    "explains",
+    "addresses",
+    "comments",
+    "testifies",
+    "asks",
+    "answers",
+    "confirms",
+    "states",
+    "reports"
+  ];
+
   const LONG_FORM_TERMS = [
     "long form",
     "long-form",
@@ -106,6 +132,43 @@
     "seminar",
     "panel",
     "podcast"
+  ];
+
+  const INTERVIEW_DISCUSSION_TERMS = [
+    "interview",
+    "conversation",
+    "public radio",
+    "podcast",
+    "discussion",
+    "forum",
+    "panel",
+    "long-form",
+    "long form",
+    "full interview"
+  ];
+
+  const LOWER_FRICTION_SOURCE_TERMS = [
+    "public radio",
+    "pbs",
+    "npr",
+    "university",
+    "lecture",
+    "institute",
+    "library",
+    "archive",
+    "documentary",
+    "official hearing",
+    "committee hearing"
+  ];
+
+  const MIXED_SOURCE_TERMS = [
+    "new media show",
+    "opinion show",
+    "reaction",
+    "clips",
+    "live rant",
+    "breaking update",
+    "debate show"
   ];
 
   const CALM_LOW_FRICTION_TERMS = [
@@ -411,8 +474,12 @@
   function detectObservabilitySignals(text) {
     return {
       friction: classifyStyleTerms(text),
+      neutralReporting: detectTerms(text, NEUTRAL_REPORTING_TERMS, "neutral-reporting"),
       educational: detectTerms(text, EXPLANATORY_TERMS, "educational"),
       lowFriction: detectTerms(text, CALM_LOW_FRICTION_TERMS, "low-friction"),
+      interviewDiscussion: detectTerms(text, INTERVIEW_DISCUSSION_TERMS, "interview-discussion"),
+      lowerFrictionSource: detectTerms(text, LOWER_FRICTION_SOURCE_TERMS, "lower-friction-source"),
+      mixedSource: detectTerms(text, MIXED_SOURCE_TERMS, "mixed-source"),
       longForm: detectTerms(text, LONG_FORM_TERMS, "long-form"),
       beginner: detectTerms(text, BEGINNER_TERMS, "beginner-friendly")
     };
@@ -718,12 +785,19 @@
   }
 
   function classifyScoredCandidate(metrics) {
-    const severeFriction = metrics.styleTermCount >= 2 || metrics.capitalizationRatio > 0.5 || metrics.penalty >= 16;
+    const severeFriction =
+      metrics.styleTermCount >= 2 ||
+      (metrics.styleTermCount >= 1 && metrics.capitalizationRatio > 0.5) ||
+      (metrics.styleTermCount >= 1 && metrics.penalty >= 16);
     const hasContinuity = metrics.topicRelevance >= 14 || metrics.continuity >= 4;
     const strongExplanatory = metrics.educationalFraming >= 8;
-    const lowFriction = metrics.calmLanguage >= 16 && metrics.styleTermCount === 0 && metrics.capitalizationRatio <= 0.36;
+    const hasFormatTrust = metrics.informationalTone >= 6 || metrics.sourceFormat >= 5;
+    const lowFriction =
+      metrics.calmLanguage >= 16 &&
+      metrics.styleTermCount === 0 &&
+      metrics.capitalizationRatio <= 0.36;
 
-    if (severeFriction || metrics.score < 34 || !hasContinuity) {
+    if (severeFriction || (metrics.styleTermCount >= 1 && metrics.score < 34) || !hasContinuity) {
       return {
         color: "RED",
         label: "high-friction/escalatory",
@@ -731,7 +805,7 @@
       };
     }
 
-    if (metrics.score >= 64 && hasContinuity && lowFriction) {
+    if (metrics.score >= 62 && hasContinuity && lowFriction && (hasFormatTrust || strongExplanatory || metrics.topicRelevance >= 24)) {
       return {
         color: "GREEN",
         label: "safe candidate",
@@ -739,7 +813,7 @@
       };
     }
 
-    if (metrics.score >= 56 && hasContinuity && strongExplanatory && metrics.styleTermCount === 0) {
+    if (metrics.score >= 56 && hasContinuity && (strongExplanatory || hasFormatTrust) && metrics.styleTermCount === 0) {
       return {
         color: "GREEN",
         label: "safe candidate",
@@ -759,15 +833,21 @@
     const title = candidate.title || "";
     const channel = candidate.channel || "";
     const text = normalizeWhitespace(`${title} ${channel}`);
+    const sourceText = normalizeWhitespace(channel);
     const tokens = tokenize(text);
     const titleTokens = tokenize(title);
     const anchorTerms = unique(anchor.keyTerms || tokenize(anchor.subjectAnchor || anchor.originalTitle || ""));
     const namedEntityTokens = tokenize((anchor.namedEntities || []).join(" "));
-    const signals = detectObservabilitySignals(title);
+    const signals = detectObservabilitySignals(text);
+    const sourceSignals = detectObservabilitySignals(sourceText);
     const styleTerms = signals.friction;
     const educationalMatches = countMatches(tokens, EXPLANATORY_TERMS);
     const lowFrictionMatches = countMatches(tokens, CALM_LOW_FRICTION_TERMS);
     const beginnerMatches = countMatches(tokens, BEGINNER_TERMS);
+    const neutralReportingMatches = countMatches(tokens, NEUTRAL_REPORTING_TERMS);
+    const interviewDiscussionMatches = countMatches(tokens, INTERVIEW_DISCUSSION_TERMS);
+    const lowerFrictionSourceMatches = countMatches(tokens, LOWER_FRICTION_SOURCE_TERMS);
+    const mixedSourceMatches = countMatches(tokens, MIXED_SOURCE_TERMS);
     const preferredMatches = countMatches(tokens, (explorationPath && explorationPath.preferredTerms) || []);
     const continuityMatches = countMatches(titleTokens, namedEntityTokens);
     const topicMatches = countMatches(titleTokens, anchorTerms);
@@ -776,12 +856,24 @@
 
     const topicRelevance = Math.min(40, topicMatches * 7 + continuityMatches * 4);
     const educationalFraming = Math.min(20, educationalMatches * 4 + preferredMatches * 4);
-    const calmLanguage = Math.max(0, 20 + Math.min(4, lowFrictionMatches * 2) - styleTerms.length * 5 - (capRatio > 0.36 ? 6 : 0));
+    const informationalTone = Math.min(12, neutralReportingMatches * 3 + interviewDiscussionMatches * 3);
+    const sourceFormat = Math.max(
+      0,
+      Math.min(10, lowerFrictionSourceMatches * 4 + sourceSignals.lowerFrictionSource.length * 2 + interviewDiscussionMatches * 2 - mixedSourceMatches * 2)
+    );
+    const calmLanguage = Math.max(
+      0,
+      20 +
+        Math.min(8, lowFrictionMatches * 2 + neutralReportingMatches * 2 + interviewDiscussionMatches * 2 + lowerFrictionSourceMatches * 2) -
+        styleTerms.length * 5 -
+        (capRatio > 0.36 ? 6 : 0)
+    );
     const continuity = Math.min(12, continuityMatches * 4 + (topicMatches >= 2 ? 4 : 0));
     const format =
-      Math.min(8, countMatches(tokens, LONG_FORM_TERMS) * 3 + (durationSeconds >= 20 * 60 ? 5 : durationSeconds >= 8 * 60 ? 2 : 0));
-    const penalty = Math.min(24, styleTerms.length * 4 + (capRatio > 0.5 ? 8 : 0));
-    const score = clampScore(topicRelevance + educationalFraming + calmLanguage + continuity + format - penalty);
+      Math.min(10, countMatches(tokens, LONG_FORM_TERMS) * 3 + interviewDiscussionMatches * 2 + (durationSeconds >= 20 * 60 ? 5 : durationSeconds >= 8 * 60 ? 2 : 0));
+    const neutralOffset = styleTerms.length > 0 ? 0 : Math.min(8, neutralReportingMatches * 2 + interviewDiscussionMatches * 2 + lowerFrictionSourceMatches * 2);
+    const penalty = Math.max(0, Math.min(28, styleTerms.length * 6 + mixedSourceMatches * 2 + (capRatio > 0.5 ? 8 : 0) - neutralOffset));
+    const score = clampScore(topicRelevance + educationalFraming + calmLanguage + continuity + format + informationalTone + sourceFormat - penalty);
     const classification = classifyScoredCandidate({
       score,
       topicRelevance,
@@ -789,6 +881,8 @@
       calmLanguage,
       continuity,
       format,
+      informationalTone,
+      sourceFormat,
       penalty,
       styleTermCount: styleTerms.length,
       capitalizationRatio: capRatio
@@ -803,6 +897,12 @@
     }
     if (format > 3) {
       reasons.push("long-form discussion");
+    }
+    if (informationalTone > 0) {
+      reasons.push("neutral reporting language");
+    }
+    if (sourceFormat > 0) {
+      reasons.push("lower-friction source format");
     }
     if (styleTerms.length === 0 && capRatio <= 0.36) {
       reasons.push("lower-friction language");
@@ -829,10 +929,15 @@
         calmLanguage,
         continuity,
         format,
+        informationalTone,
+        sourceFormat,
         penalty
       },
       reasons,
-      observabilitySignals: signals,
+      observabilitySignals: {
+        ...signals,
+        source: sourceSignals
+      },
       detectedStyleTerms: styleTerms,
       capitalizationRatio: capRatio
     };
