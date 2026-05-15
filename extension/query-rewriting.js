@@ -4,49 +4,70 @@
   const HIGH_FRICTION_REWRITES = [
     ["exposed", "analysis"],
     ["destroyed", "discussion"],
+    ["destroys", "discussion"],
+    ["destroy", "discussion"],
     ["panic", "overview"],
     ["shocking", "explained"],
     ["meltdown", "analysis"],
     ["humiliation", "interview"],
-    ["breaking", "update"],
+    ["breaking", "context"],
     ["disaster", "context"],
-    ["destroys", "discussion"],
-    ["destroy", "discussion"],
+    ["scandal", "long-form interview"],
     ["obliterated", "overview"],
     ["annihilated", "overview"],
     ["insane", "overview"],
     ["crazy", "overview"],
-    ["scandal", "analysis"],
-    ["urgent", "update"],
+    ["urgent", "context"],
     ["must watch", "explanation"]
   ];
 
   const PRESETS = {
     calmer: {
       id: "calmer",
-      label: "Calmer",
-      suffix: "calm discussion",
+      label: "calmer",
+      suffix: "calm overview discussion",
       removeTerms: ["urgent", "shocking"]
     },
     moreEducational: {
       id: "moreEducational",
-      label: "More educational",
+      label: "more educational",
       suffix: "educational explanation overview",
       prefix: "learn"
     },
-    lessSensational: {
-      id: "lessSensational",
-      label: "Less sensational",
-      suffix: "balanced analysis context",
-      removeTerms: ["must watch", "insane", "crazy"]
+    lowerFriction: {
+      id: "lowerFriction",
+      label: "lower friction",
+      suffix: "discussion long-form context",
+      removeTerms: ["must watch", "insane", "crazy", "urgent"]
+    },
+    deeperDive: {
+      id: "deeperDive",
+      label: "deeper dive",
+      suffix: "deep dive analysis documentary context",
+      extraRewrites: [["debate", "documentary"]]
     },
     beginnerFriendly: {
       id: "beginnerFriendly",
-      label: "More beginner-friendly",
+      label: "beginner friendly",
       suffix: "beginner friendly explanation basics",
       prefix: "intro to"
+    },
+    longerForm: {
+      id: "longerForm",
+      label: "longer-form",
+      suffix: "long-form interview documentary discussion",
+      extraRewrites: [["debate", "documentary"]]
     }
   };
+
+  const PRESET_ORDER = [
+    "calmer",
+    "moreEducational",
+    "lowerFriction",
+    "deeperDive",
+    "beginnerFriendly",
+    "longerForm"
+  ];
 
   function rewriteTitle(title, presetId) {
     const preset = PRESETS[presetId] || PRESETS.calmer;
@@ -73,13 +94,13 @@
   }
 
   function applyPreset(title, preset) {
-    const rewrittenTitle = rewriteHighFrictionTerms(title);
+    const rewrittenTitle = rewriteHighFrictionTerms(title, preset.extraRewrites || []);
     const trimmedTitle = removePresetTerms(rewrittenTitle, preset.removeTerms || []);
     return [preset.prefix || "", trimmedTitle].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
   }
 
-  function rewriteHighFrictionTerms(title) {
-    return HIGH_FRICTION_REWRITES.reduce((query, [term, replacement]) => {
+  function rewriteHighFrictionTerms(title, extraRewrites) {
+    return HIGH_FRICTION_REWRITES.concat(extraRewrites).reduce((query, [term, replacement]) => {
       return query.replace(new RegExp(`\\b${escapeRegExp(term)}\\b`, "gi"), replacement);
     }, title);
   }
@@ -112,6 +133,7 @@
 
   const api = {
     HIGH_FRICTION_REWRITES,
+    PRESET_ORDER,
     PRESETS,
     rewriteTitle,
     searchUrlFor

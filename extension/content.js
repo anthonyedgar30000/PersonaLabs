@@ -361,8 +361,9 @@
       `Current label: ${currentLabel}.`,
       "Why:",
       classification.presentation.reasons.join("; "),
-      "Guided Discovery: Find similar, but:",
+      "Like This, But:",
       guidedDiscoveryPresets().map((preset) => preset.label).join("; "),
+      "PersonaLabs is helping you explore this topic differently based on your browsing intent.",
       guidedDiscoveryTextFor(classification)
     ].join(" ");
 
@@ -390,28 +391,30 @@
   }
 
   function guidedDiscoveryPresets() {
-    return [
-      queryRewriting.PRESETS.calmer,
-      queryRewriting.PRESETS.moreEducational,
-      queryRewriting.PRESETS.lessSensational,
-      queryRewriting.PRESETS.beginnerFriendly
-    ];
+    return queryRewriting.PRESET_ORDER.map((presetId) => queryRewriting.PRESETS[presetId]);
   }
 
   function guidedDiscoveryElementFor(classification) {
     const container = document.createElement("span");
     const heading = document.createElement("span");
+    const explanation = document.createElement("span");
     const buttons = document.createElement("span");
     const debug = document.createElement("span");
+    const debugHeading = document.createElement("span");
     const rewrites = guidedDiscoveryPresets().map((preset) => {
       return queryRewriting.searchUrlFor(classification.internalSignals.rawExtractedTitle, preset.id);
     });
 
     container.className = "personalabs-guided-discovery";
-    heading.className = "personalabs-tooltip-heading";
-    heading.textContent = "Find similar, but:";
+    heading.className = "personalabs-like-this-heading";
+    heading.textContent = "Like This, But...";
+    explanation.className = "personalabs-like-this-copy";
+    explanation.textContent =
+      "PersonaLabs is helping you explore this topic differently based on your browsing intent.";
     buttons.className = "personalabs-guided-discovery-actions";
     debug.className = "personalabs-guided-discovery-debug";
+    debugHeading.className = "personalabs-guided-discovery-debug-heading";
+    debugHeading.textContent = "Transformation transparency";
 
     rewrites.forEach((rewrite) => {
       const button = document.createElement("button");
@@ -425,17 +428,16 @@
       buttons.append(button);
     });
 
-    debug.append(debugRowFor("Original title", rewrites[0].originalTitle || "untitled"));
+    debug.append(debugHeading, debugRowFor("Original", rewrites[0].originalTitle || "untitled"));
     rewrites.forEach((rewrite) => {
-      debug.append(
-        debugRowFor(
-          `${rewrite.presetLabel} preset`,
-          `${rewrite.transformedQuery} (transformation preset used: ${rewrite.preset})`
-        )
-      );
+      const mode = document.createElement("span");
+      const transformed = document.createElement("span");
+      mode.textContent = `Mode: ${rewrite.presetLabel}`;
+      transformed.textContent = `Transformed: ${rewrite.transformedQuery}`;
+      debug.append(mode, transformed);
     });
 
-    container.append(heading, buttons, debug);
+    container.append(heading, explanation, buttons, debug);
     return container;
   }
 
@@ -447,7 +449,7 @@
     return [
       `Original title: ${rewrites[0].originalTitle || "untitled"}.`,
       ...rewrites.map((rewrite) => {
-        return `Transformation preset used: ${rewrite.preset}; transformed query: ${rewrite.transformedQuery}.`;
+        return `Mode: ${rewrite.presetLabel}; transformed query: ${rewrite.transformedQuery}.`;
       })
     ].join(" ");
   }
