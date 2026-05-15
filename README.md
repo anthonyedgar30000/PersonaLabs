@@ -28,129 +28,100 @@ The system helps users notice when digital media consumption patterns drift away
 - Explainable scoring summaries
 - Adaptive schedule renegotiation prompts
 
-## Source-Inspired Heuristic Engine
+## Contextual Interpretation Engine
 
-PersonaLabs includes a dependency-free JavaScript classifier for explainable
-GREEN/YELLOW/RED labeling. It stays deterministic-first: no embeddings, vector
-databases, LLM APIs, or opaque sentiment models.
+PersonaLabs uses a deterministic contextual interpretation engine for
+GREEN/YELLOW/RED labeling. It does not use embeddings, vector databases, LLM
+APIs, external services, or opaque sentiment models.
+
+The engine interprets signals through context:
+
+```text
+signal + domain + context + format + intent lens = final interpretation
+```
 
 ```js
 import { labelContent } from "personalabs";
 
 const result = labelContent({
-  title: "Public Radio Political Interview with Policy Context",
-  channel: "NPR Politics",
+  title: "Rabbit Zoomies in the Living Room",
+  channel: "Cute Bunny Pets",
   lens: "calmer",
 });
 
 // result.finalColor === "GREEN"
-// result.detectedDomain.domain === "POLITICS_NEWS"
-// result.toneSignals, sourceFormatSignals, escalationSignals, and reasons
-// explain how the deterministic decision was made.
+// result.explanation ===
+//   "Marked GREEN because harmless animal domain suppressed chaos signals."
 ```
 
-The engine evaluates how content is framed, not just which isolated words appear:
+### Layers
 
-1. **Domain detection first**
-   - animal/pet/nature
-   - educational/tutorial
-   - politics/news
-   - drama/reaction
-   - entertainment
-   - music/ambient
+1. **Domain detection**
+   - `ANIMAL_PET_NATURE`
+   - `EDUCATIONAL`
+   - `POLITICS_NEWS`
+   - `DRAMA_REACTION`
+   - `MUSIC_AMBIENT`
+   - `COMEDY`
+   - `DOCUMENTARY`
+   - `GAMING`
+   - `TUTORIAL`
 
-2. **VADER-style tone heuristics**
-   - ALL CAPS intensity
-   - exclamation density
-   - urgency phrases
-   - intensifiers
-   - emotionally loaded words
-   - calm/regulating words
+   Detection uses title, channel name, metadata, playlist, tag, and category
+   clues.
 
-3. **Emotion categories**
-   - calm/regulation
-   - anger/outrage
-   - fear/panic
-   - joy/playfulness
-   - trust/informational
-   - disgust/shock
-   - sadness/distress
+2. **Global signal detection**
+   - outrage
+   - urgency
+   - fear
+   - anger
+   - intensity
+   - chaos
+   - calm
+   - trust
+   - educational framing
+   - playful/funny tone
 
-4. **Source/format heuristics**
-   - Lower-friction formats: public radio, PBS/NPR-style, university, lecture,
-     documentary, interview, long-form discussion, tutorial
-   - Higher-friction formats: reaction clips, rant, exposed, meltdown, breaking
-     outrage, debate fight, drama compilation
+3. **Contextual escalation suppression**
 
-5. **Lens-aware rules**
-   - CALMER keeps animal/pet/nature content GREEN unless explicit distress or
-     emergency terms are present.
-   - EDUCATIONAL preserves the subject anchor and prefers explained, analysis,
-     context, lecture, documentary, interview, and tutorial formats. Intense but
-     explanatory content can remain strong YELLOW instead of being suppressed.
+   Animal/pet/nature content suppresses harmless chaos signals such as
+   `chaos`, `loud`, `screaming`, `zoomies`, `funny`, `dramatic`, `wild`, and
+   `crazy` unless severe distress terms are present, including `abuse`,
+   `injury`, `blood`, `death`, `rescue crisis`, `starving`, or `emergency`.
 
-Every classification includes the detected domain, tone signals,
-source/format signals, escalation signals, final color, and reason.
+4. **Format interpretation**
 
-## Example Prompt
+   Lower-friction formats reduce escalation:
+   - documentary
+   - interview
+   - lecture
+   - tutorial
+   - public radio style
+   - long-form discussion
+   - educational analysis
 
-"Looks like your activity drifted away from Study Mode.
-Would you like to:
-- Continue Study Mode
-- Switch to Chill Mode
-- Enter Bare Metal Mode
-- Snooze prompts for 30 mins"
+   Higher-friction formats increase escalation:
+   - reaction clips
+   - ragebait formatting
+   - drama thumbnails
+   - meltdown
+   - destroyed
+   - humiliated
+   - outrage optimization patterns
 
-## Development Model
+5. **Intent lens weighting**
 
-PersonaLabs is being developed using governed AI-assisted iterative development.
+   - `CALMER` prioritizes emotional regulation, suppresses harmless chaos,
+     boosts ambient/calm/playful content, and heavily penalizes outrage
+     optimization.
+   - `EDUCATIONAL` allows difficult topics when they are explanatory or
+     contextual, prioritizing depth, context, and explanation.
+   - `BARE_METAL` minimizes interpretation and mostly reports metadata-derived
+     context.
 
-Agent roles include:
-- Product Architect
-- Frontend Builder
-- AI Scoring Engineer
-- Security/Governance Reviewer
-- QA/Test Agent
-- Documentation Agent
-
-All AI-generated outputs require:
-- feature validation
-- governance review
-- hallucination mitigation review
-- human approval
-
-## Vision
-
-AI helping people notice when they are no longer acting intentionally.
-# PersonaLabs
-
-PersonaLabs is a cognitive observability and intentionality support platform.
-
-The system helps users notice when digital media consumption patterns drift away from their stated goals, modes, schedules, or values using explainable AI, behavioral telemetry, and human-centered observability principles.
-
-## Core Principles
-
-- Flag, do not block
-- User agency first
-- Explainable AI outputs
-- Human-in-the-loop control
-- Calm, non-judgmental interaction design
-- Privacy-aware architecture
-- Behavioral observability over coercive filtering
-- Bare Metal mode always available
-
-## MVP Goals
-
-- Chrome extension overlay for YouTube
-- Persona modes:
-  - Study
-  - Chill
-  - Research
-  - Bare Metal
-- Color-coded alignment borders
-- Lightweight telemetry signals
-- Explainable scoring summaries
-- Adaptive schedule renegotiation prompts
+Every result exposes the detected domain, tone signals, escalation signals,
+suppression modifiers, lens modifiers, final score, final color, and
+human-readable explanation.
 
 ## Example Prompt
 
