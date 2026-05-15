@@ -2,29 +2,69 @@
   "use strict";
 
   const semantic = window.PersonaLabsSemantic;
-  if (!semantic || window.__personaLabsSemanticNavigationLoaded) {
+  const LOG_PREFIX = "[PersonaLabs rendering]";
+  const DEBUG_RENDERING = true;
+
+  if (!semantic) {
+    console.warn(LOG_PREFIX, "content.js executed, but semantic core is unavailable");
+    return;
+  }
+
+  if (window.__personaLabsSemanticNavigationLoaded) {
+    console.debug(LOG_PREFIX, "content.js skipped because it is already loaded");
     return;
   }
 
   window.__personaLabsSemanticNavigationLoaded = true;
+  console.info(LOG_PREFIX, "content.js executing", {
+    href: location.href,
+    readyState: document.readyState
+  });
 
   const STORAGE_KEY = "personaLabsSemanticNavigation";
   const CARD_SELECTOR = [
     "ytd-rich-item-renderer",
+    "ytd-rich-grid-media",
     "ytd-video-renderer",
     "ytd-grid-video-renderer",
     "ytd-compact-video-renderer",
+    "ytd-compact-radio-renderer",
+    "ytd-compact-playlist-renderer",
     "ytd-reel-item-renderer",
+    "ytd-reel-video-renderer",
     "ytd-playlist-video-renderer",
-    "ytd-radio-renderer"
+    "ytd-playlist-panel-video-renderer",
+    "ytd-radio-renderer",
+    "yt-lockup-view-model",
+    "ytm-video-with-context-renderer"
   ].join(",");
   const TITLE_SELECTOR = [
     "#video-title",
+    "#video-title-link",
     "a#video-title",
     "yt-formatted-string#video-title",
     "h3 a[href*='watch']",
-    "a[href*='watch']"
+    "a[href*='watch']",
+    "a[href*='/shorts/']",
+    "a.yt-lockup-metadata-view-model-wiz__title",
+    ".yt-lockup-metadata-view-model-wiz__title"
   ].join(",");
+  const THUMBNAIL_HOST_SELECTOR = [
+    "ytd-thumbnail",
+    "a#thumbnail",
+    "#thumbnail",
+    "yt-thumbnail-view-model",
+    ".yt-thumbnail-view-model",
+    "yt-image",
+    "a[href*='watch'] yt-image",
+    "a[href*='/shorts/'] yt-image"
+  ].join(",");
+  const YOUTUBE_SPA_EVENTS = [
+    "yt-navigate-start",
+    "yt-navigate-finish",
+    "yt-page-data-updated",
+    "yt-rendererstamper-finished"
+  ];
 
   const state = {
     anchor: null,
@@ -34,9 +74,32 @@
     scoredResultCount: 0,
     lastUrl: location.href,
     panel: null,
+    observer: null,
+    annotationTimer: null,
     scanTimer: null,
-    renderTimer: null
+    renderTimer: null,
+    mutationCount: 0
   };
+
+  function debugLog(message, payload) {
+    if (!DEBUG_RENDERING) {
+      return;
+    }
+
+    if (payload === undefined) {
+      console.debug(LOG_PREFIX, message);
+    } else {
+      console.debug(LOG_PREFIX, message, payload);
+    }
+  }
+
+  function warnLog(message, payload) {
+    if (payload === undefined) {
+      console.warn(LOG_PREFIX, message);
+    } else {
+      console.warn(LOG_PREFIX, message, payload);
+    }
+  }
 
   function storageAvailable() {
     return Boolean(window.chrome && chrome.storage && chrome.storage.local);
@@ -102,6 +165,13 @@
     state.scanTimer = window.setTimeout(scanVisibleResults, 250);
   }
 
+  function scheduleAnnotateVisibleCards(reason) {
+    window.clearTimeout(state.annotationTimer);
+    state.annotationTimer = window.setTimeout(() => {
+      annotateVisibleCards(reason || "scheduled");
+    }, 100);
+  }
+
   function normalizeText(value) {
     return String(value || "").replace(/\s+/g, " ").trim();
   }
@@ -130,16 +200,76 @@
     }
   }
 
+  function uniqueElements(elements) {
+    const seen = new Set();
+    const output = [];
+
+    elements.forEach((element) => {
+      if (element && !seen.has(element)) {
+        seen.add(element);
+        output.push(element);
+      }
+    });
+
+    return output;
+  }
+
+  function getCandidateCards() {
+    const cards = uniqueElements([
+      ...document.querySelectorAll(CARD_SELECTOR),
+      ...Array.from(document.querySelectorAll("a[href*='watch'], a[href*='/shorts/']")).map((link) => link.closest(CARD_SELECTOR) || link)
+    ]).filter((element) => !element.closest("#personalabs-panel"));
+
+    debugLog("detected candidate card elements", {
+      count: cards.length,
+      selectors: CARD_SELECTOR
+    });
+
+    return cards;
+  }
+
+  function findTitleElement(card) {
+    if (!card || !(card instanceof Element)) {
+      return null;
+    }
+
+    if (card.matches(TITLE_SELECTOR)) {
+      return card;
+    }
+
+    return card.querySelector(TITLE_SELECTOR);
+  }
+
+  function describeCard(card, candidate) {
+    return {
+      tag: card && card.tagName ? card.tagName.toLowerCase() : "unknown",
+      title: candidate && candidate.title,
+      channel: candidate && candidate.channel,
+      url: candidate && candidate.url,
+      hasThumbnailHost: Boolean(card && findThumbnailHost(card)),
+      hasExistingOverlay: Boolean(card && card.querySelector(".personalabs-classification-overlay")),
+      hasExistingBadge: Boolean(card && card.querySelector(".personalabs-observability-badge"))
+    };
+  }
+
   function extractCandidateFromCard(card) {
     if (!card) {
       return null;
     }
 
-    const titleElement = card.matches(TITLE_SELECTOR) ? card : card.querySelector(TITLE_SELECTOR);
+    const titleElement = findTitleElement(card);
     const title =
       normalizeText(
         (titleElement && (titleElement.getAttribute("title") || titleElement.textContent || titleElement.getAttribute("aria-label"))) ||
-          firstText(card, ["#video-title", "yt-formatted-string#video-title", "h3", "a[href*='watch']"])
+          firstText(card, [
+            "#video-title",
+            "#video-title-link",
+            "yt-formatted-string#video-title",
+            "h3",
+            "a[href*='watch']",
+            "a[href*='/shorts/']",
+            ".yt-lockup-metadata-view-model-wiz__title"
+          ])
       ) || "";
 
     if (!title || title.toLowerCase() === "home") {
@@ -159,7 +289,11 @@
       ".ytd-thumbnail-overlay-time-status-renderer",
       "span.ytd-thumbnail-overlay-time-status-renderer"
     ]);
-    const link = titleElement && titleElement.getAttribute("href");
+    const link =
+      (titleElement && titleElement.getAttribute("href")) ||
+      (card.matches("a[href]") ? card.getAttribute("href") : "") ||
+      (card.querySelector("a[href*='watch'], a[href*='/shorts/']") &&
+        card.querySelector("a[href*='watch'], a[href*='/shorts/']").getAttribute("href"));
 
     return {
       title,
@@ -198,6 +332,7 @@
 
   function setAnchor(video, source) {
     if (!video || !video.title) {
+      warnLog("anchor assignment skipped; missing video title", { source, video });
       return;
     }
 
@@ -214,9 +349,17 @@
     state.suggestions = [];
     state.scoredResultCount = 0;
 
+    debugLog("contextual anchor assigned", {
+      source,
+      title: anchor.originalTitle,
+      subjectAnchor: anchor.subjectAnchor,
+      entities: anchor.namedEntities,
+      activePathId: state.activePathId
+    });
+
     persistState();
     scheduleRender();
-    annotateVisibleCards();
+    scheduleAnnotateVisibleCards("anchor assigned");
   }
 
   function activePath() {
@@ -233,10 +376,16 @@
       return;
     }
 
-    const card = target.closest(CARD_SELECTOR) || target.closest("a[href*='watch']");
+    const card = target.closest(CARD_SELECTOR) || target.closest("a[href*='watch'], a[href*='/shorts/']");
     const candidate = extractCandidateFromCard(card);
     if (candidate) {
+      debugLog("youtube click captured as contextual anchor", describeCard(card, candidate));
       setAnchor(candidate, "youtube-click");
+    } else if (card) {
+      warnLog("youtube click matched a possible card but no candidate could be extracted", {
+        tag: card.tagName,
+        text: normalizeText(card.textContent).slice(0, 120)
+      });
     }
   }
 
@@ -259,17 +408,26 @@
       return;
     }
 
-    annotateVisibleCards();
+    annotateVisibleCards("scan visible results");
 
     const path = activePath();
-    const cards = Array.from(document.querySelectorAll(CARD_SELECTOR));
+    const cards = getCandidateCards();
     const candidates = cards
       .map(extractCandidateFromCard)
       .filter(Boolean)
       .filter((candidate) => candidate.url || location.pathname === "/results");
 
+    debugLog("scan visible results: extracted candidates", {
+      cardCount: cards.length,
+      candidateCount: candidates.length,
+      activeLens: path && (path.lensLabel || path.label),
+      location: location.href
+    });
+
     if (candidates.length === 0) {
       state.suggestions = [];
+      state.scoredResultCount = 0;
+      warnLog("scan visible results found no candidates", { path: location.pathname });
       scheduleRender();
       return;
     }
@@ -277,59 +435,172 @@
     const explorationSet = semantic.buildIntentionalExplorationSet(candidates, state.anchor, path, 5);
     state.suggestions = explorationSet.suggestions;
     state.scoredResultCount = explorationSet.scored.length;
+    debugLog("score-first/filter-second pipeline completed", {
+      scored: explorationSet.scored.map((item) => ({
+        title: item.title,
+        score: item.scoring.score,
+        color: item.scoring.classification.color,
+        allowed: explorationSet.suggestions.includes(item)
+      })),
+      suggestions: explorationSet.suggestions.length
+    });
     scheduleRender();
   }
 
-  function annotateVisibleCards() {
-    const cards = Array.from(document.querySelectorAll(CARD_SELECTOR));
-    cards.forEach((card) => {
+  function annotateVisibleCards(reason) {
+    const cards = getCandidateCards();
+    let renderedCount = 0;
+    let skippedCount = 0;
+
+    debugLog("annotating visible cards", {
+      reason,
+      cardCount: cards.length,
+      href: location.href
+    });
+
+    cards.forEach((card, index) => {
       const candidate = extractCandidateFromCard(card);
       if (!candidate) {
+        skippedCount += 1;
+        warnLog("card skipped; candidate extraction failed", {
+          index,
+          tag: card && card.tagName,
+          text: normalizeText(card && card.textContent).slice(0, 120)
+        });
         return;
       }
 
       const titleKey = `${candidate.title}:${state.anchor ? state.anchor.subjectAnchor : "no-anchor"}:${state.activePathId || "no-lens"}`;
-      if (card.dataset.personaLabsTitle === titleKey) {
+      const existingOverlay = card.querySelector(".personalabs-classification-overlay");
+      const existingBadge = card.querySelector(".personalabs-observability-badge");
+      if (card.dataset.personaLabsTitle === titleKey && existingOverlay && existingBadge) {
+        renderedCount += 1;
         return;
       }
 
       card.dataset.personaLabsTitle = titleKey;
-      const titleElement = card.querySelector(TITLE_SELECTOR);
-      if (!titleElement) {
-        return;
-      }
-
-      let badge = card.querySelector(".personalabs-observability-badge");
-      if (!badge) {
-        badge = document.createElement("span");
-        badge.className = "personalabs-observability-badge";
-        titleElement.insertAdjacentElement("afterend", badge);
-      }
-
       const scoring = state.anchor ? semantic.scoreCandidate(candidate, state.anchor, activePath()) : null;
       const styleSignals = semantic.classifyStyleTerms(candidate.title);
       const label = scoring === null ? (styleSignals.length ? "PL style signal" : "PL calm signal") : `PL ${scoring.classification.color} ${scoring.score}`;
       const category = scoring === null ? (styleSignals.length ? "yellow" : "green") : scoring.classification.color.toLowerCase();
+      const details = {
+        ...describeCard(card, candidate),
+        score: scoring && scoring.score,
+        color: scoring && scoring.classification.color,
+        category,
+        label
+      };
 
-      badge.textContent = label;
-      badge.dataset.signal = category;
-      badge.title =
-        scoring === null
-          ? "PersonaLabs contextual observability signal"
-          : scoring.classification.meaning;
+      debugLog("assigned deterministic classification", details);
+
+      const titleBadgeCreated = upsertTitleBadge(card, label, category, scoring);
+      const overlayCreated = upsertThumbnailOverlay(card, label, category, scoring);
+
+      if (titleBadgeCreated || overlayCreated) {
+        renderedCount += 1;
+        debugLog("overlay/badge render result", {
+          title: candidate.title,
+          titleBadgeCreated,
+          overlayCreated,
+          category
+        });
+      } else {
+        skippedCount += 1;
+        warnLog("overlay creation failed for detected card", details);
+      }
+    });
+
+    debugLog("annotation pass complete", {
+      reason,
+      cardCount: cards.length,
+      renderedCount,
+      skippedCount
     });
   }
 
+  function upsertTitleBadge(card, label, category, scoring) {
+    const titleElement = findTitleElement(card);
+    if (!titleElement) {
+      warnLog("title badge skipped; no title element found", { tag: card && card.tagName });
+      return false;
+    }
+
+    let badge = card.querySelector(".personalabs-observability-badge");
+    if (!badge) {
+      badge = document.createElement("span");
+      badge.className = "personalabs-observability-badge";
+      titleElement.insertAdjacentElement("afterend", badge);
+    }
+
+    badge.textContent = label;
+    badge.dataset.signal = category;
+    badge.title =
+      scoring === null
+        ? "PersonaLabs contextual observability signal"
+        : scoring.classification.meaning;
+
+    return badge.isConnected;
+  }
+
+  function findThumbnailHost(card) {
+    if (!card || !(card instanceof Element)) {
+      return null;
+    }
+
+    if (card.matches(THUMBNAIL_HOST_SELECTOR)) {
+      return card;
+    }
+
+    return (
+      card.querySelector(THUMBNAIL_HOST_SELECTOR) ||
+      card.querySelector("a[href*='watch'], a[href*='/shorts/']") ||
+      card
+    );
+  }
+
+  function upsertThumbnailOverlay(card, label, category, scoring) {
+    const host = findThumbnailHost(card);
+    if (!host) {
+      warnLog("thumbnail overlay skipped; no host found", { tag: card && card.tagName });
+      return false;
+    }
+
+    host.classList.add("personalabs-overlay-host");
+
+    let overlay = card.querySelector(".personalabs-classification-overlay");
+    if (!overlay) {
+      overlay = document.createElement("div");
+      overlay.className = "personalabs-classification-overlay";
+      host.appendChild(overlay);
+    } else if (overlay.parentElement !== host) {
+      host.appendChild(overlay);
+    }
+
+    overlay.textContent = label;
+    overlay.dataset.signal = category;
+    overlay.title =
+      scoring === null
+        ? "PersonaLabs contextual observability signal"
+        : scoring.classification.meaning;
+
+    return overlay.isConnected;
+  }
+
   function createPanel() {
-    if (state.panel) {
+    if (state.panel && state.panel.isConnected) {
       return state.panel;
     }
 
-    const panel = document.createElement("aside");
+    const panel = state.panel || document.createElement("aside");
+    const mount = document.body || document.documentElement;
     panel.id = "personalabs-panel";
     panel.setAttribute("aria-label", "PersonaLabs semantic navigation panel");
-    document.documentElement.appendChild(panel);
+    mount.appendChild(panel);
     state.panel = panel;
+    debugLog("control panel mounted", {
+      mountTag: mount.tagName,
+      connected: panel.isConnected
+    });
     return panel;
   }
 
@@ -582,26 +853,66 @@
   }
 
   function observePageChanges() {
+    if (state.observer) {
+      state.observer.disconnect();
+      debugLog("existing MutationObserver disconnected before reattach");
+    }
+
     const observer = new MutationObserver(() => {
+      state.mutationCount += 1;
+      if (state.mutationCount <= 10 || state.mutationCount % 25 === 0) {
+        debugLog("MutationObserver callback", {
+          mutationCount: state.mutationCount,
+          href: location.href
+        });
+      }
+
       if (state.lastUrl !== location.href) {
+        debugLog("YouTube SPA URL change detected by MutationObserver", {
+          from: state.lastUrl,
+          to: location.href
+        });
         state.lastUrl = location.href;
+        createPanel();
+        scheduleRender();
         maybeAnchorCurrentWatchPage();
       }
-      annotateVisibleCards();
+      scheduleAnnotateVisibleCards("mutation observer");
       if (location.pathname === "/results") {
         scheduleScan();
       }
     });
 
-    observer.observe(document.documentElement, {
+    observer.observe(document.body || document.documentElement, {
       childList: true,
       subtree: true
     });
+    state.observer = observer;
+    debugLog("MutationObserver attached", {
+      target: (document.body || document.documentElement).tagName,
+      href: location.href
+    });
 
     window.addEventListener("popstate", () => {
+      debugLog("popstate navigation event", { href: location.href });
       state.lastUrl = location.href;
+      createPanel();
+      scheduleRender();
       maybeAnchorCurrentWatchPage();
+      scheduleAnnotateVisibleCards("popstate");
       scheduleScan();
+    });
+
+    YOUTUBE_SPA_EVENTS.forEach((eventName) => {
+      window.addEventListener(eventName, () => {
+        debugLog(`YouTube SPA event: ${eventName}`, { href: location.href });
+        state.lastUrl = location.href;
+        createPanel();
+        scheduleRender();
+        maybeAnchorCurrentWatchPage();
+        scheduleAnnotateVisibleCards(eventName);
+        scheduleScan();
+      });
     });
   }
 
@@ -613,23 +924,30 @@
     window.setTimeout(() => {
       const video = extractCurrentWatchVideo();
       if (!video) {
+        warnLog("watch page anchor extraction found no video title", { href: location.href });
         return;
       }
 
       if (!state.anchor || state.anchor.originalTitle !== video.title) {
+        debugLog("watch page video detected as contextual anchor", video);
         setAnchor(video, "watch-page");
       }
     }, 400);
   }
 
   function init() {
+    debugLog("initializing content runtime", {
+      href: location.href,
+      readyState: document.readyState,
+      hasBody: Boolean(document.body)
+    });
     loadState();
     createPanel();
     renderPanel();
     document.addEventListener("click", handleDocumentClick, true);
     observePageChanges();
     maybeAnchorCurrentWatchPage();
-    annotateVisibleCards();
+    scheduleAnnotateVisibleCards("init");
     scheduleScan();
   }
 
