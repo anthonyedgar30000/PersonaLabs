@@ -5,219 +5,250 @@ import {
   DOMAINS,
   LABELS,
   LENSES,
+  SAFE_BASELINE_DOMAINS,
   analyzeTone,
   detectDomain,
   labelContent,
 } from "../src/personaLabs.js";
 
-test("rabbit zoomies are interpreted as harmless animal chaos", () => {
-  const result = labelContent({
-    title: "Rabbit Zoomies in the Living Room",
-    channel: "Cute Bunny Pets",
-    lens: "calmer",
-  });
-
-  assert.equal(result.label, LABELS.GREEN);
-  assert.equal(result.domain, DOMAINS.ANIMAL_PET_NATURE);
-  assert.deepEqual(result.globalSignals.signals.chaos, ["zoomies"]);
-  assert.ok(hasModifier(result.suppressionModifiers, "suppress.animal_harmless_chaos"));
-  assert.match(result.explanation, /harmless animal domain suppressed chaos signals/);
-});
-
-test("puppy screaming while playing is suppressed as harmless in animal context", () => {
-  const result = labelContent({
-    title: "Puppy Screaming While Playing With Toy",
-    channel: "Happy Dog Clips",
-    lens: "calmer",
-  });
-
-  assert.equal(result.label, LABELS.GREEN);
-  assert.equal(result.domain, DOMAINS.ANIMAL_PET_NATURE);
-  assert.deepEqual(result.globalSignals.signals.chaos, ["screaming"]);
-  assert.deepEqual(result.globalSignals.signals.playfulFunny, ["while playing", "playing"]);
-  assert.equal(result.escalation.hasSevereDistress, false);
-});
-
-test("cute bunny compilation remains GREEN for CALMER", () => {
-  const result = labelContent({
-    title: "Cute Bunny Compilation",
-    channel: "Adorable Animal Shorts",
-    metadata: { category: "pets", playlist: "rabbit videos" },
-    lens: "calmer",
-  });
-
-  assert.equal(result.label, LABELS.GREEN);
-  assert.equal(result.domain, DOMAINS.ANIMAL_PET_NATURE);
-  assert.ok(result.finalScore < 0);
-  assert.ok(hasModifier(result.lensModifiers, "lens.calmer_animal_suppression"));
-});
-
-test("animal rescue emergency overrides animal GREEN default", () => {
-  const result = labelContent({
-    title: "Animal Rescue Crisis Emergency",
-    channel: "Wildlife Rescue Updates",
-    lens: "calmer",
-  });
-
-  assert.equal(result.label, LABELS.RED);
-  assert.equal(result.domain, DOMAINS.ANIMAL_PET_NATURE);
-  assert.equal(result.escalation.hasSevereDistress, true);
-  assert.deepEqual([...result.escalation.signals.severeDistressTerms].sort(), [
-    "emergency",
-    "rescue crisis",
+test("safe baseline domains are exported and include requested domains", () => {
+  assert.deepEqual(SAFE_BASELINE_DOMAINS, [
+    DOMAINS.ANIMAL_PET_NATURE,
+    DOMAINS.RELAXING_AMBIENT,
+    DOMAINS.EDUCATIONAL_TUTORIAL,
+    DOMAINS.DOCUMENTARY_LONGFORM,
+    DOMAINS.HOBBY_CRAFTING,
   ]);
-  assert.match(result.explanation, /explicit danger or distress/);
 });
 
-test("political outrage clip receives high escalation under CALMER", () => {
+test("GREEN: Cute Bunny Eating Carrot defaults GREEN without calm words", () => {
   const result = labelContent({
-    title: "BREAKING Outrage Political Reaction Clip EXPOSED Meltdown Destroyed",
-    channel: "Daily Drama News",
-    lens: "calmer",
-  });
-
-  assert.equal(result.label, LABELS.RED);
-  assert.equal(result.domain, DOMAINS.DRAMA_REACTION);
-  assert.ok(result.finalScore >= 10);
-  assert.ok(result.sourceFormatSignals.higherFriction.length >= 3);
-  assert.ok(hasModifier(result.lensModifiers, "lens.calmer_outrage_penalty"));
-});
-
-test("public radio interview is low-friction politics/news context", () => {
-  const result = labelContent({
-    title: "Public Radio Interview: Election Policy Context",
-    channel: "NPR Politics",
-    description: "Long-form discussion with analysis and calm explanation.",
+    title: "Cute Bunny Eating Carrot",
+    channel: "Pet Shorts",
     lens: "calmer",
   });
 
   assert.equal(result.label, LABELS.GREEN);
-  assert.equal(result.domain, DOMAINS.POLITICS_NEWS);
-  assert.ok(result.format.lowerFrictionScore > result.format.higherFrictionScore);
-  assert.ok(result.finalScore < 3);
+  assert.equal(result.domain, DOMAINS.ANIMAL_PET_NATURE);
+  assert.equal(result.baselineStatus.status, "SAFE_BASELINE");
+  assert.equal(result.frictionTerms.significant.length, 0);
+  assert.match(result.explanation, /safe baseline domain detected/i);
 });
 
-test("educational lecture is prioritized by EDUCATIONAL lens", () => {
+test("GREEN: Mini Lop Rabbits Playing inherits animal harmlessness", () => {
   const result = labelContent({
-    title: "University Lecture: Climate Systems Explained",
-    channel: "Open Course",
-    metadata: { category: "education", playlist: "lectures" },
+    title: "Mini Lop Rabbits Playing",
+    channel: "Rabbit Room",
+    lens: "calmer",
+  });
+
+  assert.equal(result.label, LABELS.GREEN);
+  assert.equal(result.domain, DOMAINS.ANIMAL_PET_NATURE);
+  assert.ok(result.suppressionModifiers.some((modifier) => (
+    modifier.code === "suppress.animal_harmless_energy"
+  )));
+});
+
+test("GREEN: Funny Puppy Zoomies suppresses harmless animal energy", () => {
+  const result = labelContent({
+    title: "Funny Puppy Zoomies",
+    channel: "Dog Clips",
+    lens: "calmer",
+  });
+
+  assert.equal(result.label, LABELS.GREEN);
+  assert.equal(result.domain, DOMAINS.ANIMAL_PET_NATURE);
+  assert.deepEqual(result.frictionTerms.suppressed, ["funny", "zoomies"]);
+  assert.match(result.explanation, /contextual suppression removed harmless energy signals/);
+});
+
+test("GREEN: Relaxing Rainforest Ambience uses relaxing ambient safe baseline", () => {
+  const result = labelContent({
+    title: "Relaxing Rainforest Ambience",
+    channel: "Sleep Sounds",
+    category: "ambient",
+    lens: "calmer",
+  });
+
+  assert.equal(result.label, LABELS.GREEN);
+  assert.equal(result.domain, DOMAINS.RELAXING_AMBIENT);
+  assert.equal(result.baselineStatus.isSafeBaseline, true);
+  assert.equal(result.frictionTerms.significant.length, 0);
+});
+
+test("GREEN: Beginner Guitar Tutorial is a safe educational/tutorial baseline", () => {
+  const result = labelContent({
+    title: "Beginner Guitar Tutorial",
+    channel: "Calm Music Lessons",
+    metadata: { category: "education", playlist: "beginner guitar" },
     lens: "educational",
   });
 
   assert.equal(result.label, LABELS.GREEN);
   assert.equal(result.lens, LENSES.EDUCATIONAL);
-  assert.equal(result.domain, DOMAINS.EDUCATIONAL);
-  assert.ok(hasModifier(result.lensModifiers, "lens.educational_context"));
-  assert.match(result.explanation, /Educational lens prioritized depth/);
+  assert.equal(result.domain, DOMAINS.EDUCATIONAL_TUTORIAL);
+  assert.equal(result.baselineStatus.isSafeBaseline, true);
 });
 
-test("dramatic harmless pet video remains GREEN through animal suppression", () => {
+test("YELLOW: Crazy Puppy Compilation has mild frenetic wording without playful context", () => {
   const result = labelContent({
-    title: "Dramatic Wild Puppy Screaming While Playing",
-    channel: "Funny Pet Moments",
+    title: "Crazy Puppy Compilation",
+    channel: "Pet Videos",
+    lens: "calmer",
+  });
+
+  assert.equal(result.label, LABELS.YELLOW);
+  assert.equal(result.domain, DOMAINS.ANIMAL_PET_NATURE);
+  assert.deepEqual(result.frictionTerms.significant, ["crazy"]);
+  assert.match(result.explanation, /mild drama\/clickbait wording/);
+});
+
+test("YELLOW: Wild Animal Fails keeps unsuppressed mild clickbait friction", () => {
+  const result = labelContent({
+    title: "Wild Animal Fails",
+    channel: "Wildlife Clips",
+    lens: "calmer",
+  });
+
+  assert.equal(result.label, LABELS.YELLOW);
+  assert.equal(result.domain, DOMAINS.ANIMAL_PET_NATURE);
+  assert.deepEqual(result.frictionTerms.significant, ["wild", "fails"]);
+});
+
+test("YELLOW: Political Debate Highlights is not baseline-safe", () => {
+  const result = labelContent({
+    title: "Political Debate Highlights",
+    channel: "Election News",
+    lens: "calmer",
+  });
+
+  assert.equal(result.label, LABELS.YELLOW);
+  assert.equal(result.domain, DOMAINS.POLITICS_NEWS);
+  assert.equal(result.baselineStatus.isSafeBaseline, false);
+  assert.ok(result.frictionTerms.significant.includes("debate"));
+});
+
+test("YELLOW: Drama Reaction Stream carries elevated non-safe friction", () => {
+  const result = labelContent({
+    title: "Drama Reaction Stream",
+    channel: "Reaction Channel",
+    lens: "calmer",
+  });
+
+  assert.equal(result.label, LABELS.YELLOW);
+  assert.equal(result.domain, DOMAINS.DRAMA_REACTION);
+  assert.ok(result.sourceFormatSignals.higherFriction.includes("reaction"));
+});
+
+test("RED: Animal Abuse Investigation overrides safe animal baseline", () => {
+  const result = labelContent({
+    title: "Animal Abuse Investigation",
+    channel: "Wildlife Documentary",
+    lens: "calmer",
+  });
+
+  assert.equal(result.label, LABELS.RED);
+  assert.equal(result.domain, DOMAINS.ANIMAL_PET_NATURE);
+  assert.equal(result.escalationOverrides.hasRedOverride, true);
+  assert.deepEqual(result.escalationOverrides.severeDistressTerms, ["abuse"]);
+  assert.match(result.explanation, /severe distress terms overrode safe domain baseline/i);
+});
+
+test("RED: Market Panic Emergency is severe non-animal escalation", () => {
+  const result = labelContent({
+    title: "Market Panic Emergency",
+    channel: "Finance News",
+    lens: "calmer",
+  });
+
+  assert.equal(result.label, LABELS.RED);
+  assert.equal(result.domain, DOMAINS.POLITICS_NEWS);
+  assert.equal(result.escalationOverrides.hasRedOverride, true);
+  assert.ok(result.escalationOverrides.severeDistressTerms.includes("emergency"));
+});
+
+test("RED: Violent Meltdown Compilation triggers severe distress override", () => {
+  const result = labelContent({
+    title: "Violent Meltdown Compilation",
+    channel: "Drama Clips",
+    lens: "calmer",
+  });
+
+  assert.equal(result.label, LABELS.RED);
+  assert.equal(result.domain, DOMAINS.DRAMA_REACTION);
+  assert.ok(result.escalationOverrides.severeDistressTerms.includes("violent"));
+});
+
+test("RED: Crisis/Disaster Coverage overrides documentary baseline", () => {
+  const result = labelContent({
+    title: "Crisis Disaster Coverage",
+    channel: "Longform Documentary Reports",
+    lens: "educational",
+  });
+
+  assert.equal(result.label, LABELS.RED);
+  assert.equal(result.domain, DOMAINS.DOCUMENTARY_LONGFORM);
+  assert.equal(result.baselineStatus.isSafeBaseline, true);
+  assert.ok(result.escalationOverrides.severeDistressTerms.includes("crisis"));
+});
+
+test("animal play context suppresses crazy wording when behavior is clearly playful", () => {
+  const result = labelContent({
+    title: "Crazy Puppy Playing",
+    channel: "Funny Dog Clips",
     lens: "calmer",
   });
 
   assert.equal(result.label, LABELS.GREEN);
   assert.equal(result.domain, DOMAINS.ANIMAL_PET_NATURE);
-  assert.deepEqual(result.globalSignals.signals.intensity, ["wild", "dramatic"]);
-  assert.ok(hasModifier(result.suppressionModifiers, "suppress.animal_harmless_chaos"));
+  assert.ok(result.frictionTerms.suppressed.includes("crazy"));
 });
 
-test("documentary with difficult topic stays contextual rather than RED for EDUCATIONAL", () => {
+test("funny cat fails is suppressed by animal playful context", () => {
   const result = labelContent({
-    title: "Documentary: Disaster Recovery and Community Crisis Explained",
-    channel: "PBS University Documentary",
-    description: "Long-form interview and analysis with context.",
-    lens: "educational",
-  });
-
-  assert.equal(result.label, LABELS.YELLOW);
-  assert.equal(result.domain, DOMAINS.DOCUMENTARY);
-  assert.ok(result.globalSignals.signals.fear.includes("crisis"));
-  assert.ok(result.format.lowerFrictionScore > 0);
-  assert.match(result.explanation, /difficult topic is presented through explanatory or documentary context/);
-});
-
-test("comedy chaos suppresses playful chaos instead of treating it like outrage", () => {
-  const result = labelContent({
-    title: "Comedy Chaos Compilation",
-    channel: "Goofy Sketch Club",
-    metadata: { category: "comedy" },
+    title: "Funny Cat Fails",
+    channel: "Cute Pet Videos",
     lens: "calmer",
   });
 
   assert.equal(result.label, LABELS.GREEN);
-  assert.equal(result.domain, DOMAINS.COMEDY);
-  assert.deepEqual(result.globalSignals.signals.chaos, ["chaos"]);
-  assert.ok(hasModifier(result.suppressionModifiers, "suppress.comedy_playful_chaos"));
+  assert.equal(result.domain, DOMAINS.ANIMAL_PET_NATURE);
+  assert.ok(result.frictionTerms.suppressed.includes("fail"));
 });
 
-test("market panic is fear context, not harmless chaos", () => {
+test("explainability exposes baseline status, overrides, suppression, friction, score, and color", () => {
   const result = labelContent({
-    title: "Market Panic After Breaking News",
-    channel: "Finance News",
+    title: "Funny Puppy Zoomies",
+    channel: "Dog Clips",
     lens: "calmer",
   });
 
-  assert.equal(result.domain, DOMAINS.POLITICS_NEWS);
-  assert.ok(result.globalSignals.signals.fear.includes("panic"));
-  assert.equal(result.suppressionModifiers.some((modifier) => (
-    modifier.code === "suppress.animal_harmless_chaos"
-  )), false);
-});
-
-test("BARE_METAL minimizes interpretation", () => {
-  const result = labelContent({
-    title: "Political Meltdown Reaction Clip",
-    channel: "Drama News",
-    lens: "bare metal",
-  });
-
-  assert.equal(result.lens, LENSES.BARE_METAL);
-  assert.equal(result.label, LABELS.GREEN);
-  assert.ok(hasModifier(result.lensModifiers, "lens.bare_metal_metadata_only"));
-  assert.match(result.finalColorReason, /minimal interpretation/);
-});
-
-test("explainability exposes required contextual sections", () => {
-  const result = labelContent({
-    title: "Rabbit Zoomies",
-    channel: "Pet Channel",
-    lens: "calmer",
-  });
-
-  assert.equal(result.detectedDomain.domain, DOMAINS.ANIMAL_PET_NATURE);
-  assert.ok(result.toneSignals);
-  assert.ok(result.escalationSignals);
+  assert.ok(result.detectedDomain);
+  assert.ok(result.baselineStatus);
+  assert.ok(result.escalationOverrides);
   assert.ok(Array.isArray(result.suppressionModifiers));
-  assert.ok(Array.isArray(result.lensModifiers));
+  assert.ok(result.frictionTerms);
   assert.equal(typeof result.finalScore, "number");
   assert.equal(result.finalColor, LABELS.GREEN);
   assert.match(result.explanation, /Marked GREEN/);
 });
 
-test("domain detection uses metadata, playlist, and category clues", () => {
+test("domain detection uses metadata clues for hobby/crafting safe baseline", () => {
   const domain = detectDomain({
-    title: "Episode 4",
-    channel: "Open Learning",
-    metadata: { category: "tutorial", playlist: "university lecture walkthrough" },
+    title: "Weekend Project",
+    channel: "Quiet Workshop",
+    metadata: { category: "hobby", playlist: "woodworking diy" },
   });
 
-  assert.equal(domain.domain, DOMAINS.TUTORIAL);
-  assert.ok(domain.matches.includes("tutorial"));
-  assert.ok(domain.matches.includes("walkthrough"));
+  assert.equal(domain.domain, DOMAINS.HOBBY_CRAFTING);
+  assert.ok(domain.matches.includes("hobby"));
+  assert.ok(domain.matches.includes("woodworking"));
 });
 
-test("tone heuristics still expose all-caps intensity and punctuation", () => {
-  const tone = analyzeTone("BREAKING SHOCKING PANIC!!!");
+test("tone analysis still exposes stimulation metadata", () => {
+  const tone = analyzeTone("SHOCKING PANIC!!!");
 
-  assert.ok(tone.allCapsIntensity > 0.5);
   assert.equal(tone.exclamationCount, 3);
-  assert.ok(tone.escalationScore > tone.regulationScore);
+  assert.ok(tone.allCapsIntensity > 0.5);
+  assert.ok(tone.excessiveStimulationScore > 0);
 });
-
-function hasModifier(modifiers, code) {
-  return modifiers.some((modifier) => modifier.code === code);
-}

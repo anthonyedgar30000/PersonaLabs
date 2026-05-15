@@ -28,100 +28,98 @@ The system helps users notice when digital media consumption patterns drift away
 - Explainable scoring summaries
 - Adaptive schedule renegotiation prompts
 
-## Contextual Interpretation Engine
+## Baseline-Safe Contextual Interpretation
 
 PersonaLabs uses a deterministic contextual interpretation engine for
 GREEN/YELLOW/RED labeling. It does not use embeddings, vector databases, LLM
 APIs, external services, or opaque sentiment models.
 
-The engine interprets signals through context:
+The scoring principle is:
 
 ```text
-signal + domain + context + format + intent lens = final interpretation
+default behavioral baseline + contextual escalation evidence = final color
 ```
+
+Some content domains inherit calmness or low friction by default. They do not
+need explicit calming words to earn GREEN; harmlessness itself is sufficient.
+
+### Safe Baseline Domains
+
+Strong matches for these domains default GREEN unless friction overrides them:
+
+- `ANIMAL_PET_NATURE`
+- `RELAXING_AMBIENT`
+- `EDUCATIONAL_TUTORIAL`
+- `DOCUMENTARY_LONGFORM`
+- `HOBBY_CRAFTING`
+
+### Escalation Overrides
+
+Safe-baseline domains become YELLOW for mild friction such as mild controversy,
+chaotic formatting, excessive stimulation, drama framing, loud/frenetic wording,
+excessive clickbait, `crazy`, `wild`, `fails`, `meltdown`, `fight`, `panic`, or
+`shocking`.
+
+They become RED when severe distress or optimization terms appear, such as
+`abuse`, `injury`, `blood`, `death`, `crisis`, `starvation`, `emergency`,
+`danger`, fear escalation, ragebait, outrage optimization, or severe distress.
+
+### Contextual Suppression
+
+In `ANIMAL_PET_NATURE`, harmless energy is suppressed before final scoring:
+
+- funny
+- zoomies
+- silly
+- playful
+- energetic behavior
+- loud but harmless animal behavior
+- clearly playful chaos such as "crazy puppy playing" or "funny cat fails"
+
+This prevents harmless animal and pet content from being treated like political
+outrage or crisis coverage.
+
+### Weighting Hierarchy
+
+The engine applies interpretation in this priority order:
+
+1. Severe distress override
+2. Domain interpretation
+3. Contextual suppression
+4. Emotional escalation
+5. Tone analysis
+6. Metadata modifiers
+
+Domain meaning outweighs isolated keywords.
+
+### Explainability
+
+Every result exposes:
+
+- detected domain
+- baseline status
+- escalation overrides
+- suppression modifiers
+- friction terms
+- final score
+- final color
+- human-readable explanation
+
+Example:
 
 ```js
 import { labelContent } from "personalabs";
 
 const result = labelContent({
-  title: "Rabbit Zoomies in the Living Room",
-  channel: "Cute Bunny Pets",
+  title: "Funny Puppy Zoomies",
+  channel: "Dog Clips",
   lens: "calmer",
 });
 
 // result.finalColor === "GREEN"
 // result.explanation ===
-//   "Marked GREEN because harmless animal domain suppressed chaos signals."
+//   "Marked GREEN because harmless animal domain detected and contextual suppression removed harmless energy signals."
 ```
-
-### Layers
-
-1. **Domain detection**
-   - `ANIMAL_PET_NATURE`
-   - `EDUCATIONAL`
-   - `POLITICS_NEWS`
-   - `DRAMA_REACTION`
-   - `MUSIC_AMBIENT`
-   - `COMEDY`
-   - `DOCUMENTARY`
-   - `GAMING`
-   - `TUTORIAL`
-
-   Detection uses title, channel name, metadata, playlist, tag, and category
-   clues.
-
-2. **Global signal detection**
-   - outrage
-   - urgency
-   - fear
-   - anger
-   - intensity
-   - chaos
-   - calm
-   - trust
-   - educational framing
-   - playful/funny tone
-
-3. **Contextual escalation suppression**
-
-   Animal/pet/nature content suppresses harmless chaos signals such as
-   `chaos`, `loud`, `screaming`, `zoomies`, `funny`, `dramatic`, `wild`, and
-   `crazy` unless severe distress terms are present, including `abuse`,
-   `injury`, `blood`, `death`, `rescue crisis`, `starving`, or `emergency`.
-
-4. **Format interpretation**
-
-   Lower-friction formats reduce escalation:
-   - documentary
-   - interview
-   - lecture
-   - tutorial
-   - public radio style
-   - long-form discussion
-   - educational analysis
-
-   Higher-friction formats increase escalation:
-   - reaction clips
-   - ragebait formatting
-   - drama thumbnails
-   - meltdown
-   - destroyed
-   - humiliated
-   - outrage optimization patterns
-
-5. **Intent lens weighting**
-
-   - `CALMER` prioritizes emotional regulation, suppresses harmless chaos,
-     boosts ambient/calm/playful content, and heavily penalizes outrage
-     optimization.
-   - `EDUCATIONAL` allows difficult topics when they are explanatory or
-     contextual, prioritizing depth, context, and explanation.
-   - `BARE_METAL` minimizes interpretation and mostly reports metadata-derived
-     context.
-
-Every result exposes the detected domain, tone signals, escalation signals,
-suppression modifiers, lens modifiers, final score, final color, and
-human-readable explanation.
 
 ## Example Prompt
 

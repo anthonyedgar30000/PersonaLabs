@@ -13,20 +13,31 @@ export const LENSES = Object.freeze({
 
 export const DOMAINS = Object.freeze({
   ANIMAL_PET_NATURE: "ANIMAL_PET_NATURE",
-  EDUCATIONAL: "EDUCATIONAL",
+  RELAXING_AMBIENT: "RELAXING_AMBIENT",
+  EDUCATIONAL_TUTORIAL: "EDUCATIONAL_TUTORIAL",
+  DOCUMENTARY_LONGFORM: "DOCUMENTARY_LONGFORM",
+  HOBBY_CRAFTING: "HOBBY_CRAFTING",
   POLITICS_NEWS: "POLITICS_NEWS",
   DRAMA_REACTION: "DRAMA_REACTION",
-  MUSIC_AMBIENT: "MUSIC_AMBIENT",
+  MUSIC_AMBIENT: "RELAXING_AMBIENT",
   COMEDY: "COMEDY",
-  DOCUMENTARY: "DOCUMENTARY",
   GAMING: "GAMING",
-  TUTORIAL: "TUTORIAL",
   GENERAL: "GENERAL",
-  EDUCATIONAL_TUTORIAL: "EDUCATIONAL",
-  NATURE_AMBIENCE: "MUSIC_AMBIENT",
+  EDUCATIONAL: "EDUCATIONAL_TUTORIAL",
+  TUTORIAL: "EDUCATIONAL_TUTORIAL",
+  DOCUMENTARY: "DOCUMENTARY_LONGFORM",
+  NATURE_AMBIENCE: "RELAXING_AMBIENT",
   OUTRAGE_DRAMA: "DRAMA_REACTION",
   ENTERTAINMENT: "COMEDY",
 });
+
+export const SAFE_BASELINE_DOMAINS = Object.freeze([
+  DOMAINS.ANIMAL_PET_NATURE,
+  DOMAINS.RELAXING_AMBIENT,
+  DOMAINS.EDUCATIONAL_TUTORIAL,
+  DOMAINS.DOCUMENTARY_LONGFORM,
+  DOMAINS.HOBBY_CRAFTING,
+]);
 
 export const EMOTION_CATEGORIES = Object.freeze({
   CALM_REGULATION: "calmRegulation",
@@ -40,54 +51,64 @@ export const EMOTION_CATEGORIES = Object.freeze({
 
 export const DOMAIN_BASELINES = Object.freeze({
   [DOMAINS.ANIMAL_PET_NATURE]: Object.freeze({
-    score: -6,
-    label: "strongly GREEN",
-    reason: "Animal, pet, and nature content starts from a strong harmlessness baseline.",
+    status: "SAFE_BASELINE",
+    score: -7,
+    label: "inherited GREEN",
+    reason: "Animal, pet, and nature content inherits harmlessness unless explicit friction overrides it.",
   }),
-  [DOMAINS.EDUCATIONAL]: Object.freeze({
-    score: -3,
-    label: "moderately GREEN",
-    reason: "Educational content tends to support intentional learning.",
+  [DOMAINS.RELAXING_AMBIENT]: Object.freeze({
+    status: "SAFE_BASELINE",
+    score: -7,
+    label: "inherited GREEN",
+    reason: "Relaxing ambient content inherits calmness by default.",
   }),
-  [DOMAINS.TUTORIAL]: Object.freeze({
+  [DOMAINS.EDUCATIONAL_TUTORIAL]: Object.freeze({
+    status: "SAFE_BASELINE",
+    score: -5,
+    label: "inherited GREEN",
+    reason: "Educational/tutorial content inherits an intentional learning baseline.",
+  }),
+  [DOMAINS.DOCUMENTARY_LONGFORM]: Object.freeze({
+    status: "SAFE_BASELINE",
     score: -4,
-    label: "strongly educational",
-    reason: "Tutorial formats are usually explanatory and action-oriented.",
-  }),
-  [DOMAINS.DOCUMENTARY]: Object.freeze({
-    score: -2,
     label: "contextual GREEN",
-    reason: "Documentary formats often provide context for difficult subjects.",
+    reason: "Documentary/longform content often contextualizes difficult topics.",
+  }),
+  [DOMAINS.HOBBY_CRAFTING]: Object.freeze({
+    status: "SAFE_BASELINE",
+    score: -5,
+    label: "inherited GREEN",
+    reason: "Hobby and crafting content usually supports low-friction intentional activity.",
   }),
   [DOMAINS.POLITICS_NEWS]: Object.freeze({
+    status: "NEUTRAL_BASELINE",
     score: 0,
     label: "neutral",
-    reason: "Politics and news require context-sensitive interpretation.",
+    reason: "Politics and news require contextual interpretation before color selection.",
   }),
   [DOMAINS.DRAMA_REACTION]: Object.freeze({
+    status: "SCRUTINY_BASELINE",
     score: 4,
     label: "elevated scrutiny",
-    reason: "Drama and reaction framing often optimizes for emotional escalation.",
-  }),
-  [DOMAINS.MUSIC_AMBIENT]: Object.freeze({
-    score: -5,
-    label: "strongly GREEN",
-    reason: "Music and ambient formats often support low-friction regulation.",
+    reason: "Drama and reaction formats are often optimized for escalation.",
   }),
   [DOMAINS.COMEDY]: Object.freeze({
+    status: "PLAYFUL_BASELINE",
     score: -1,
     label: "playful baseline",
-    reason: "Comedy can contain chaos that is intended as play rather than escalation.",
+    reason: "Comedy may use chaos as play rather than conflict.",
   }),
   [DOMAINS.GAMING]: Object.freeze({
+    status: "NEUTRAL_BASELINE",
     score: 0,
     label: "neutral",
-    reason: "Gaming energy depends heavily on format and tone.",
+    reason: "Gaming tone varies by format and intensity.",
   }),
   [DOMAINS.GENERAL]: Object.freeze({
+    status: "NEUTRAL_BASELINE",
     score: 0,
     label: "neutral",
-    reason: "General content starts neutral until contextual signals are interpreted.",
+    reason: "General content starts neutral until context is detected.",
   }),
 });
 
@@ -117,73 +138,83 @@ const DOMAIN_DEFINITIONS = [
       "forest",
       "cute",
       "adorable",
-      "relaxing",
-      "cozy",
-      "peaceful",
-      "soothing",
+      "mini lop",
     ],
   },
   {
-    domain: DOMAINS.TUTORIAL,
+    domain: DOMAINS.RELAXING_AMBIENT,
+    priority: 95,
+    terms: [
+      "ambient",
+      "ambience",
+      "rainforest ambience",
+      "rain sounds",
+      "nature sounds",
+      "ocean sounds",
+      "forest sounds",
+      "lofi",
+      "lo-fi",
+      "sleep sounds",
+      "white noise",
+      "relaxing",
+      "peaceful",
+      "soothing",
+      "calm music",
+      "study music",
+    ],
+  },
+  {
+    domain: DOMAINS.EDUCATIONAL_TUTORIAL,
     priority: 90,
     terms: [
       "tutorial",
-      "walkthrough",
-      "how to",
-      "step by step",
-      "guide",
-      "setup",
-      "lesson",
-    ],
-  },
-  {
-    domain: DOMAINS.DOCUMENTARY,
-    priority: 86,
-    terms: [
-      "documentary",
-      "docuseries",
-      "investigation",
-      "history of",
-      "inside story",
-      "field report",
-    ],
-  },
-  {
-    domain: DOMAINS.EDUCATIONAL,
-    priority: 84,
-    terms: [
-      "educational",
+      "beginner",
       "explained",
       "explainer",
       "lecture",
       "course",
+      "lesson",
+      "walkthrough",
+      "how to",
+      "step by step",
+      "guide",
       "analysis",
       "context",
-      "study",
-      "deep dive",
       "university",
-      "research",
     ],
   },
   {
-    domain: DOMAINS.MUSIC_AMBIENT,
-    priority: 80,
+    domain: DOMAINS.DOCUMENTARY_LONGFORM,
+    priority: 86,
     terms: [
-      "ambient",
-      "ambience",
-      "music",
-      "lofi",
-      "lo-fi",
-      "soundscape",
-      "nature sounds",
-      "bird sounds",
-      "rain sounds",
-      "ocean sounds",
-      "forest sounds",
-      "gentle sounds",
-      "sleep sounds",
-      "study music",
-      "white noise",
+      "documentary",
+      "docuseries",
+      "longform",
+      "long-form",
+      "long-form discussion",
+      "long form discussion",
+      "field report",
+      "investigation",
+      "coverage",
+      "interview",
+    ],
+  },
+  {
+    domain: DOMAINS.HOBBY_CRAFTING,
+    priority: 82,
+    terms: [
+      "craft",
+      "crafting",
+      "knitting",
+      "crochet",
+      "woodworking",
+      "gardening",
+      "painting",
+      "drawing",
+      "guitar tutorial",
+      "beginner guitar",
+      "hobby",
+      "diy",
     ],
   },
   {
@@ -192,6 +223,7 @@ const DOMAIN_DEFINITIONS = [
     terms: [
       "drama",
       "reaction",
+      "reaction stream",
       "reaction clip",
       "meltdown",
       "rant",
@@ -199,10 +231,9 @@ const DOMAIN_DEFINITIONS = [
       "outrage",
       "destroyed",
       "freakout",
-      "scandal",
       "debate fight",
       "drama compilation",
-      "breaking outrage",
+      "ragebait",
       "humiliated",
     ],
   },
@@ -220,10 +251,10 @@ const DOMAIN_DEFINITIONS = [
       "breaking news",
       "president",
       "senate",
-      "campaign",
       "policy",
       "market",
       "markets",
+      "coverage",
     ],
   },
   {
@@ -237,7 +268,6 @@ const DOMAIN_DEFINITIONS = [
       "speedrun",
       "boss fight",
       "stream highlights",
-      "walkthrough game",
     ],
   },
   {
@@ -254,71 +284,66 @@ const DOMAIN_DEFINITIONS = [
       "silly",
       "goofy",
       "parody",
-      "chaos compilation",
     ],
   },
 ];
 
-const GLOBAL_SIGNAL_TERMS = Object.freeze({
-  outrage: Object.freeze([
-    "outrage",
-    "outraged",
-    "rage",
-    "furious",
-    "angry",
-    "rant",
-    "meltdown",
-    "denies",
-  ]),
-  urgency: Object.freeze([
-    "breaking",
-    "urgent",
-    "right now",
-    "must see",
+const SIGNAL_TERMS = Object.freeze({
+  severeDistress: Object.freeze([
+    "abuse",
+    "injury",
+    "injured",
+    "blood",
+    "death",
+    "died",
+    "crisis",
+    "rescue crisis",
+    "starvation",
+    "starving",
     "emergency",
-    "crisis",
-    "you won't believe",
+    "danger",
+    "violent",
+    "violence",
   ]),
-  fear: Object.freeze([
-    "fear",
-    "panic",
+  redEscalation: Object.freeze([
+    "ragebait",
+    "outrage optimization",
+    "outrage",
     "terrifying",
-    "scary",
-    "horror",
-    "crisis",
-    "disaster",
+    "fear escalation",
+    "violent",
+    "brutal",
+    "panic emergency",
   ]),
-  anger: Object.freeze([
-    "anger",
-    "angry",
-    "furious",
-    "rage",
-    "fight",
-    "heated",
-    "destroyed",
-    "humiliated",
-  ]),
-  intensity: Object.freeze([
-    "insane",
-    "wild",
-    "crazy",
-    "dramatic",
-    "massive",
-    "huge",
-    "unbelievable",
-    "shocking",
-    "extreme",
-  ]),
-  chaos: Object.freeze([
-    "chaos",
+  mildFriction: Object.freeze([
+    "controversy",
+    "controversial",
     "chaotic",
+    "excessive stimulation",
+    "drama",
+    "loud",
+    "frenetic",
+    "clickbait",
+    "crazy",
+    "wild",
+    "fails",
+    "fail",
+    "meltdown",
+    "fight",
+    "panic",
+    "shocking",
+    "debate",
+  ]),
+  animalSuppressed: Object.freeze([
+    "funny",
+    "zoomies",
+    "silly",
+    "playful",
+    "playing",
+    "energetic",
+    "energy",
     "loud",
     "screaming",
-    "zoomies",
-    "wild",
-    "crazy",
-    "dramatic",
-    "hyper",
   ]),
   calm: Object.freeze([
     "calm",
@@ -329,124 +354,38 @@ const GLOBAL_SIGNAL_TERMS = Object.freeze({
     "soothing",
     "cozy",
     "ambient",
-    "soft spoken",
     "routine",
   ]),
-  trust: Object.freeze([
+  educational: Object.freeze([
+    "tutorial",
+    "explained",
+    "lecture",
+    "lesson",
+    "analysis",
+    "context",
+    "documentary",
+    "interview",
+    "guide",
+  ]),
+  metadataPositive: Object.freeze([
     "public radio",
     "pbs",
     "npr",
     "university",
-    "interview",
-    "lecture",
-    "documentary",
-    "analysis",
-    "context",
-    "explained",
-  ]),
-  educationalFraming: Object.freeze([
-    "educational",
+    "long-form",
+    "longform",
     "tutorial",
-    "explained",
-    "analysis",
-    "context",
-    "lecture",
     "documentary",
-    "interview",
-    "walkthrough",
-    "deep dive",
-    "how to",
+    "hobby",
   ]),
-  playfulFunny: Object.freeze([
-    "funny",
-    "cute",
-    "silly",
-    "playful",
-    "goofy",
-    "zoomies",
-    "compilation",
-    "while playing",
-    "playing",
-    "comedy",
-  ]),
-});
-
-const EMOTION_LEXICON = Object.freeze({
-  [EMOTION_CATEGORIES.CALM_REGULATION]: Object.freeze(GLOBAL_SIGNAL_TERMS.calm),
-  [EMOTION_CATEGORIES.ANGER_OUTRAGE]: Object.freeze([
-    ...GLOBAL_SIGNAL_TERMS.anger,
-    ...GLOBAL_SIGNAL_TERMS.outrage,
-  ]),
-  [EMOTION_CATEGORIES.FEAR_PANIC]: Object.freeze(GLOBAL_SIGNAL_TERMS.fear),
-  [EMOTION_CATEGORIES.JOY_PLAYFULNESS]: Object.freeze(GLOBAL_SIGNAL_TERMS.playfulFunny),
-  [EMOTION_CATEGORIES.TRUST_INFORMATIONAL]: Object.freeze([
-    ...GLOBAL_SIGNAL_TERMS.trust,
-    ...GLOBAL_SIGNAL_TERMS.educationalFraming,
-  ]),
-  [EMOTION_CATEGORIES.DISGUST_SHOCK]: Object.freeze([
-    "disgusting",
-    "disturbing",
-    "shocking",
-    "exposed",
-    "brutal",
-    "unbelievable",
-  ]),
-  [EMOTION_CATEGORIES.SADNESS_DISTRESS]: Object.freeze([
-    "sad",
-    "distress",
-    "injury",
-    "injured",
-    "blood",
-    "died",
-    "death",
-    "abuse",
-    "starving",
-    "crying",
-    "breakdown",
-  ]),
-});
-
-const SEVERE_DISTRESS_TERMS = Object.freeze([
-  "abuse",
-  "injury",
-  "injured",
-  "blood",
-  "death",
-  "died",
-  "rescue crisis",
-  "starving",
-  "emergency",
-]);
-
-const FORMAT_TERMS = Object.freeze({
-  lowerFriction: Object.freeze([
-    "documentary",
-    "interview",
-    "lecture",
-    "tutorial",
-    "public radio",
-    "pbs",
-    "npr",
-    "long-form discussion",
-    "long form discussion",
-    "educational analysis",
-    "analysis",
-    "context",
-    "explained",
-  ]),
-  higherFriction: Object.freeze([
-    "reaction clip",
+  metadataNegative: Object.freeze([
     "reaction",
     "ragebait",
     "drama thumbnail",
     "meltdown",
     "destroyed",
     "humiliated",
-    "breaking outrage",
-    "debate fight",
-    "drama compilation",
-    "exposed",
-    "rant",
+    "outrage",
   ]),
 });
 
@@ -478,66 +417,72 @@ export function labelContent(content = {}) {
   const lens = normalizeLens(content.lens);
   const textParts = extractTextParts(content);
   const detectedDomain = detectDomain(content);
+  const domain = detectedDomain.domain;
+  const baselineStatus = determineBaselineStatus(detectedDomain);
   const globalSignals = detectGlobalSignals(textParts.fullText);
   const tone = analyzeTone(textParts.fullText, globalSignals);
-  const emotions = analyzeEmotions(textParts.fullText);
+  const emotions = analyzeEmotions(textParts.fullText, globalSignals);
   const format = analyzeFormat(textParts.fullText);
-  const sourceFormat = format;
-  const escalation = analyzeEscalation({
-    text: textParts.fullText,
+  const escalationOverrides = detectEscalationOverrides({
+    domain,
     globalSignals,
     tone,
-    emotions,
     format,
   });
   const suppressionModifiers = calculateSuppressionModifiers({
-    domain: detectedDomain.domain,
+    domain,
     globalSignals,
-    escalation,
-    format,
+    escalationOverrides,
   });
   const lensModifiers = calculateLensModifiers({
     lens,
-    domain: detectedDomain.domain,
+    domain,
+    baselineStatus,
     globalSignals,
     format,
-    escalation,
+    escalationOverrides,
+  });
+  const frictionTerms = calculateFrictionTerms({
+    domain,
+    globalSignals,
+    escalationOverrides,
+    suppressionModifiers,
   });
   const scores = calculateScores({
-    domain: detectedDomain.domain,
-    globalSignals,
+    baselineStatus,
     tone,
     emotions,
     format,
-    escalation,
+    escalationOverrides,
     suppressionModifiers,
     lensModifiers,
+    frictionTerms,
   });
   const decision = decideColor({
-    domain: detectedDomain.domain,
     lens,
-    escalation,
+    domain,
+    baselineStatus,
+    escalationOverrides,
+    frictionTerms,
     scores,
-    format,
   });
   const explanation = buildHumanExplanation({
-    domain: detectedDomain.domain,
-    lens,
     decision,
-    suppressionModifiers,
-    lensModifiers,
-    format,
-    escalation,
+    domain,
+    baselineStatus,
+    escalationOverrides,
+    frictionTerms,
   });
   const reasons = buildReasons({
     detectedDomain,
+    baselineStatus,
     globalSignals,
     tone,
-    emotions,
     format,
-    escalation,
+    escalationOverrides,
     suppressionModifiers,
     lensModifiers,
+    frictionTerms,
     scores,
     decision,
     explanation,
@@ -545,25 +490,29 @@ export function labelContent(content = {}) {
 
   return {
     label: decision.color,
-    finalColor: decision.color,
     color: decision.color,
-    domain: detectedDomain.domain,
+    finalColor: decision.color,
+    domain,
     detectedDomain,
+    baselineStatus,
     lens,
+    globalSignals,
     tone,
     toneSignals: globalSignals.signals,
-    globalSignals,
-    emotion: emotions,
     emotions,
+    emotion: emotions,
     format,
-    sourceFormat,
+    sourceFormat: format,
     sourceFormatSignals: format.signals,
-    escalation,
-    escalationSignals: escalation.signals,
+    escalationOverrides,
+    escalation: escalationOverrides,
+    escalationSignals: escalationOverrides.signals,
     suppressionModifiers,
     lensModifiers,
+    frictionTerms,
     scores,
     finalScore: scores.finalScore,
+    finalFrictionScore: scores.finalScore,
     finalColorReason: decision.reason,
     reason: explanation,
     finalReason: explanation,
@@ -578,16 +527,15 @@ export function detectDomain(content = {}) {
   const textParts = extractTextParts(content);
   const candidates = DOMAIN_DEFINITIONS
     .map((definition) => {
-      const matches = findTerms(textParts.domainText, definition.terms);
+      const domainMatches = findTerms(textParts.domainText, definition.terms);
       const metadataMatches = findTerms(textParts.metadataText, definition.terms);
-      const domainWeight = definition.domain === DOMAINS.DOCUMENTARY ? 2 : 1;
-      const score = scoreTerms(matches, domainWeight)
-        + scoreTerms(metadataMatches, domainWeight + 0.25)
-        + (matches.length > 0 || metadataMatches.length > 0 ? definition.priority / 100 : 0);
+      const score = scoreTerms(domainMatches, 1)
+        + scoreTerms(metadataMatches, 1.25)
+        + (domainMatches.length > 0 || metadataMatches.length > 0 ? definition.priority / 100 : 0);
 
       return {
         domain: definition.domain,
-        matches: unique([...matches, ...metadataMatches]),
+        matches: unique([...domainMatches, ...metadataMatches]),
         score: roundScore(score),
         priority: definition.priority,
       };
@@ -611,12 +559,14 @@ export function detectDomain(content = {}) {
 
 export function detectGlobalSignals(input = "") {
   const text = normalizeText(input);
-  const signals = Object.fromEntries(
-    Object.entries(GLOBAL_SIGNAL_TERMS).map(([name, terms]) => [
-      name,
-      findTerms(text, terms),
-    ]),
-  );
+  const signals = {
+    severeDistress: findTerms(text, SIGNAL_TERMS.severeDistress),
+    redEscalation: findTerms(text, SIGNAL_TERMS.redEscalation),
+    mildFriction: findTerms(text, SIGNAL_TERMS.mildFriction),
+    animalSuppressed: findTerms(text, SIGNAL_TERMS.animalSuppressed),
+    calm: findTerms(text, SIGNAL_TERMS.calm),
+    educational: findTerms(text, SIGNAL_TERMS.educational),
+  };
   const scores = Object.fromEntries(
     Object.entries(signals).map(([name, matches]) => [name, scoreTerms(matches)]),
   );
@@ -639,28 +589,27 @@ export function analyzeTone(input = "", globalSignals = detectGlobalSignals(inpu
       && /[A-Z]/.test(word)
   ));
   const allCapsIntensity = words.length === 0 ? 0 : allCapsWords.length / words.length;
-  const escalationScore = roundScore(
-    globalSignals.scores.urgency * 1.5
-      + globalSignals.scores.outrage * 1.35
-      + globalSignals.scores.fear * 1.25
-      + globalSignals.scores.anger * 1.2
-      + globalSignals.scores.intensity
-      + globalSignals.scores.chaos * 0.8
-      + (exclamationCount >= 3 ? 2 : exclamationCount > 0 ? 0.75 : 0)
+  const excessiveStimulationScore = roundScore(
+    (exclamationCount >= 3 ? 2 : exclamationCount > 0 ? 0.5 : 0)
       + (punctuationDensity >= 0.08 ? 1.5 : punctuationDensity >= 0.04 ? 0.75 : 0)
       + (allCapsIntensity >= 0.45 && allCapsWords.length >= 2 ? 2 : allCapsWords.length >= 2 ? 1 : 0),
   );
+  const escalationScore = roundScore(
+    globalSignals.scores.mildFriction
+      + globalSignals.scores.redEscalation * 1.5
+      + globalSignals.scores.severeDistress * 2
+      + excessiveStimulationScore,
+  );
   const regulationScore = roundScore(
     globalSignals.scores.calm * 1.25
-      + globalSignals.scores.trust
-      + globalSignals.scores.educationalFraming * 0.8
-      + globalSignals.scores.playfulFunny * 0.35,
+      + globalSignals.scores.educational,
   );
 
   return {
     score: roundScore(escalationScore - regulationScore),
     escalationScore,
     regulationScore,
+    excessiveStimulationScore,
     allCapsIntensity: roundScore(allCapsIntensity),
     allCapsWords,
     allCapsWordCount: allCapsWords.length,
@@ -670,41 +619,65 @@ export function analyzeTone(input = "", globalSignals = detectGlobalSignals(inpu
   };
 }
 
-export function analyzeEmotions(input = "") {
-  const text = normalizeText(input);
-  const categories = Object.fromEntries(
-    Object.entries(EMOTION_LEXICON).map(([category, terms]) => {
-      const matches = findTerms(text, terms);
-
-      return [category, {
-        matches,
-        score: scoreTerms(matches),
-      }];
-    }),
-  );
-  const regulatingScore = roundScore(
-    categories[EMOTION_CATEGORIES.CALM_REGULATION].score
-      + categories[EMOTION_CATEGORIES.TRUST_INFORMATIONAL].score,
-  );
-  const escalatingScore = roundScore(
-    categories[EMOTION_CATEGORIES.ANGER_OUTRAGE].score
-      + categories[EMOTION_CATEGORIES.FEAR_PANIC].score
-      + categories[EMOTION_CATEGORIES.DISGUST_SHOCK].score
-      + categories[EMOTION_CATEGORIES.SADNESS_DISTRESS].score,
-  );
+export function analyzeEmotions(input = "", globalSignals = detectGlobalSignals(input)) {
+  const calmRegulation = globalSignals.scores.calm;
+  const trustInformational = globalSignals.scores.educational;
+  const joyPlayfulness = globalSignals.scores.animalSuppressed;
+  const fearPanic = scoreTerms(intersection(globalSignals.signals.mildFriction, [
+    "panic",
+    "shocking",
+  ]));
+  const angerOutrage = scoreTerms(intersection(globalSignals.signals.redEscalation, [
+    "outrage",
+    "ragebait",
+  ]));
+  const sadnessDistress = globalSignals.scores.severeDistress;
+  const disgustShock = scoreTerms(intersection(globalSignals.signals.mildFriction, [
+    "shocking",
+  ]));
+  const categories = {
+    [EMOTION_CATEGORIES.CALM_REGULATION]: {
+      matches: globalSignals.signals.calm,
+      score: calmRegulation,
+    },
+    [EMOTION_CATEGORIES.ANGER_OUTRAGE]: {
+      matches: intersection(globalSignals.signals.redEscalation, ["outrage", "ragebait"]),
+      score: angerOutrage,
+    },
+    [EMOTION_CATEGORIES.FEAR_PANIC]: {
+      matches: intersection(globalSignals.signals.mildFriction, ["panic", "shocking"]),
+      score: fearPanic,
+    },
+    [EMOTION_CATEGORIES.JOY_PLAYFULNESS]: {
+      matches: globalSignals.signals.animalSuppressed,
+      score: joyPlayfulness,
+    },
+    [EMOTION_CATEGORIES.TRUST_INFORMATIONAL]: {
+      matches: globalSignals.signals.educational,
+      score: trustInformational,
+    },
+    [EMOTION_CATEGORIES.DISGUST_SHOCK]: {
+      matches: intersection(globalSignals.signals.mildFriction, ["shocking"]),
+      score: disgustShock,
+    },
+    [EMOTION_CATEGORIES.SADNESS_DISTRESS]: {
+      matches: globalSignals.signals.severeDistress,
+      score: sadnessDistress,
+    },
+  };
 
   return {
     categories,
-    regulatingScore,
-    escalatingScore,
-    joyPlayfulnessScore: categories[EMOTION_CATEGORIES.JOY_PLAYFULNESS].score,
+    regulatingScore: roundScore(calmRegulation + trustInformational),
+    escalatingScore: roundScore(fearPanic + angerOutrage + sadnessDistress + disgustShock),
+    joyPlayfulnessScore: joyPlayfulness,
   };
 }
 
 export function analyzeFormat(input = "") {
   const text = normalizeText(input);
-  const lowerFriction = findTerms(text, FORMAT_TERMS.lowerFriction);
-  const higherFriction = findTerms(text, FORMAT_TERMS.higherFriction);
+  const lowerFriction = findTerms(text, SIGNAL_TERMS.metadataPositive);
+  const higherFriction = findTerms(text, SIGNAL_TERMS.metadataNegative);
 
   return {
     lowerFrictionScore: scoreTerms(lowerFriction, 1.5),
@@ -718,93 +691,108 @@ export function analyzeFormat(input = "") {
 
 export const analyzeSourceFormat = analyzeFormat;
 
-export function analyzeEscalation({
-  text = "",
-  globalSignals = detectGlobalSignals(text),
-  tone = analyzeTone(text, globalSignals),
-  emotions = analyzeEmotions(text),
-  format = analyzeFormat(text),
-} = {}) {
-  const severeDistressTerms = findTerms(text, SEVERE_DISTRESS_TERMS);
-  const signals = {
-    severeDistressTerms,
-    outrage: globalSignals.signals.outrage,
-    urgency: globalSignals.signals.urgency,
-    fear: globalSignals.signals.fear,
-    anger: globalSignals.signals.anger,
-    intensity: globalSignals.signals.intensity,
-    chaos: globalSignals.signals.chaos,
-    higherFrictionFormat: format.signals.higherFriction,
-  };
-  const score = roundScore(
-    scoreTerms(severeDistressTerms, 3.5)
-      + tone.escalationScore
-      + emotions.escalatingScore * 1.2
-      + format.higherFrictionScore * 1.25,
+export function detectEscalationOverrides({
+  domain,
+  globalSignals,
+  tone,
+  format,
+}) {
+  const severeDistressTerms = globalSignals.signals.severeDistress;
+  const redTerms = unique([
+    ...globalSignals.signals.redEscalation,
+    ...format.signals.higherFriction.filter((term) => [
+      "ragebait",
+      "outrage",
+    ].includes(term)),
+  ]);
+  const mildTerms = unique([
+    ...globalSignals.signals.mildFriction,
+    ...format.signals.higherFriction,
+  ]);
+  const excessiveStimulation = tone.excessiveStimulationScore >= 2;
+  const hasRedOverride = severeDistressTerms.length > 0
+    || redTerms.length > 0
+    || (domain !== DOMAINS.ANIMAL_PET_NATURE && mildTerms.includes("panic") && excessiveStimulation);
+  const hasYellowOverride = !hasRedOverride && (
+    mildTerms.length > 0
+      || excessiveStimulation
   );
 
   return {
-    score,
+    hasRedOverride,
+    hasYellowOverride,
     hasSevereDistress: severeDistressTerms.length > 0,
     hasExplicitDistress: severeDistressTerms.length > 0,
-    signals,
+    severeDistressTerms,
+    redTerms,
+    mildTerms,
+    excessiveStimulation,
+    score: roundScore(
+      scoreTerms(severeDistressTerms, 4)
+        + scoreTerms(redTerms, 3)
+        + scoreTerms(mildTerms, 1.25)
+        + tone.excessiveStimulationScore,
+    ),
+    signals: {
+      severeDistressTerms,
+      redTerms,
+      mildTerms,
+      excessiveStimulation: excessiveStimulation ? ["excessive stimulation"] : [],
+    },
   };
 }
 
 export function calculateSuppressionModifiers({
   domain,
   globalSignals,
-  escalation,
-  format,
+  escalationOverrides,
 }) {
   const modifiers = [];
 
-  if (domain === DOMAINS.ANIMAL_PET_NATURE && !escalation.hasSevereDistress) {
-    const harmlessChaosMatches = unique([
-      ...globalSignals.signals.chaos,
-      ...globalSignals.signals.intensity.filter((term) => [
-        "wild",
+  if (domain === DOMAINS.ANIMAL_PET_NATURE && !escalationOverrides.hasRedOverride) {
+    const playContext = globalSignals.signals.animalSuppressed.some((term) => [
+      "funny",
+      "zoomies",
+      "silly",
+      "playful",
+      "playing",
+    ].includes(term));
+    const conditionallyHarmless = playContext
+      ? escalationOverrides.mildTerms.filter((term) => [
+        "chaotic",
         "crazy",
-        "dramatic",
+        "wild",
+        "fails",
+        "fail",
+      ].includes(term))
+      : [];
+    const suppressible = unique([
+      ...globalSignals.signals.animalSuppressed,
+      ...escalationOverrides.mildTerms.filter((term) => [
+        "loud",
       ].includes(term)),
-      ...globalSignals.signals.playfulFunny,
+      ...conditionallyHarmless,
     ]);
 
-    if (harmlessChaosMatches.length > 0) {
+    if (suppressible.length > 0) {
       modifiers.push({
-        code: "suppress.animal_harmless_chaos",
-        score: -5,
-        signals: harmlessChaosMatches,
-        reason: "Animal/pet/nature context suppresses harmless chaos, loudness, screaming, zoomies, funny, dramatic, wild, and crazy signals.",
+        code: "suppress.animal_harmless_energy",
+        score: -6,
+        signals: suppressible,
+        reason: "Animal/pet/nature context suppresses funny, zoomies, silly, playful, energetic, loud, and harmless chaos signals.",
       });
     }
-
-    modifiers.push({
-      code: "suppress.animal_green_baseline",
-      score: -3,
-      signals: [],
-      reason: "Animal/pet/nature content defaults GREEN for CALMER unless severe distress appears.",
-    });
   }
 
-  if (domain === DOMAINS.COMEDY && !escalation.hasSevereDistress) {
+  if (domain === DOMAINS.COMEDY && !escalationOverrides.hasRedOverride) {
     modifiers.push({
-      code: "suppress.comedy_playful_chaos",
-      score: -2.5,
+      code: "suppress.comedy_harmless_chaos",
+      score: -2,
       signals: unique([
-        ...globalSignals.signals.chaos,
-        ...globalSignals.signals.playfulFunny,
+        ...globalSignals.signals.animalSuppressed,
+        ...escalationOverrides.mildTerms,
       ]),
-      reason: "Comedy context treats some chaos as playful format rather than escalation.",
-    });
-  }
-
-  if (format.lowerFrictionScore > 0) {
-    modifiers.push({
-      code: "suppress.lower_friction_format",
-      score: roundScore(-format.lowerFrictionScore),
-      signals: format.signals.lowerFriction,
-      reason: "Documentary, interview, lecture, tutorial, public-radio, long-form, or educational-analysis format reduces escalation.",
+      reason: "Comedy context treats some chaos as playful rather than escalatory.",
     });
   }
 
@@ -814,41 +802,42 @@ export function calculateSuppressionModifiers({
 export function calculateLensModifiers({
   lens,
   domain,
+  baselineStatus,
   globalSignals,
   format,
-  escalation,
+  escalationOverrides,
 }) {
   const modifiers = [];
 
   if (lens === LENSES.CALMER) {
     modifiers.push({
-      code: "lens.calmer_regulation",
-      score: -1.5,
-      signals: unique([
-        ...globalSignals.signals.calm,
-        ...globalSignals.signals.playfulFunny,
-      ]),
-      reason: "CALMER prioritizes emotional regulation and allows low-friction calm or playful signals.",
+      code: "lens.calmer_safe_baseline",
+      score: baselineStatus.isSafeBaseline ? -2 : 0,
+      signals: [],
+      reason: "CALMER honors safe baselines before applying friction overrides.",
     });
 
-    if (domain === DOMAINS.ANIMAL_PET_NATURE && !escalation.hasSevereDistress) {
+    if (escalationOverrides.redTerms.some((term) => [
+      "ragebait",
+      "outrage",
+    ].includes(term)) || format.higherFrictionScore >= 4) {
       modifiers.push({
-        code: "lens.calmer_animal_suppression",
-        score: -4,
+        code: "lens.calmer_outrage_penalty",
+        score: 4,
         signals: unique([
-          ...globalSignals.signals.chaos,
-          ...globalSignals.signals.playfulFunny,
+          ...escalationOverrides.redTerms,
+          ...format.signals.higherFriction,
         ]),
-        reason: "CALMER suppresses harmless animal chaos.",
+        reason: "CALMER heavily penalizes ragebait and outrage optimization.",
       });
     }
 
-    if (format.higherFrictionScore > 0) {
+    if (domain === DOMAINS.ANIMAL_PET_NATURE && !escalationOverrides.hasRedOverride) {
       modifiers.push({
-        code: "lens.calmer_outrage_penalty",
-        score: roundScore(format.higherFrictionScore * 1.75),
-        signals: format.signals.higherFriction,
-        reason: "CALMER heavily penalizes outrage-optimized formats.",
+        code: "lens.calmer_animal_green_default",
+        score: -3,
+        signals: globalSignals.signals.animalSuppressed,
+        reason: "CALMER keeps harmless animal behavior GREEN unless explicit distress overrides it.",
       });
     }
   }
@@ -856,12 +845,12 @@ export function calculateLensModifiers({
   if (lens === LENSES.EDUCATIONAL) {
     modifiers.push({
       code: "lens.educational_context",
-      score: roundScore(-(globalSignals.scores.educationalFraming + format.lowerFrictionScore)),
+      score: roundScore(-(globalSignals.scores.educational + format.lowerFrictionScore)),
       signals: unique([
-        ...globalSignals.signals.educationalFraming,
+        ...globalSignals.signals.educational,
         ...format.signals.lowerFriction,
       ]),
-      reason: "EDUCATIONAL preserves difficult subjects when they are contextual, explanatory, or lecture-like.",
+      reason: "EDUCATIONAL prioritizes depth, context, and explanation.",
     });
   }
 
@@ -870,187 +859,196 @@ export function calculateLensModifiers({
       code: "lens.bare_metal_metadata_only",
       score: 0,
       signals: [],
-      reason: "BARE_METAL minimizes interpretation and reports mostly metadata-derived context.",
+      reason: "BARE_METAL minimizes interpretation and surfaces metadata-level context only.",
     });
   }
 
   return modifiers;
 }
 
-export function calculateScores({
+export function calculateFrictionTerms({
   domain,
   globalSignals,
+  escalationOverrides,
+  suppressionModifiers,
+}) {
+  const suppressed = new Set(suppressionModifiers.flatMap((modifier) => modifier.signals));
+  const mild = escalationOverrides.mildTerms.filter((term) => !suppressed.has(term));
+  const red = unique([
+    ...escalationOverrides.severeDistressTerms,
+    ...escalationOverrides.redTerms,
+  ]);
+
+  return {
+    mild,
+    red,
+    suppressed: [...suppressed],
+    significant: domain === DOMAINS.ANIMAL_PET_NATURE
+      ? unique([...red, ...mild.filter((term) => [
+        "meltdown",
+        "fight",
+        "panic",
+        "shocking",
+        "drama",
+        "clickbait",
+      ].includes(term))])
+      : unique([...red, ...mild]),
+  };
+}
+
+export function calculateScores({
+  baselineStatus,
   tone,
   emotions,
   format,
-  escalation,
+  escalationOverrides,
   suppressionModifiers,
   lensModifiers,
+  frictionTerms,
 }) {
-  const baseline = DOMAIN_BASELINES[domain] ?? DOMAIN_BASELINES[DOMAINS.GENERAL];
   const suppressionScore = sumScores(suppressionModifiers);
   const lensScore = sumScores(lensModifiers);
-  const rawSignalScore = roundScore(
-    globalSignals.scores.outrage * 1.5
-      + globalSignals.scores.urgency * 1.4
-      + globalSignals.scores.fear * 1.35
-      + globalSignals.scores.anger * 1.25
-      + globalSignals.scores.intensity
-      + globalSignals.scores.chaos * 0.9
-      + format.higherFrictionScore * 1.3
-      + escalation.signals.severeDistressTerms.length * 4
-      - globalSignals.scores.calm * 1.25
-      - globalSignals.scores.trust
-      - globalSignals.scores.educationalFraming * 0.9
-      - format.lowerFrictionScore
-  );
   const finalScore = roundScore(
-    baseline.score
-      + rawSignalScore
+    baselineStatus.score
       + tone.score
       + emotions.escalatingScore
       - emotions.regulatingScore
+      + format.higherFrictionScore
+      - format.lowerFrictionScore
+      + escalationOverrides.score
       + suppressionScore
-      + lensScore,
+      + lensScore
+      + frictionTerms.significant.length,
   );
 
   return {
-    baseline,
-    rawSignalScore,
+    baselineScore: baselineStatus.score,
     toneScore: tone.score,
     emotionEscalation: emotions.escalatingScore,
     emotionRegulation: emotions.regulatingScore,
     formatFriction: format.higherFrictionScore,
     formatRegulation: format.lowerFrictionScore,
+    escalationScore: escalationOverrides.score,
     suppressionScore,
     lensScore,
+    significantFrictionCount: frictionTerms.significant.length,
     finalScore,
-    finalFrictionScore: finalScore,
   };
 }
 
 export const scoreContent = calculateScores;
 
-function decideColor({ domain, lens, escalation, scores, format }) {
+function decideColor({
+  lens,
+  domain,
+  baselineStatus,
+  escalationOverrides,
+  frictionTerms,
+  scores,
+}) {
   if (lens === LENSES.BARE_METAL) {
     return {
-      color: escalation.hasSevereDistress ? LABELS.YELLOW : LABELS.GREEN,
+      color: escalationOverrides.hasRedOverride ? LABELS.YELLOW : LABELS.GREEN,
+      reason: "BARE_METAL uses minimal interpretation and only surfaces explicit metadata-level friction.",
       code: "bare_metal.metadata_only",
-      reason: "BARE_METAL uses minimal interpretation and only surfaces explicit metadata-level escalation.",
     };
   }
 
-  if (lens === LENSES.CALMER && domain === DOMAINS.ANIMAL_PET_NATURE) {
-    if (escalation.hasSevereDistress) {
-      return {
-        color: LABELS.RED,
-        code: "red.animal_severe_distress",
-        reason: "Severe animal distress terms override contextual harmlessness suppression.",
-      };
-    }
-
-    return {
-      color: LABELS.GREEN,
-      code: "green.animal_contextual_suppression",
-      reason: "Harmless animal domain suppressed chaos and intensity signals.",
-    };
-  }
-
-  if (lens === LENSES.EDUCATIONAL && format.lowerFrictionScore > 0) {
-    if (scores.finalScore >= 7 || escalation.hasSevereDistress || escalation.score >= 5) {
-      return {
-        color: LABELS.YELLOW,
-        code: "yellow.educational_difficult_context",
-        reason: "Difficult topic is preserved because the format is explanatory or contextual.",
-      };
-    }
-
-    return {
-      color: LABELS.GREEN,
-      code: "green.educational_context",
-      reason: "Educational lens prioritized depth, context, and explanation.",
-    };
-  }
-
-  if (scores.finalScore >= 10 || (escalation.hasSevereDistress && scores.finalScore >= 5)) {
+  if (escalationOverrides.hasRedOverride) {
     return {
       color: LABELS.RED,
-      code: "red.contextual_escalation",
-      reason: "Domain, context, format, and lens combine into high escalation.",
+      reason: "Severe distress or outrage optimization overrode the domain baseline.",
+      code: "red.severe_distress_override",
     };
   }
 
-  if (scores.finalScore >= (lens === LENSES.CALMER ? 3 : 5)) {
+  if (baselineStatus.isSafeBaseline) {
+    if (frictionTerms.significant.length === 0) {
+      return {
+        color: LABELS.GREEN,
+        reason: "Safe baseline domain detected and no significant friction terms remained after contextual interpretation.",
+        code: "green.safe_baseline_default",
+      };
+    }
+
     return {
       color: LABELS.YELLOW,
-      code: "yellow.contextual_friction",
-      reason: "Contextual interpretation found elevated but not severe friction.",
+      reason: "Safe baseline domain contained mild drama, clickbait, chaotic formatting, or frenetic wording.",
+      code: "yellow.safe_baseline_mild_override",
+    };
+  }
+
+  if (domain === DOMAINS.DRAMA_REACTION || scores.finalScore >= 5 || escalationOverrides.hasYellowOverride) {
+    return {
+      color: scores.finalScore >= 10 ? LABELS.RED : LABELS.YELLOW,
+      reason: "Non-safe domain contained elevated friction signals.",
+      code: scores.finalScore >= 10 ? "red.high_friction_domain" : "yellow.non_safe_friction",
     };
   }
 
   return {
     color: LABELS.GREEN,
-    code: "green.contextual_low_friction",
-    reason: "Contextual interpretation found low friction or regulating intent.",
+    reason: "No meaningful friction override was detected.",
+    code: "green.low_friction",
+  };
+}
+
+function determineBaselineStatus(detectedDomain) {
+  const baseline = DOMAIN_BASELINES[detectedDomain.domain] ?? DOMAIN_BASELINES[DOMAINS.GENERAL];
+  const isSafeBaseline = SAFE_BASELINE_DOMAINS.includes(detectedDomain.domain)
+    && detectedDomain.score >= 1.5;
+
+  return {
+    domain: detectedDomain.domain,
+    isSafeBaseline,
+    status: isSafeBaseline ? "SAFE_BASELINE" : baseline.status,
+    score: isSafeBaseline ? baseline.score : Math.min(baseline.score, 0),
+    label: baseline.label,
+    reason: baseline.reason,
+    strength: detectedDomain.score,
   };
 }
 
 function buildHumanExplanation({
-  domain,
-  lens,
   decision,
-  suppressionModifiers,
-  lensModifiers,
-  format,
-  escalation,
+  domain,
+  baselineStatus,
+  escalationOverrides,
+  frictionTerms,
 }) {
-  const suppression = suppressionModifiers.find((modifier) => modifier.score < 0);
-  const lensModifier = lensModifiers.find((modifier) => modifier.score !== 0);
-
-  if (decision.code === "green.animal_contextual_suppression") {
-    return "Marked GREEN because harmless animal domain suppressed chaos signals.";
+  if (decision.code === "red.severe_distress_override") {
+    return "Marked RED because severe distress terms overrode safe domain baseline.";
   }
 
-  if (decision.code === "red.animal_severe_distress") {
-    return "Marked RED because animal/pet/nature content contains explicit danger or distress terms.";
+  if (decision.code === "yellow.safe_baseline_mild_override") {
+    return `Marked YELLOW because harmless ${humanDomain(domain)} domain contained mild drama/clickbait wording.`;
   }
 
-  if (decision.code === "yellow.educational_difficult_context") {
-    return "Marked YELLOW because a difficult topic is presented through explanatory or documentary context.";
+  if (decision.code === "green.safe_baseline_default") {
+    if (domain === DOMAINS.ANIMAL_PET_NATURE && frictionTerms.suppressed.length > 0) {
+      return "Marked GREEN because harmless animal domain detected and contextual suppression removed harmless energy signals.";
+    }
+
+    return "Marked GREEN because safe baseline domain detected and no escalation signals found.";
   }
 
-  if (decision.code === "green.educational_context") {
-    return "Marked GREEN because Educational lens prioritized depth, context, and explanation.";
+  if (baselineStatus.isSafeBaseline) {
+    return `Marked ${decision.color} after applying safe baseline interpretation.`;
   }
 
-  if (format.signals.higherFriction.length > 0 && lens === LENSES.CALMER) {
-    return "Marked RED/YELLOW because CALMER heavily penalized outrage-optimized format signals.";
-  }
-
-  if (suppression) {
-    return `Marked ${decision.color} because ${suppression.reason}`;
-  }
-
-  if (lensModifier) {
-    return `Marked ${decision.color} because ${lensModifier.reason}`;
-  }
-
-  if (escalation.hasSevereDistress) {
-    return `Marked ${decision.color} because explicit danger or distress terms were detected.`;
-  }
-
-  return `Marked ${decision.color} after interpreting signals through ${domain} domain and ${lens} lens context.`;
+  return `Marked ${decision.color} after contextual friction analysis.`;
 }
 
 function buildReasons({
   detectedDomain,
+  baselineStatus,
   globalSignals,
   tone,
-  emotions,
   format,
-  escalation,
+  escalationOverrides,
   suppressionModifiers,
   lensModifiers,
+  frictionTerms,
   scores,
   decision,
   explanation,
@@ -1062,39 +1060,40 @@ function buildReasons({
       terms: detectedDomain.matches,
     },
     {
-      code: "tone.signals",
-      message: `Detected tone signals across outrage, urgency, fear, anger, intensity, chaos, calm, trust, educational framing, and playful/funny tone.`,
-      terms: flattenSignalObject(globalSignals.signals),
-      detail: globalSignals.scores,
+      code: "baseline.status",
+      message: `Baseline status: ${baselineStatus.status}; ${baselineStatus.reason}`,
+      terms: [baselineStatus.label],
+      detail: baselineStatus,
     },
     {
-      code: "tone.heuristics",
-      message: `Tone heuristics: all-caps ${tone.allCapsIntensity}, exclamations ${tone.exclamationCount}, punctuation density ${tone.punctuationDensity}.`,
-      terms: tone.allCapsWords,
-    },
-    {
-      code: "emotion.categories",
-      message: "Emotion categories scored for calm/regulation, anger/outrage, fear/panic, joy/playfulness, trust/informational, disgust/shock, and sadness/distress.",
-      terms: flattenEmotionMatches(emotions),
-      detail: Object.fromEntries(
-        Object.entries(emotions.categories).map(([category, value]) => [category, value.score]),
-      ),
-    },
-    {
-      code: "format.signals",
-      message: `Format signals: lower-friction ${format.signals.lowerFriction.length}, higher-friction ${format.signals.higherFriction.length}.`,
-      terms: flattenSignalObject(format.signals),
-    },
-    {
-      code: "escalation.signals",
-      message: `Escalation signals score ${escalation.score}; severe distress ${escalation.hasSevereDistress}.`,
-      terms: flattenSignalObject(escalation.signals),
+      code: "escalation.overrides",
+      message: `Escalation overrides: red=${escalationOverrides.hasRedOverride}, yellow=${escalationOverrides.hasYellowOverride}.`,
+      terms: flattenSignalObject(escalationOverrides.signals),
+      detail: escalationOverrides,
     },
     {
       code: "suppression.modifiers",
       message: `Suppression modifiers total ${scores.suppressionScore}.`,
       terms: suppressionModifiers.flatMap((modifier) => modifier.signals),
       detail: suppressionModifiers,
+    },
+    {
+      code: "friction.terms",
+      message: `Friction terms after contextual suppression: ${frictionTerms.significant.length}.`,
+      terms: frictionTerms.significant,
+      detail: frictionTerms,
+    },
+    {
+      code: "tone.analysis",
+      message: `Tone score ${tone.score}; exclamations ${tone.exclamationCount}; all-caps intensity ${tone.allCapsIntensity}.`,
+      terms: flattenSignalObject(globalSignals.signals),
+      detail: tone,
+    },
+    {
+      code: "metadata.modifiers",
+      message: `Metadata/format modifiers lower=${format.lowerFrictionScore}, higher=${format.higherFrictionScore}.`,
+      terms: flattenSignalObject(format.signals),
+      detail: format,
     },
     {
       code: "lens.modifiers",
@@ -1105,7 +1104,7 @@ function buildReasons({
     {
       code: "score.final",
       message: `Final score ${scores.finalScore}; final color ${decision.color}.`,
-      terms: [scores.baseline.reason],
+      terms: [],
       detail: scores,
     },
     {
@@ -1187,12 +1186,14 @@ function flattenMetadata(values) {
   }).filter(Boolean).join(" ");
 }
 
-function flattenEmotionMatches(emotions) {
-  return Object.values(emotions.categories).flatMap((category) => category.matches);
+function humanDomain(domain) {
+  return domain === DOMAINS.ANIMAL_PET_NATURE ? "animal" : domain.toLowerCase().replaceAll("_", " ");
 }
 
 function flattenSignalObject(signals) {
-  return Object.values(signals).flatMap((terms) => terms);
+  return Object.values(signals).flatMap((terms) => (
+    Array.isArray(terms) ? terms : []
+  ));
 }
 
 function scoreTerms(matches, weight = 1) {
@@ -1223,6 +1224,10 @@ function termPattern(term) {
 
 function countMatches(text, pattern) {
   return (asText(text).match(pattern) ?? []).length;
+}
+
+function intersection(values, terms) {
+  return values.filter((value) => terms.includes(value));
 }
 
 function unique(values) {
