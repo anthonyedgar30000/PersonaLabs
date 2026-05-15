@@ -12,7 +12,7 @@
     ["humiliation", "interview"],
     ["breaking", "context"],
     ["disaster", "context"],
-    ["scandal", "long-form interview"],
+    ["scandal", "interview"],
     ["obliterated", "overview"],
     ["annihilated", "overview"],
     ["insane", "overview"],

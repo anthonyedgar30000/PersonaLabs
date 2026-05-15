@@ -361,7 +361,7 @@
       `Current label: ${currentLabel}.`,
       "Why:",
       classification.presentation.reasons.join("; "),
-      "Like This, But:",
+      "Explore This Topic Differently:",
       guidedDiscoveryPresets().map((preset) => preset.label).join("; "),
       "PersonaLabs is helping you explore this topic differently based on your browsing intent.",
       guidedDiscoveryTextFor(classification)
@@ -406,9 +406,9 @@
     });
 
     container.className = "personalabs-guided-discovery";
-    heading.className = "personalabs-like-this-heading";
-    heading.textContent = "Like This, But...";
-    explanation.className = "personalabs-like-this-copy";
+    heading.className = "personalabs-discovery-heading";
+    heading.textContent = "Explore This Topic Differently";
+    explanation.className = "personalabs-discovery-copy";
     explanation.textContent =
       "PersonaLabs is helping you explore this topic differently based on your browsing intent.";
     buttons.className = "personalabs-guided-discovery-actions";
@@ -428,13 +428,13 @@
       buttons.append(button);
     });
 
-    debug.append(debugHeading, debugRowFor("Original", rewrites[0].originalTitle || "untitled"));
+    debug.append(debugHeading, debugRowFor("Original title", rewrites[0].originalTitle || "untitled"));
     rewrites.forEach((rewrite) => {
       const mode = document.createElement("span");
-      const transformed = document.createElement("span");
-      mode.textContent = `Mode: ${rewrite.presetLabel}`;
-      transformed.textContent = `Transformed: ${rewrite.transformedQuery}`;
-      debug.append(mode, transformed);
+      const rewritten = document.createElement("span");
+      mode.textContent = `Mode selected: ${rewrite.presetLabel}`;
+      rewritten.textContent = `Rewritten query: ${rewrite.transformedQuery}`;
+      debug.append(mode, rewritten);
     });
 
     container.append(heading, explanation, buttons, debug);
@@ -449,7 +449,7 @@
     return [
       `Original title: ${rewrites[0].originalTitle || "untitled"}.`,
       ...rewrites.map((rewrite) => {
-        return `Mode: ${rewrite.presetLabel}; transformed query: ${rewrite.transformedQuery}.`;
+        return `Mode selected: ${rewrite.presetLabel}; rewritten query: ${rewrite.transformedQuery}.`;
       })
     ].join(" ");
   }

@@ -41,7 +41,8 @@ assert(lowerFriction.transformedQuery.includes("long-form"), "lowerFriction shou
 
 const longerForm = queryRewriting.rewriteTitle("SCANDAL after debate", "longerForm");
 assert.strictEqual(longerForm.preset, "longerForm");
-assert(longerForm.transformedQuery.includes("long-form interview"), "scandal should become long-form interview");
+assert(longerForm.transformedQuery.includes("interview"), "scandal should become interview");
+assert(longerForm.transformedQuery.includes("long-form"), "longerForm should add long-form framing");
 assert(longerForm.transformedQuery.includes("documentary"), "longerForm should include documentary framing");
 
 assert.deepStrictEqual(queryRewriting.PRESET_ORDER, [
