@@ -16,6 +16,44 @@
     lowerScreenTime: "Lower Screen Time",
     curiosityGuidedLearning: "Curiosity-Guided Learning"
   };
+  const GUIDED_DISCOVERY_ACTIONS = [
+    {
+      id: "calmer",
+      label: "Calmer",
+      suffix: "calm discussion"
+    },
+    {
+      id: "educational",
+      label: "More educational",
+      suffix: "educational explanation overview"
+    },
+    {
+      id: "lessSensational",
+      label: "Less sensational",
+      suffix: "balanced analysis discussion"
+    },
+    {
+      id: "beginnerFriendly",
+      label: "More beginner-friendly",
+      suffix: "beginner friendly explanation"
+    }
+  ];
+  const SENSATIONAL_REWRITES = [
+    ["exposed", "analysis"],
+    ["destroyed", "discussion"],
+    ["destroys", "discussion"],
+    ["destroy", "discussion"],
+    ["obliterated", "overview"],
+    ["annihilated", "overview"],
+    ["shocking", "analysis"],
+    ["insane", "overview"],
+    ["crazy", "overview"],
+    ["scandal", "analysis"],
+    ["meltdown", "discussion"],
+    ["urgent", "overview"],
+    ["breaking", "overview"],
+    ["must watch", "explanation"]
+  ];
   const CARD_SELECTOR = [
     "ytd-rich-item-renderer",
     "ytd-video-renderer",
@@ -212,7 +250,7 @@
       status: classification.status,
       userGoal,
       labelBand: presentation.labelBand,
-      rawExtractedTitle: developerMode ? classification.internalSignals.rawExtractedTitle : ""
+      rawExtractedTitle: classification.internalSignals.rawExtractedTitle
     });
 
     badge.dataset.status = classification.status;
@@ -251,6 +289,7 @@
     const whyLabel = document.createElement("span");
     const reasons = document.createElement("span");
     const confidence = document.createElement("span");
+    const guidedDiscovery = guidedDiscoveryElementFor(classification);
     const currentLabel = currentLabelFor(classification);
 
     tooltip.className = "personalabs-tooltip";
@@ -289,7 +328,7 @@
     confidence.className = "personalabs-tooltip-confidence";
     confidence.textContent = `Confidence: ${classification.presentation.signalConfidence}`;
 
-    tooltip.append(title, summary, details, whyLabel, reasons, confidence);
+    tooltip.append(title, summary, details, whyLabel, reasons, confidence, guidedDiscovery);
 
     if (developerMode) {
       tooltip.append(developerPanelFor(classification));
@@ -356,7 +395,9 @@
       `Confidence: ${classification.presentation.signalConfidence}.`,
       `Current label: ${currentLabel}.`,
       "Why:",
-      classification.presentation.reasons.join("; ")
+      classification.presentation.reasons.join("; "),
+      "Guided Discovery: Find similar, but:",
+      GUIDED_DISCOVERY_ACTIONS.map((action) => action.label).join("; ")
     ].join(" ");
 
     return developerDetails ? `${baseTooltip} Developer signals: ${developerDetails}` : baseTooltip;
@@ -376,6 +417,63 @@
       .flatMap((impact) => impact.matchedTerms);
 
     return scoring.formatTerms(Array.from(new Set(terms)));
+  }
+
+  function guidedDiscoveryElementFor(classification) {
+    const container = document.createElement("span");
+    const heading = document.createElement("span");
+    const buttons = document.createElement("span");
+
+    container.className = "personalabs-guided-discovery";
+    heading.className = "personalabs-tooltip-heading";
+    heading.textContent = "Find similar, but:";
+    buttons.className = "personalabs-guided-discovery-actions";
+
+    GUIDED_DISCOVERY_ACTIONS.forEach((action) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = action.label;
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openGuidedDiscovery(classification, action);
+      });
+      buttons.append(button);
+    });
+
+    container.append(heading, buttons);
+    return container;
+  }
+
+  function openGuidedDiscovery(classification, action) {
+    const query = rewriteDiscoveryQuery(classification.internalSignals.rawExtractedTitle, action);
+    const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  function rewriteDiscoveryQuery(title, action) {
+    const rewrittenTitle = SENSATIONAL_REWRITES.reduce((query, [term, replacement]) => {
+      return query.replace(new RegExp(`\\b${escapeRegExp(term)}\\b`, "gi"), replacement);
+    }, normalizeDiscoveryTitle(title));
+
+    return appendUniqueTerms(rewrittenTitle, action.suffix);
+  }
+
+  function normalizeDiscoveryTitle(title) {
+    return String(title || "")
+      .replace(/[!?]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function appendUniqueTerms(query, suffix) {
+    const queryWords = new Set(query.toLowerCase().split(/\s+/).filter(Boolean));
+    const suffixWords = suffix.split(/\s+/).filter((word) => !queryWords.has(word.toLowerCase()));
+    return [query, suffixWords.join(" ")].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+  }
+
+  function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 
   function removeOverlay(card) {

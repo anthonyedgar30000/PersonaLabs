@@ -95,7 +95,7 @@
   max-width: 320px;
   opacity: 0;
   padding: 9px 10px;
-  pointer-events: none;
+  pointer-events: auto;
   position: absolute;
   transform: translateY(4px);
   transition: opacity 120ms ease, transform 120ms ease;
@@ -134,6 +134,7 @@
 
 .personalabs-tooltip-reasons,
 .personalabs-tooltip-details,
+.personalabs-guided-discovery,
 .personalabs-developer-panel {
   display: grid;
   gap: 4px;
@@ -153,6 +154,34 @@
 .personalabs-tooltip-confidence {
   border-top: 1px solid rgba(148, 163, 184, 0.22);
   padding-top: 7px;
+}
+
+.personalabs-guided-discovery {
+  border-top: 1px solid rgba(148, 163, 184, 0.22);
+  padding-top: 7px;
+}
+
+.personalabs-guided-discovery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.personalabs-guided-discovery-actions button {
+  background: rgba(37, 99, 235, 0.18);
+  border: 1px solid rgba(147, 197, 253, 0.32);
+  border-radius: 999px;
+  color: #dbeafe;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  padding: 4px 7px;
+}
+
+.personalabs-guided-discovery-actions button:hover,
+.personalabs-guided-discovery-actions button:focus-visible {
+  background: rgba(37, 99, 235, 0.32);
+  outline: none;
 }
 
 .personalabs-developer-panel {
