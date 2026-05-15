@@ -159,7 +159,11 @@ src/
   retrieval-pipeline.js  Retrieval/query/scoring/ranking interfaces
   content.js             YouTube anchor selector and presentation layer
   content.css            Panel, badge, and overlay styling
+lib/
+  headlineAnalyzer.js    Deterministic Chill-mode headline label engine
+  headlineAnalyzer.ts    TypeScript-facing export surface for analyzeHeadline
 test/
+  headline-analyzer.test.js
   semantic-core.test.js
   retrieval-pipeline.test.js
 ```
@@ -176,6 +180,10 @@ Layer boundaries:
 - Ranking Layer: GREEN/YELLOW/RED reranking and lens-aware filtering.
 - Presentation Layer: browser extension control panel, contextual anchor
   selection, and visible classification UI.
+- Headline Labeling Layer: deterministic `analyzeHeadline(title, source, mode)`
+  labels card titles Green/Yellow/Red for ContextOS/PersonaLabs modes using
+  weighted dictionaries, phrase matching, source-format adjustment, and
+  explainable matched terms.
 
 The semantic and retrieval modules are dependency-free and can run in both the
 browser content script and Node tests. They do not use cloud APIs by default, LLM

@@ -353,19 +353,22 @@
 }
 
 .personalabs-classification-overlay {
-  align-items: center;
+  align-items: flex-start;
   backdrop-filter: blur(6px);
-  border-radius: 999px;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
-  display: inline-flex !important;
+  border-radius: 12px;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.32);
+  display: flex !important;
+  flex-direction: column;
+  gap: 3px;
   font-family: Inter, Roboto, Arial, sans-serif;
-  font-size: 11px;
-  font-weight: 950;
+  font-size: 10px;
+  font-weight: 800;
   left: 8px;
   letter-spacing: 0.04em;
-  line-height: 1;
+  line-height: 1.15;
+  max-width: min(220px, calc(100% - 16px));
   opacity: 1 !important;
-  padding: 6px 8px;
+  padding: 7px 9px;
   pointer-events: none;
   position: absolute;
   text-transform: uppercase;
@@ -374,6 +377,25 @@
   visibility: visible !important;
   white-space: nowrap;
   z-index: 2147483646;
+}
+
+.personalabs-overlay-label {
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.personalabs-overlay-breakdown,
+.personalabs-overlay-reason,
+.personalabs-overlay-terms {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.personalabs-overlay-reason,
+.personalabs-overlay-terms {
+  opacity: 0.9;
+  text-transform: none;
 }
 
 .personalabs-classification-overlay[data-signal="green"] {

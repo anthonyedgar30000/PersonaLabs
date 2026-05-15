@@ -3,6 +3,7 @@
 
   const semantic = window.PersonaLabsSemantic;
   const retrieval = window.PersonaLabsRetrieval;
+  const headlineAnalyzer = window.PersonaLabsHeadlineAnalyzer;
   const LOG_PREFIX = "[PersonaLabs rendering]";
   const DEBUG_RENDERING = true;
 
@@ -13,6 +14,11 @@
 
   if (!retrieval) {
     console.warn(LOG_PREFIX, "content.js executed, but retrieval pipeline is unavailable");
+    return;
+  }
+
+  if (!headlineAnalyzer) {
+    console.warn(LOG_PREFIX, "content.js executed, but headline analyzer is unavailable");
     return;
   }
 
@@ -538,7 +544,7 @@
         return;
       }
 
-      const titleKey = `${candidate.title}:${state.anchor ? state.anchor.subjectAnchor : "no-anchor"}:${state.activePathId || "no-lens"}`;
+      const titleKey = `${candidate.title}:${candidate.channel || "no-channel"}:${state.anchor ? state.anchor.subjectAnchor : "no-anchor"}:${state.activePathId || "no-lens"}`;
       const existingOverlay = card.querySelector(".personalabs-classification-overlay");
       const existingBadge = card.querySelector(".personalabs-observability-badge");
       if (card.dataset.personaLabsTitle === titleKey && existingOverlay && existingBadge) {
@@ -548,21 +554,25 @@
 
       card.dataset.personaLabsTitle = titleKey;
       const scoring = state.anchor ? semantic.scoreCandidate(candidate, state.anchor, activePath()) : null;
+      const headline = headlineAnalyzer.analyzeHeadline(candidate.title, candidate.channel, "chill");
       const styleSignals = semantic.classifyStyleTerms(candidate.title);
-      const label = scoring === null ? (styleSignals.length ? "PL style signal" : "PL calm signal") : `PL ${scoring.classification.color} ${scoring.score}`;
-      const category = scoring === null ? (styleSignals.length ? "yellow" : "green") : scoring.classification.color.toLowerCase();
+      const label = `PL ${headline.label}`;
+      const category = headline.color;
       const details = {
         ...describeCard(card, candidate),
-        score: scoring && scoring.score,
-        color: scoring && scoring.classification.color,
+        headlineScores: headline.scores,
+        headlineExplanation: headline.explanation,
+        matchedTerms: summarizeHeadlineTerms(headline),
+        semanticScore: scoring && scoring.score,
+        semanticColor: scoring && scoring.classification.color,
         category,
         label
       };
 
       debugLog("assigned deterministic classification", details);
 
-      const titleBadgeCreated = upsertTitleBadge(card, label, category, scoring);
-      const overlayCreated = upsertThumbnailOverlay(card, label, category, scoring);
+      const titleBadgeCreated = upsertTitleBadge(card, label, category, scoring, headline);
+      const overlayCreated = upsertThumbnailOverlay(card, label, category, scoring, headline);
 
       if (titleBadgeCreated || overlayCreated) {
         renderedCount += 1;
@@ -586,7 +596,47 @@
     });
   }
 
-  function upsertTitleBadge(card, label, category, scoring) {
+  function summarizeHeadlineTerms(headline) {
+    return {
+      green: headline.matchedTerms.green.map((match) => match.term),
+      yellow: headline.matchedTerms.yellow.map((match) => match.term),
+      red: headline.matchedTerms.red.map((match) => match.term)
+    };
+  }
+
+  function formatHeadlineTooltip(headline, scoring) {
+    const terms = summarizeHeadlineTerms(headline);
+    const matched = [
+      terms.green.length ? `green: ${terms.green.join(", ")}` : "",
+      terms.yellow.length ? `yellow: ${terms.yellow.join(", ")}` : "",
+      terms.red.length ? `red: ${terms.red.join(", ")}` : ""
+    ]
+      .filter(Boolean)
+      .join(" | ");
+
+    return [
+      headline.explanation,
+      `Headline scores: green ${headline.scores.green_score}, yellow ${headline.scores.yellow_score}, red ${headline.scores.red_score}.`,
+      matched ? `Matched terms: ${matched}.` : "Matched terms: none.",
+      scoring ? `Semantic score: ${scoring.score} (${scoring.classification.color}).` : ""
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  function renderHeadlineOverlay(label, headline) {
+    const terms = summarizeHeadlineTerms(headline);
+    const matched = [...terms.green, ...terms.yellow, ...terms.red].slice(0, 4).join(", ") || "no matched terms";
+
+    return [
+      `<span class="personalabs-overlay-label">${escapeHtml(label)}</span>`,
+      `<span class="personalabs-overlay-breakdown">G ${headline.scores.green_score} / Y ${headline.scores.yellow_score} / R ${headline.scores.red_score}</span>`,
+      `<span class="personalabs-overlay-reason">${escapeHtml(headline.explanation)}</span>`,
+      `<span class="personalabs-overlay-terms">${escapeHtml(matched)}</span>`
+    ].join("");
+  }
+
+  function upsertTitleBadge(card, label, category, scoring, headline) {
     const titleElement = findTitleElement(card);
     if (!titleElement) {
       warnLog("title badge skipped; no title element found", { tag: card && card.tagName });
@@ -602,10 +652,7 @@
 
     badge.textContent = label;
     badge.dataset.signal = category;
-    badge.title =
-      scoring === null
-        ? "PersonaLabs contextual observability signal"
-        : scoring.classification.meaning;
+    badge.title = formatHeadlineTooltip(headline, scoring);
 
     return badge.isConnected;
   }
@@ -626,7 +673,7 @@
     );
   }
 
-  function upsertThumbnailOverlay(card, label, category, scoring) {
+  function upsertThumbnailOverlay(card, label, category, scoring, headline) {
     const host = findThumbnailHost(card);
     if (!host) {
       warnLog("thumbnail overlay skipped; no host found", { tag: card && card.tagName });
@@ -644,12 +691,9 @@
       host.appendChild(overlay);
     }
 
-    overlay.textContent = label;
+    overlay.innerHTML = renderHeadlineOverlay(label, headline);
     overlay.dataset.signal = category;
-    overlay.title =
-      scoring === null
-        ? "PersonaLabs contextual observability signal"
-        : scoring.classification.meaning;
+    overlay.title = formatHeadlineTooltip(headline, scoring);
 
     return overlay.isConnected;
   }
