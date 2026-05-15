@@ -28,6 +28,34 @@ The system helps users notice when digital media consumption patterns drift away
 - Explainable scoring summaries
 - Adaptive schedule renegotiation prompts
 
+## Lens-Aware Lexical Labeling
+
+PersonaLabs includes a dependency-free JavaScript classifier for explainable
+GREEN/YELLOW/RED labeling:
+
+```js
+import { labelContent } from "personalabs";
+
+const result = labelContent({
+  title: "Funny Rabbit Compilation",
+  channel: "Cozy Bunny Shorts",
+  lens: "calmer",
+});
+
+// result.label === "GREEN"
+// result.domain === "ANIMAL_PET_NATURE"
+// result.reasons explains the domain, lens, and matched terms.
+```
+
+For the CALMER/lower-friction lens, animal, pet, and nature content defaults to
+GREEN when no distress or escalation terms are present. Engagement words such as
+`funny`, `cute`, `compilation`, `eating`, `playing`, `baby`, `shorts`, and
+`viral` are treated as harmless in that domain. Animal/pet/nature content only
+becomes YELLOW for explicit chaotic-but-harmless terms such as `hyper`, `loud`,
+`chaotic`, `prank`, `fail`, `screaming`, or `zoomies`, and RED for explicit
+distress/danger terms such as `attack`, `injured`, `death`, `abuse`,
+`emergency`, or `rescue crisis`.
+
 ## Example Prompt
 
 "Looks like your activity drifted away from Study Mode.
