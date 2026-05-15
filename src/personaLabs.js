@@ -580,8 +580,9 @@ export function detectDomain(content = {}) {
     .map((definition) => {
       const matches = findTerms(textParts.domainText, definition.terms);
       const metadataMatches = findTerms(textParts.metadataText, definition.terms);
-      const score = scoreTerms(matches, 1)
-        + scoreTerms(metadataMatches, 1.25)
+      const domainWeight = definition.domain === DOMAINS.DOCUMENTARY ? 2 : 1;
+      const score = scoreTerms(matches, domainWeight)
+        + scoreTerms(metadataMatches, domainWeight + 0.25)
         + (matches.length > 0 || metadataMatches.length > 0 ? definition.priority / 100 : 0);
 
       return {
