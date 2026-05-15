@@ -4,6 +4,17 @@ const ADAPTIVE_GUIDANCE_STORAGE_KEY = "personaLabsAdaptiveGuidance";
 const USER_GOAL_STORAGE_KEY = "personaLabsUserGoal";
 const DEFAULT_MODE = "chill";
 const DEFAULT_USER_GOAL = "relaxDecompress";
+const MODE_LABELS = {
+  chill: "Chill Mode",
+  bareMetal: "Bare Metal"
+};
+const USER_GOAL_LABELS = {
+  relaxDecompress: "Relax / Decompress",
+  reduceDoomscrolling: "Reduce Doomscrolling",
+  focusLearn: "Focus / Learn",
+  lowerScreenTime: "Lower Screen Time",
+  curiosityGuidedLearning: "Curiosity-Guided Learning"
+};
 const VALID_MODES = new Set(["chill", "bareMetal"]);
 const VALID_USER_GOALS = new Set([
   "relaxDecompress",
@@ -18,6 +29,9 @@ const developerModeInput = document.querySelector("#developer-mode");
 const adaptiveGuidanceInput = document.querySelector("#adaptive-guidance");
 const adaptiveGuidanceStatus = document.querySelector("#adaptive-guidance-status");
 const userGoalSelect = document.querySelector("#user-goal");
+const runtimeModeSummary = document.querySelector("#runtime-mode-summary");
+const runtimeGoalSummary = document.querySelector("#runtime-goal-summary");
+const runtimeGuidanceSummary = document.querySelector("#runtime-guidance-summary");
 
 chrome.storage.local.get(
   {
@@ -80,25 +94,40 @@ function normalizeUserGoal(userGoal) {
 }
 
 function setActiveMode(mode) {
+  const normalizedMode = normalizeMode(mode);
   modeButtons.forEach((button) => {
-    const isActive = button.dataset.mode === mode;
+    const isActive = button.dataset.mode === normalizedMode;
     button.classList.toggle("active", isActive);
     button.setAttribute("aria-pressed", String(isActive));
   });
+
+  if (runtimeModeSummary) {
+    runtimeModeSummary.textContent = MODE_LABELS[normalizedMode];
+  }
 }
 
 function setAdaptiveGuidance(enabled) {
+  const guidanceEnabled = Boolean(enabled);
   if (adaptiveGuidanceInput) {
-    adaptiveGuidanceInput.checked = enabled;
+    adaptiveGuidanceInput.checked = guidanceEnabled;
   }
 
   if (adaptiveGuidanceStatus) {
-    adaptiveGuidanceStatus.textContent = enabled ? "On" : "Off";
+    adaptiveGuidanceStatus.textContent = guidanceEnabled ? "On" : "Off";
+  }
+
+  if (runtimeGuidanceSummary) {
+    runtimeGuidanceSummary.textContent = guidanceEnabled ? "On" : "Off";
   }
 }
 
 function setUserGoal(userGoal) {
+  const normalizedGoal = normalizeUserGoal(userGoal);
   if (userGoalSelect) {
-    userGoalSelect.value = normalizeUserGoal(userGoal);
+    userGoalSelect.value = normalizedGoal;
+  }
+
+  if (runtimeGoalSummary) {
+    runtimeGoalSummary.textContent = USER_GOAL_LABELS[normalizedGoal];
   }
 }

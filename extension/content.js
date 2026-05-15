@@ -268,6 +268,7 @@
     [
       ["Current goal", currentGoalLabel()],
       ["Adaptive guidance", adaptiveGuidance ? "on" : "off"],
+      ["Matched lexical signals", matchedLexicalSignalsFor(classification)],
       ["Matched positive signals", matchedSignalsFor(classification, "positive")],
       ["Matched negative signals", matchedSignalsFor(classification, "negative")],
       ["Confidence", classification.presentation.signalConfidence],
@@ -353,6 +354,7 @@
       classification.presentation.summary,
       `Current goal: ${currentGoalLabel()}.`,
       `Adaptive guidance: ${adaptiveGuidance ? "on" : "off"}.`,
+      `Matched lexical signals: ${matchedLexicalSignalsFor(classification)}.`,
       `Matched positive signals: ${matchedSignalsFor(classification, "positive")}.`,
       `Matched negative signals: ${matchedSignalsFor(classification, "negative")}.`,
       `Confidence: ${classification.presentation.signalConfidence}.`,
@@ -373,6 +375,10 @@
 
   function currentLabelFor(classification) {
     return classification.presentation.userLabel;
+  }
+
+  function matchedLexicalSignalsFor(classification) {
+    return scoring.formatTerms(classification.matches || []);
   }
 
   function matchedSignalsFor(classification, direction) {
