@@ -136,6 +136,7 @@ test("does not require cloud, embeddings, or opaque recommendation inputs", () =
     "sourceFormat",
     "calmAnimalScore",
     "harmlessEnergy",
+    "animalDistressScore",
     "penalty"
   ]);
   assert.equal(score.classification.color, "GREEN");
@@ -244,7 +245,12 @@ test("classifies calm animal and relaxing content as GREEN", () => {
     "Pet Videos",
     "Dog Videos",
     "Cat Videos",
-    "Pet Compilation"
+    "Pet Compilation",
+    "Cute Rabbit Eating Carrot",
+    "Funny Baby Bunny Compilation",
+    "Cute Bird Singing",
+    "Baby Rabbits Doing Funny Things",
+    "Relaxing Aquarium Fish Video"
   ];
 
   cases.forEach((title) => {
@@ -263,16 +269,19 @@ test("classifies calm animal and relaxing content as GREEN", () => {
     assert.equal(score.classification.color, "GREEN", title);
     assert(score.reasons.includes("calm/relaxing positive signals"));
     assert(score.reasons.includes("calm animal/nature signals"));
+    assert(score.reasons.includes("Calm/pet content detected; no distress or escalation signals found."));
     assert(score.debug.calm_animal_score >= 1);
     assert.equal(score.debug.escalation_score, 0);
-    assert.match(score.debug.final_classification_reason, /calm|relaxing|animal/i);
+    assert.match(score.debug.final_classification_reason, /Calm\/pet content detected/i);
   });
 });
 
 test("classifies energetic harmless pet pacing as YELLOW without escalation", () => {
   const cases = [
     "Funny Hyper Puppy Shorts Compilation",
-    "Loud Meme Cat Reactions"
+    "Loud Meme Cat Reactions",
+    "Hyper Dog Zoomies Compilation",
+    "Loud Cat Screaming Meme"
   ];
 
   cases.forEach((title) => {
@@ -289,7 +298,33 @@ test("classifies energetic harmless pet pacing as YELLOW without escalation", ()
     );
 
     assert.equal(score.classification.color, "YELLOW", title);
-    assert(score.reasons.includes("harmless energetic pacing"));
+    assert(score.reasons.includes("chaotic but non-dangerous animal/pet energy"));
+    assert.equal(score.debug.escalation_score, 0);
+  });
+});
+
+test("does not downgrade harmless animal pacing terms to YELLOW by themselves", () => {
+  const cases = [
+    "Funny Baby Bunny Compilation",
+    "Cute Cat Reaction",
+    "Viral Puppy Shorts",
+    "Baby Rabbit Eating"
+  ];
+
+  cases.forEach((title) => {
+    const anchor = semantic.analyzeAnchor(title);
+    const path = semantic.buildExplorationPaths(anchor).find((lens) => lens.id === "calmer");
+    const score = semantic.scoreCandidate(
+      {
+        title,
+        channel: "Pet Videos",
+        duration: "0:45"
+      },
+      anchor,
+      path
+    );
+
+    assert.equal(score.classification.color, "GREEN", title);
     assert.equal(score.debug.escalation_score, 0);
   });
 });
@@ -297,7 +332,9 @@ test("classifies energetic harmless pet pacing as YELLOW without escalation", ()
 test("classifies animal distress and escalation framing as RED", () => {
   const cases = [
     "SHOCKING Animal Attack Compilation",
-    "Terrifying Pet Emergency Breakdown"
+    "Terrifying Pet Emergency Breakdown",
+    "Shocking Animal Attack",
+    "Injured Dog Emergency Rescue"
   ];
 
   cases.forEach((title) => {

@@ -219,6 +219,7 @@
     "animals",
     "pet",
     "pets",
+    "wildlife",
     "soothing",
     "sleep",
     "peaceful",
@@ -231,16 +232,36 @@
   const CALM_POSITIVE_TERMS = CALM_NATURE_ANIMAL_SIGNALS;
 
   const HARMLESS_ENERGETIC_TERMS = [
-    "funny",
     "hyper",
     "loud",
-    "meme",
-    "memes",
-    "shorts",
-    "reaction",
-    "reactions",
+    "prank",
+    "chase",
+    "chaos",
+    "fail",
+    "messy",
+    "crazy",
+    "zoomies",
+    "screaming",
     "fast-cut",
     "fast cut"
+  ];
+
+  const ANIMAL_DISTRESS_TERMS = [
+    "shocking",
+    "panic",
+    "attack",
+    "attacked",
+    "injury",
+    "injured",
+    "died",
+    "death",
+    "emergency",
+    "terrifying",
+    "disturbing",
+    "brutal",
+    "abuse",
+    "rescue crisis",
+    "exposed"
   ];
 
   const BEGINNER_TERMS = [
@@ -537,6 +558,7 @@
       calmPositive: detectTerms(text, CALM_POSITIVE_TERMS, "calm-positive"),
       calmNatureAnimal: detectTerms(text, CALM_NATURE_ANIMAL_SIGNALS, "calm-nature-animal"),
       harmlessEnergetic: detectTerms(text, HARMLESS_ENERGETIC_TERMS, "harmless-energetic"),
+      animalDistress: detectTerms(text, ANIMAL_DISTRESS_TERMS, "animal-distress"),
       interviewDiscussion: detectTerms(text, INTERVIEW_DISCUSSION_TERMS, "interview-discussion"),
       lowerFrictionSource: detectTerms(text, LOWER_FRICTION_SOURCE_TERMS, "lower-friction-source"),
       mixedSource: detectTerms(text, MIXED_SOURCE_TERMS, "mixed-source"),
@@ -854,12 +876,40 @@
     const hasFormatTrust = metrics.informationalTone >= 6 || metrics.sourceFormat >= 5;
     const strongCalmPositive = metrics.calmPositive >= 2;
     const clearCalmAnimalSubject = metrics.calmAnimalScore >= 1;
-    const noEscalation = metrics.escalationScore === 0;
-    const harmlessEnergyWithoutCompression = metrics.harmlessEnergy >= 2 && noEscalation;
+    const noAnimalDistress = metrics.animalDistressScore === 0;
+    const noEscalation = metrics.escalationScore === 0 && noAnimalDistress;
+    const harmlessEnergyWithoutCompression = metrics.harmlessEnergy >= 1 && noAnimalDistress;
     const lowFriction =
       metrics.calmLanguage >= 16 &&
       metrics.styleTermCount === 0 &&
       metrics.capitalizationRatio <= 0.36;
+
+    if (clearCalmAnimalSubject && metrics.animalDistressScore > 0) {
+      return {
+        color: "RED",
+        label: "high-friction/escalatory",
+        meaning: "Animal/pet/nature content with explicit distress or danger framing.",
+        reason: "explicit animal distress or danger framing detected"
+      };
+    }
+
+    if (clearCalmAnimalSubject && harmlessEnergyWithoutCompression) {
+      return {
+        color: "YELLOW",
+        label: "mixed but useful",
+        meaning: "Chaotic but non-dangerous animal/pet energy without true distress.",
+        reason: "chaotic animal/pet pacing without distress"
+      };
+    }
+
+    if (clearCalmAnimalSubject && noAnimalDistress) {
+      return {
+        color: "GREEN",
+        label: "safe candidate",
+        meaning: "Calm/pet content detected; no distress or escalation signals found.",
+        reason: "Calm/pet content detected; no distress or escalation signals found."
+      };
+    }
 
     if (severeFriction || (metrics.styleTermCount >= 1 && metrics.score < 34)) {
       return {
@@ -867,24 +917,6 @@
         label: "high-friction/escalatory",
         meaning: "High-friction or escalatory framing; filtered out of guided exploration.",
         reason: "explicit escalation or distress framing detected"
-      };
-    }
-
-    if (harmlessEnergyWithoutCompression) {
-      return {
-        color: "YELLOW",
-        label: "mixed but useful",
-        meaning: "Energetic or meme-paced content without true escalation.",
-        reason: "harmless energetic pacing without escalation"
-      };
-    }
-
-    if (clearCalmAnimalSubject && noEscalation) {
-      return {
-        color: "GREEN",
-        label: "safe candidate",
-        meaning: "Calm animal, pet, nature, or ambient relaxation presentation.",
-        reason: "calm nature/animal override: animal/pet/nature subject with no escalation"
       };
     }
 
@@ -938,9 +970,10 @@
     const styleTerms = signals.friction;
     const educationalMatches = countMatches(tokens, EXPLANATORY_TERMS);
     const lowFrictionMatches = countMatches(tokens, CALM_LOW_FRICTION_TERMS);
-    const calmPositiveMatches = countMatches(titleTokens, CALM_POSITIVE_TERMS);
-    const calmNatureAnimalMatches = countMatches(titleTokens, CALM_NATURE_ANIMAL_SIGNALS);
+    const calmPositiveMatches = countMatches(tokens, CALM_POSITIVE_TERMS);
+    const calmNatureAnimalMatches = countMatches(tokens, CALM_NATURE_ANIMAL_SIGNALS);
     const harmlessEnergeticMatches = countMatches(titleTokens, HARMLESS_ENERGETIC_TERMS);
+    const animalDistressMatches = countMatches(titleTokens, ANIMAL_DISTRESS_TERMS);
     const beginnerMatches = countMatches(tokens, BEGINNER_TERMS);
     const neutralReportingMatches = countMatches(tokens, NEUTRAL_REPORTING_TERMS);
     const interviewDiscussionMatches = countMatches(tokens, INTERVIEW_DISCUSSION_TERMS);
@@ -986,6 +1019,7 @@
       calmAnimalScore: calmNatureAnimalMatches,
       escalationScore: styleTerms.length,
       harmlessEnergy: harmlessEnergeticMatches,
+      animalDistressScore: animalDistressMatches,
       penalty,
       styleTermCount: styleTerms.length,
       capitalizationRatio: capRatio
@@ -1010,8 +1044,11 @@
     if (calmNatureAnimalMatches > 0) {
       reasons.push("calm animal/nature signals");
     }
+    if (classification.reason === "Calm/pet content detected; no distress or escalation signals found.") {
+      reasons.push("Calm/pet content detected; no distress or escalation signals found.");
+    }
     if (harmlessEnergeticMatches > 0) {
-      reasons.push("harmless energetic pacing");
+      reasons.push("chaotic but non-dangerous animal/pet energy");
     }
     if (sourceFormat > 0) {
       reasons.push("lower-friction source format");
@@ -1037,7 +1074,7 @@
       classification,
       debug: {
         calm_animal_score: calmNatureAnimalMatches,
-        escalation_score: styleTerms.length,
+        escalation_score: animalDistressMatches || styleTerms.length,
         final_classification_reason: classification.reason
       },
       breakdown: {
@@ -1050,6 +1087,7 @@
         sourceFormat,
         calmAnimalScore: calmNatureAnimalMatches,
         harmlessEnergy: harmlessEnergeticMatches,
+        animalDistressScore: animalDistressMatches,
         penalty
       },
       reasons,
