@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "PersonaLabs",
+  "description": "Intentional semantic navigation and guided YouTube exploration.",
+  "version": "0.1.0",
+  "permissions": ["storage"],
+  "host_permissions": ["https://www.youtube.com/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "js": ["src/semantic-core.js", "src/retrieval-pipeline.js", "lib/headlineAnalyzer.js", "src/content.js"],
+      "css": ["src/content.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
