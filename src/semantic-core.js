@@ -61,8 +61,11 @@
       "humiliated",
       "crushes",
       "crushed",
+      "roast",
       "roasts",
+      "cooked",
       "cooks",
+      "cooking him",
       "slams",
       "eviscerates",
       "wrecks",
@@ -156,6 +159,7 @@
     "parody",
     "comedy",
     "sketch",
+    "roast battle",
     "fake debate",
     "boss",
     "final boss",
@@ -1063,6 +1067,24 @@
       };
     }
 
+    if (metrics.styleTermCount >= 1 && contextSoftensFriction) {
+      return {
+        color: "YELLOW",
+        label: "mixed or unclear framing",
+        meaning: "Escalatory title wording was detected, but contextual framing softened the intensity.",
+        reason: "escalation signals detected but softened by context"
+      };
+    }
+
+    if (metrics.styleTermCount >= 1) {
+      return {
+        color: "YELLOW",
+        label: "mixed or unclear framing",
+        meaning: "Escalatory title wording was detected but did not cross the high-intensity threshold.",
+        reason: "escalation signals detected; ranked lower"
+      };
+    }
+
     if (metrics.cautionaryClaim > 0 || metrics.sensitiveGuidance > 0) {
       return {
         color: "YELLOW",
@@ -1470,7 +1492,8 @@
       }),
       semanticTraceEvent(result, 4, "semantic scoring", {
         scores: result.scores,
-        confidenceDeltas: result.semanticSignals.confidenceDeltas
+        confidenceDeltas: result.semanticSignals.confidenceDeltas,
+        escalationDebug: result.semanticSignals.escalationDebug
       }),
       semanticTraceEvent(result, 5, "confidence consistency validation", {
         confidenceValidation: result.confidenceValidation
@@ -1555,8 +1578,35 @@
     const format =
       Math.min(10, countMatches(tokens, LONG_FORM_TERMS) * 3 + interviewDiscussionMatches * 2 + (durationSeconds >= 20 * 60 ? 5 : durationSeconds >= 8 * 60 ? 2 : 0));
     const neutralOffset = styleTerms.length > 0 ? 0 : Math.min(8, neutralReportingMatches * 2 + interviewDiscussionMatches * 2 + lowerFrictionSourceMatches * 2);
-    const penalty = Math.max(0, Math.min(28, styleTerms.length * 6 + mixedSourceMatches * 2 + (capRatio > 0.5 ? 8 : 0) - neutralOffset));
+    const styleTermPenalty = styleTerms.length * 6;
+    const mixedSourcePenalty = mixedSourceMatches * 2;
+    const capitalizationPenalty = capRatio > 0.5 ? 8 : 0;
+    const rawEscalationPenalty = styleTermPenalty + mixedSourcePenalty + capitalizationPenalty;
+    const penalty = Math.max(0, Math.min(28, rawEscalationPenalty - neutralOffset));
     const score = clampScore(topicRelevance + educationalFraming + calmLanguage + continuity + format + informationalTone + sourceFormat - penalty);
+    const matchedEscalationKeywords = termsFromSignals(styleTerms);
+    const contextSoftensFriction =
+      (contextualDownweightMatches >= 1 || domainSofteningMatches >= 1) &&
+      styleTerms.length <= 2 &&
+      animalDistressMatches === 0;
+    const escalationDebug = {
+      matchedEscalationKeywords,
+      escalationScoreContribution: {
+        styleTermCount: styleTerms.length,
+        styleTermPenalty,
+        mixedSourcePenalty,
+        capitalizationPenalty,
+        rawPenalty: rawEscalationPenalty,
+        appliedPenalty: penalty
+      },
+      softeningDeductions: {
+        neutralOffset,
+        contextualDownweightMatches,
+        domainSofteningMatches,
+        classificationSoftened: contextSoftensFriction
+      },
+      finalScoreBeforeLabelMapping: score
+    };
     const classificationMetrics = {
       score,
       topicRelevance,
@@ -1697,6 +1747,7 @@
           friction: confidence.frictionConfidence,
           positiveSignal: confidence.positiveSignalConfidence
         },
+        escalationDebug,
         semanticOverrides: classification.reason,
         finalDecisionSource: "canonical.semantic.classifyScoredCandidate"
       },
@@ -1729,6 +1780,10 @@
       debug: {
         calm_animal_score: calmNatureAnimalMatches,
         escalation_score: animalDistressMatches || styleTerms.length,
+        matched_escalation_keywords: matchedEscalationKeywords,
+        escalation_score_contribution: escalationDebug.escalationScoreContribution,
+        softening_deductions: escalationDebug.softeningDeductions,
+        final_score_before_label_mapping: score,
         final_classification_reason: classification.reason,
         evidence_summary: evidenceSummary,
         confidence: confidence.confidence,
