@@ -59,6 +59,52 @@
     "a.yt-lockup-metadata-view-model-wiz__title",
     ".yt-lockup-metadata-view-model-wiz__title"
   ].join(",");
+  const TITLE_LINK_FALLBACK_SELECTOR = [
+    "#video-title[href*='watch']",
+    "#video-title[href*='/shorts/']",
+    "#video-title-link[href*='watch']",
+    "#video-title-link[href*='/shorts/']",
+    "a#video-title[href*='watch']",
+    "a#video-title[href*='/shorts/']",
+    "h3 a[href*='watch']",
+    "h3 a[href*='/shorts/']",
+    "a.yt-lockup-metadata-view-model-wiz__title[href*='watch']",
+    "a.yt-lockup-metadata-view-model-wiz__title[href*='/shorts/']"
+  ].join(",");
+  const VIDEO_SURFACE_REGION_SELECTOR = [
+    "ytd-search",
+    "ytd-two-column-search-results-renderer",
+    "ytd-watch-next-secondary-results-renderer",
+    "ytd-rich-grid-renderer",
+    "ytd-rich-section-renderer",
+    "ytd-browse",
+    "ytd-playlist-panel-renderer",
+    "ytd-playlist-video-list-renderer",
+    "yt-lockup-view-model"
+  ].join(",");
+  const NON_VIDEO_TEXT_SURFACE_SELECTOR = [
+    "ytd-comments",
+    "ytd-comment-thread-renderer",
+    "ytd-comment-view-model",
+    "ytd-comment-renderer",
+    "ytd-comment-replies-renderer",
+    "ytd-comment-reply-dialog-renderer",
+    "ytm-comment-thread-renderer",
+    "ytm-comment-renderer",
+    "ytd-live-chat-frame",
+    "yt-live-chat-app",
+    "yt-live-chat-renderer",
+    "yt-live-chat-text-message-renderer",
+    "yt-live-chat-paid-message-renderer",
+    "#chat",
+    "#chatframe",
+    "ytd-watch-metadata #description",
+    "ytd-watch-metadata ytd-text-inline-expander",
+    "ytd-video-secondary-info-renderer",
+    "ytd-expander#description",
+    "ytd-structured-description-content-renderer",
+    "#description-inline-expander"
+  ].join(",");
   const THUMBNAIL_HOST_SELECTOR = [
     "ytd-thumbnail",
     "a#thumbnail",
@@ -562,11 +608,81 @@
     return output;
   }
 
+  function isInsideNonVideoTextSurface(element) {
+    return Boolean(element && element.closest(NON_VIDEO_TEXT_SURFACE_SELECTOR));
+  }
+
+  function titleLinkHref(element) {
+    if (!element || !(element instanceof Element)) {
+      return "";
+    }
+
+    const link = element.matches("a[href]")
+      ? element
+      : element.closest("a[href]") || element.querySelector("a[href]");
+    return link ? link.getAttribute("href") || "" : "";
+  }
+
+  function isTitleBearingVideoElement(element) {
+    if (!element || !(element instanceof Element)) {
+      return false;
+    }
+
+    if (!element.matches(TITLE_LINK_FALLBACK_SELECTOR) || isInsideNonVideoTextSurface(element)) {
+      return false;
+    }
+
+    const href = titleLinkHref(element);
+    if (!videoIdFromUrl(absoluteUrl(href))) {
+      return false;
+    }
+
+    return Boolean(element.closest(VIDEO_SURFACE_REGION_SELECTOR));
+  }
+
+  function isEligibleVideoAnnotationTarget(element) {
+    if (!element || !(element instanceof Element)) {
+      return false;
+    }
+
+    if (element.closest("#personalabs-panel") || isInsideNonVideoTextSurface(element)) {
+      return false;
+    }
+
+    return element.matches(CARD_SELECTOR) || isTitleBearingVideoElement(element);
+  }
+
+  function resolveVideoAnnotationTarget(element) {
+    if (!element || !(element instanceof Element)) {
+      return null;
+    }
+
+    const card = element.closest(CARD_SELECTOR);
+    if (isEligibleVideoAnnotationTarget(card)) {
+      return card;
+    }
+
+    const titleLink = element.closest(TITLE_LINK_FALLBACK_SELECTOR);
+    if (isEligibleVideoAnnotationTarget(titleLink)) {
+      return titleLink;
+    }
+
+    return null;
+  }
+
+  function removeBlockedSurfaceAnnotations() {
+    document.querySelectorAll(".personalabs-classification-overlay, .personalabs-observability-badge").forEach((annotation) => {
+      if (isInsideNonVideoTextSurface(annotation)) {
+        annotation.remove();
+      }
+    });
+  }
+
   function getCandidateCards() {
     const cards = uniqueElements([
       ...document.querySelectorAll(CARD_SELECTOR),
-      ...Array.from(document.querySelectorAll("a[href*='watch'], a[href*='/shorts/']")).map((link) => link.closest(CARD_SELECTOR) || link)
-    ]).filter((element) => !element.closest("#personalabs-panel"));
+      ...Array.from(document.querySelectorAll(TITLE_LINK_FALLBACK_SELECTOR)).map((link) => link.closest(CARD_SELECTOR) || link)
+    ]).filter(isEligibleVideoAnnotationTarget);
 
     debugLog("detected candidate card elements", {
       count: cards.length,
@@ -764,7 +880,7 @@
       return;
     }
 
-    const card = target.closest(CARD_SELECTOR) || target.closest("a[href*='watch'], a[href*='/shorts/']");
+    const card = resolveVideoAnnotationTarget(target);
     const candidate = extractCandidateFromCard(card);
     if (candidate) {
       debugLog("youtube click captured as contextual anchor", describeCard(card, candidate));
@@ -893,6 +1009,8 @@
   }
 
   function annotateVisibleCards(reason) {
+    removeBlockedSurfaceAnnotations();
+
     const cards = getCandidateCards();
     let renderedCount = 0;
     let skippedCount = 0;
@@ -1052,8 +1170,9 @@
     const confidence = classificationConfidence(scoring);
 
     return [
-      `Canonical label: ${scoring.label}.`,
-      `Match strength: ${formatConfidence(confidence.confidence)}.`,
+      `Heuristic label: ${scoring.label}.`,
+      `Rule-match score: ${formatConfidence(confidence.confidence)}.`,
+      "Title wording only; not truth, intent, or quality.",
       scoring.explanation || confidence.finalReason || ""
     ]
       .filter(Boolean)
@@ -1065,12 +1184,17 @@
 
     return [
       `<span class="personalabs-overlay-label">${escapeHtml(label)}</span>`,
-      `<span class="personalabs-overlay-confidence">Match ${escapeHtml(formatConfidence(confidence.confidence))}</span>`,
+      `<span class="personalabs-overlay-confidence">Rule match ${escapeHtml(formatConfidence(confidence.confidence))}</span>`,
       `<span class="personalabs-overlay-reason">${escapeHtml(scoring.explanation || scoring.finalReason)}</span>`
     ].filter(Boolean).join("");
   }
 
   function upsertTitleBadge(card, label, category, scoring) {
+    if (!isEligibleVideoAnnotationTarget(card)) {
+      warnLog("title badge skipped; target is outside video surfaces", { tag: card && card.tagName });
+      return false;
+    }
+
     const titleElement = findTitleElement(card);
     if (!titleElement) {
       warnLog("title badge skipped; no title element found", { tag: card && card.tagName });
@@ -1108,6 +1232,11 @@
   }
 
   function upsertThumbnailOverlay(card, label, category, scoring) {
+    if (!isEligibleVideoAnnotationTarget(card)) {
+      warnLog("thumbnail overlay skipped; target is outside video surfaces", { tag: card && card.tagName });
+      return false;
+    }
+
     const host = findThumbnailHost(card);
     if (!host) {
       warnLog("thumbnail overlay skipped; no host found", { tag: card && card.tagName });
@@ -1140,7 +1269,7 @@
     const panel = state.panel || document.createElement("aside");
     const mount = document.body || document.documentElement;
     panel.id = "personalabs-panel";
-    panel.setAttribute("aria-label", "PersonaLabs semantic navigation panel");
+    panel.setAttribute("aria-label", "PersonaLabs title framing panel");
     mount.appendChild(panel);
     state.panel = panel;
     debugLog("control panel mounted", {
@@ -1183,9 +1312,9 @@
     header.innerHTML = [
       "<div>",
       "<p class='personalabs-eyebrow'>PersonaLabs</p>",
-      "<h2>Observability-driven semantic navigation</h2>",
+      "<h2>Rule-based title framing cues</h2>",
       "</div>",
-      "<p class='personalabs-muted'>Structured retrieval. Deterministic scoring. Lens-aware navigation.</p>"
+      "<p class='personalabs-muted'>Observable wording patterns only. Not truth, intent, or quality.</p>"
     ].join("");
     return header;
   }
@@ -1195,7 +1324,7 @@
     section.className = "personalabs-section personalabs-empty";
     section.innerHTML = [
       "<h3>No contextual anchor yet</h3>",
-      "<p>Click a YouTube video or card to anchor exploration. PersonaLabs will extract entities, detect observability signals, remove escalation wording, and offer subject-preserving paths.</p>"
+      "<p>Click a YouTube video or card to inspect title wording cues. PersonaLabs matches escalation, amplification, calm, and explanatory phrasing, then offers optional rewritten searches.</p>"
     ].join("");
     return section;
   }
@@ -1230,7 +1359,7 @@
       `<ul class='personalabs-term-list'>${removedHtml}</ul>`,
       "</div>",
       "<div class='personalabs-field'>",
-      "<span>Detected observability signals</span>",
+      "<span>Matched style cues</span>",
       `<strong>${escapeHtml(renderSignalSummary(anchor))}</strong>`,
       "</div>"
     ].join("");
@@ -1244,8 +1373,8 @@
 
     const title = document.createElement("div");
     title.innerHTML = [
-      "<p class='personalabs-eyebrow'>Transformed exploration paths</p>",
-      "<h3>Keep the subject. Change the route.</h3>"
+      "<p class='personalabs-eyebrow'>Optional rewritten searches</p>",
+      "<h3>Keep the subject. Change the wording style.</h3>"
     ].join("");
     section.appendChild(title);
 
@@ -1270,7 +1399,7 @@
       query.innerHTML = [
         `<span>${escapeHtml(path.description)}</span>`,
         `<code>${escapeHtml(path.query)}</code>`,
-        `<small>Selected exploration lens: ${escapeHtml(path.lensLabel || path.label)} | Filter: ${escapeHtml(describeFilterPolicy(path.filterPolicy))}</small>`
+        `<small>Selected wording lens: ${escapeHtml(path.lensLabel || path.label)} | Rule filter: ${escapeHtml(describeFilterPolicy(path.filterPolicy))}</small>`
       ].join("");
       section.appendChild(query);
     }
@@ -1284,8 +1413,8 @@
 
     const intro = document.createElement("div");
     intro.innerHTML = [
-      "<p class='personalabs-eyebrow'>Exploration Result Filtering</p>",
-      "<h3>Suggested Exploration Paths</h3>",
+      "<p class='personalabs-eyebrow'>Visible title filtering</p>",
+      "<h3>Titles matched by this wording lens</h3>",
       `<p class='personalabs-muted'>${escapeHtml(renderFilteringSummary())}</p>`
     ].join("");
     section.appendChild(intro);
@@ -1293,7 +1422,7 @@
     if (!state.suggestions.length) {
       const empty = document.createElement("p");
       empty.className = "personalabs-muted";
-      empty.textContent = "Open a transformed search to retrieve structured metadata, score every result first, then apply the selected exploration lens filter.";
+      empty.textContent = "Open a rewritten search to inspect visible title metadata, score wording cues first, then apply the selected wording filter.";
       section.appendChild(empty);
       return section;
     }
@@ -1316,16 +1445,16 @@
       item.innerHTML = [
         `<div class='personalabs-score' data-classification='${color}'>${suggestion.scoring.score}</div>`,
         "<div>",
-        `<div class='personalabs-classification' data-classification='${color}'>${escapeHtml(suggestion.scoring.label)} | ${escapeHtml(suggestion.scoring.classification.label)} | Match strength ${escapeHtml(formatConfidence(confidence.confidence))}</div>`,
+        `<div class='personalabs-classification' data-classification='${color}'>${escapeHtml(suggestion.scoring.label)} | ${escapeHtml(suggestion.scoring.classification.label)} | Rule match ${escapeHtml(formatConfidence(confidence.confidence))}</div>`,
         `<h4>${link}</h4>`,
         `<p>${escapeHtml(suggestion.channel || "Visible YouTube result")}</p>`,
-        `<div class='personalabs-confidence-details'>Domain ${escapeHtml(formatConfidence(confidence.domainConfidence))} | Friction ${escapeHtml(formatConfidence(confidence.frictionConfidence))} | Positive ${escapeHtml(formatConfidence(confidence.positiveSignalConfidence))}</div>`,
+        `<div class='personalabs-confidence-details'>Topic words ${escapeHtml(formatConfidence(confidence.domainConfidence))} | Attention cues ${escapeHtml(formatConfidence(confidence.frictionConfidence))} | Calm/explanatory cues ${escapeHtml(formatConfidence(confidence.positiveSignalConfidence))}</div>`,
         `<p class='personalabs-final-reason'>Final reason: ${escapeHtml(suggestion.scoring.explanation || confidence.finalReason || suggestion.scoring.classification.reason || "classification reason unavailable")}</p>`,
         `<div class='personalabs-reasons'>${reasons}</div>`,
         "</div>"
       ].join("");
       list.appendChild(item);
-      recordTraceStage(trace, "panel recommendation rendered", {
+      recordTraceStage(trace, "panel title row rendered", {
         title: suggestion.title,
         color: suggestion.scoring.label,
         confidence: suggestion.scoring.confidence
@@ -1345,11 +1474,11 @@
       "<ul>",
       "<li>Deterministic-first and local-first.</li>",
       "<li>No truth, ideology ranking, censorship, or YouTube replacement judgments.</li>",
-      "<li>Score first; filter second by the selected exploration lens.</li>",
+      "<li>Score visible wording first; filter second by the selected wording lens.</li>",
       "<li>GREEN summarizes calm or straightforward title framing.</li>",
       "<li>YELLOW summarizes mixed or unclear title framing.</li>",
       "<li>RED summarizes intense or attention-grabbing title framing.</li>",
-      "<li>Contextual observability badges support guided exploration.</li>",
+      "<li>Badges summarize matched title wording cues only.</li>",
       "</ul>"
     ].join("");
     return section;
@@ -1375,16 +1504,16 @@
     const driftWarning = contradictionCount > 0 || overlayPanelAgreement === "drift" || retrievalAgreement === "drift";
 
     section.innerHTML = [
-      "<p class='personalabs-eyebrow'>Pipeline Health</p>",
+      "<p class='personalabs-eyebrow'>Developer: pipeline check</p>",
       "<div class='personalabs-health-grid'>",
-      healthItem("Canonical label", latest && latest.label || "pending"),
-      healthItem("Final confidence", latest ? formatConfidence(latest.confidence) : "pending"),
+      healthItem("Heuristic label", latest && latest.label || "pending"),
+      healthItem("Rule-match score", latest ? formatConfidence(latest.confidence) : "pending"),
       healthItem("Contradictions", String(contradictionCount)),
       healthItem("Overlay/panel agreement", overlayPanelAgreement),
       healthItem("Retrieval agreement", retrievalAgreement),
       healthItem("Fallback active", fallbackActive ? "yes" : "no"),
       healthItem("Trace events", String(traceEventCount)),
-      healthItem("Semantic drift warning", driftWarning ? "warning" : "clear"),
+      healthItem("Label mismatch warning", driftWarning ? "warning" : "clear"),
       "</div>"
     ].join("");
 
@@ -1415,7 +1544,7 @@
       : ["No contradiction warnings for selected trace."];
 
     section.innerHTML = [
-      "<summary><span class='personalabs-eyebrow'>Semantic Trace Inspector</span><strong>Trace details</strong></summary>",
+      "<summary><span class='personalabs-eyebrow'>Developer trace inspector</span><strong>Rule-match details</strong></summary>",
       `<p class='personalabs-muted'>${escapeHtml(summary)}</p>`,
       "<div class='personalabs-debug-actions'>",
       "<button type='button' data-action='copy-traces'>Copy JSON</button>",
@@ -1431,7 +1560,7 @@
       `<option value='overlay'${state.debugTraceFilter === "overlay" ? " selected" : ""}>Overlay</option>`,
       `<option value='retrieval'${state.debugTraceFilter === "retrieval" ? " selected" : ""}>Retrieval</option>`,
       `<option value='contradictions'${state.debugTraceFilter === "contradictions" ? " selected" : ""}>Contradictions</option>`,
-      `<option value='governance'${state.debugTraceFilter === "governance" ? " selected" : ""}>Governance</option>`,
+      `<option value='governance'${state.debugTraceFilter === "governance" ? " selected" : ""}>Rule checks</option>`,
       "</select></label>",
       "</div>",
       latest ? renderInspectorSection("Input", [
@@ -1443,55 +1572,55 @@
       latest ? renderInspectorSection("Contextual Anchors", [
         ["Extracted anchor", state.anchor && state.anchor.subjectAnchor || "none"],
         ["Normalized anchor", state.anchor && state.anchor.keyTerms ? state.anchor.keyTerms.join(", ") : "none"],
-        ["Inferred domain", latest.domain || "unknown"],
-        ["Matched semantic domains", latest.domainContext && latest.domainContext.boosts ? latest.domainContext.boosts.join(", ") || "none" : "none"]
+        ["Matched wording group", latest.domain || "unknown"],
+        ["Matched wording boosts", latest.domainContext && latest.domainContext.boosts ? latest.domainContext.boosts.join(", ") || "none" : "none"]
       ]) : "",
       latest ? renderInspectorListSection("Extracted Terms", {
         "Matched positive terms": latest.matchedTerms && latest.matchedTerms.positive,
-        "Matched friction terms": latest.matchedTerms && latest.matchedTerms.friction,
+        "Matched attention terms": latest.matchedTerms && latest.matchedTerms.friction,
         "Removed/suppressed terms": latest.suppressedTerms,
         "Ignored terms": [],
         "Override terms": latest.semanticSignals && latest.semanticSignals.semanticOverrides ? [latest.semanticSignals.semanticOverrides] : []
       }) : "",
       latest ? renderInspectorListSection("Detected Signals", {
-        "Semantic domain boosts": latest.semanticSignals && latest.semanticSignals.domainBoosts,
-        "Observability groups": latest.observabilitySignals ? Object.keys(latest.observabilitySignals) : [],
-        "Friction signals": latest.matchedTerms && latest.matchedTerms.friction,
-        "Positive signals": latest.matchedTerms && latest.matchedTerms.positive
+        "Wording group boosts": latest.semanticSignals && latest.semanticSignals.domainBoosts,
+        "Matched signal groups": latest.observabilitySignals ? Object.keys(latest.observabilitySignals) : [],
+        "Attention cues": latest.matchedTerms && latest.matchedTerms.friction,
+        "Calm/explanatory cues": latest.matchedTerms && latest.matchedTerms.positive
       }) : "",
-      latest ? renderInspectorSection("Confidence Deltas", [
-        ["Domain", formatConfidence(confidenceDeltas.domain)],
-        ["Friction", formatConfidence(confidenceDeltas.friction)],
-        ["Positive signal", formatConfidence(confidenceDeltas.positiveSignal)],
+      latest ? renderInspectorSection("Rule-match components", [
+        ["Topic words", formatConfidence(confidenceDeltas.domain)],
+        ["Attention cues", formatConfidence(confidenceDeltas.friction)],
+        ["Calm/explanatory cues", formatConfidence(confidenceDeltas.positiveSignal)],
         ["Final", formatConfidence(latest.confidence)]
       ]) : "",
       latest ? renderInspectorSection("Scoring Flow", [
         ["Stages", (latest.pipelineStages || []).join(" -> ") || "none"],
-        ["Confidence evolution", `domain ${formatConfidence(confidenceDeltas.domain)} | friction ${formatConfidence(confidenceDeltas.friction)} | positive ${formatConfidence(confidenceDeltas.positiveSignal)} | final ${formatConfidence(latest.confidence)}`],
+        ["Rule-match components", `topic ${formatConfidence(confidenceDeltas.domain)} | attention ${formatConfidence(confidenceDeltas.friction)} | calm/explanatory ${formatConfidence(confidenceDeltas.positiveSignal)} | final ${formatConfidence(latest.confidence)}`],
         ["Applied modifiers", latest.reasoning && latest.reasoning.reasons ? latest.reasoning.reasons.join(" | ") : "none"],
-        ["Final canonical label", latest.label || "none"]
+        ["Final heuristic label", latest.label || "none"]
       ]) : "",
-      latest ? renderInspectorListSection("Governance Decisions", {
+      latest ? renderInspectorListSection("Rule Checks", {
         "Contradictions detected": warnings,
         "Override reasons": latest.reasoning && latest.reasoning.downgradeReasons,
-        "Canonical agreement validation": latest.confidenceValidation ? [`confidence valid: ${latest.confidenceValidation.valid}`] : ["not available"],
-        "Semantic path validation": [latest.scoringPath || "unknown"]
+        "Score field consistency": latest.confidenceValidation ? [`score fields in sync: ${latest.confidenceValidation.valid}`] : ["not available"],
+        "Scoring path": [latest.scoringPath || "unknown"]
       }) : "",
       renderReplayAnalysis(),
       renderScenarioValidation(),
       renderGoldenRegressionPack(),
-      renderInspectorListSection("Retrieval Transformations", {
+      renderInspectorListSection("Rewritten Search Details", {
         "Selected lens": [activePath() && (activePath().lensLabel || activePath().label) || "none"],
-        "Transformed exploration paths": transformedPaths,
-        "Retrieval filters applied": retrievalFilters,
-        "Retrieval exclusions": ["RED excluded by filter policy"]
+        "Rewritten searches": transformedPaths,
+        "Rule filters applied": retrievalFilters,
+        "Filter exclusions": ["RED excluded by filter policy"]
       }),
       latest ? renderInspectorListSection("Contradictions", {
         "Warnings": warnings
       }) : "",
       latest ? renderInspectorEvents("Trace Events", traceEvents, state.debugVerboseTraces) : "",
       latest ? renderInspectorEvents("Runtime Events", runtimeStages, state.debugVerboseTraces) : "",
-      "<div class='personalabs-inspector-block'><h4>Canonical Trace JSON</h4></div>",
+      "<div class='personalabs-inspector-block'><h4>Rule-match Trace JSON</h4></div>",
       `<pre>${escapeHtml(json || "[]")}</pre>`
     ].join("");
 
@@ -1581,9 +1710,9 @@
       return renderInspectorSection("Replay Analysis", [
         ["Original label", "not loaded"],
         ["Current label", "not replayed"],
-        ["Confidence delta", "0"],
-        ["Drift severity", "none"],
-        ["Changed governance", "none"],
+        ["Rule-score delta", "0"],
+        ["Label mismatch severity", "none"],
+        ["Changed rule checks", "none"],
         ["Replay timestamp", "none"],
         ["Pipeline versions", "not compared"]
       ]);
@@ -1592,9 +1721,9 @@
     return renderInspectorSection("Replay Analysis", [
       ["Original label", latest.originalLabel || "none"],
       ["Current label", latest.currentLabel || "none"],
-      ["Confidence delta", String(latest.confidenceDelta)],
-      ["Drift severity", latest.driftClassification],
-      ["Changed governance", latest.governanceDecisionChanges.length ? latest.governanceDecisionChanges.join(" | ") : "none"],
+      ["Rule-score delta", String(latest.confidenceDelta)],
+      ["Label mismatch severity", latest.driftClassification],
+      ["Changed rule checks", latest.governanceDecisionChanges.length ? latest.governanceDecisionChanges.join(" | ") : "none"],
       ["Replay timestamp", latest.replayTimestamp],
       ["Pipeline versions", `${latest.pipelineVersionComparison.original} -> ${latest.pipelineVersionComparison.current}`],
       ["Replay agreement", latest.replayAgreementState]
@@ -1607,12 +1736,12 @@
       return renderInspectorSection("Scenario Validation", [
         ["Pass/fail", "not run"],
         ["Label agreement", "not run"],
-        ["Confidence agreement", "not run"],
+        ["Rule-score agreement", "not run"],
         ["Contradiction agreement", "not run"],
-        ["Governance agreement", "not run"],
-        ["Drift severity", "none"],
+        ["Rule-check agreement", "not run"],
+        ["Label mismatch severity", "none"],
         ["Pipeline version", "not run"],
-        ["Summary", "Run scenarios to validate canonical governance."]
+        ["Summary", "Run scenarios to validate deterministic label rules."]
       ]);
     }
 
@@ -1624,12 +1753,12 @@
     return renderInspectorSection("Scenario Validation", [
       ["Pass/fail", `${report.passed}/${report.total} passing`],
       ["Label agreement", labelAgreement ? "pass" : "fail"],
-      ["Confidence agreement", confidenceAgreement ? "pass" : "fail"],
+      ["Rule-score agreement", confidenceAgreement ? "pass" : "fail"],
       ["Contradiction agreement", contradictionAgreement ? "pass" : "fail"],
-      ["Governance agreement", governanceAgreement ? "pass" : "fail"],
-      ["Drift severity", report.severity],
+      ["Rule-check agreement", governanceAgreement ? "pass" : "fail"],
+      ["Label mismatch severity", report.severity],
       ["Pipeline version", report.pipelineVersion],
-      ["Summary", `${report.failed} failed; drift detected: ${report.driftDetected}`]
+      ["Summary", `${report.failed} failed; label mismatch detected: ${report.driftDetected}`]
     ]);
   }
 
@@ -1639,10 +1768,10 @@
       return renderInspectorSection("Golden Regression Pack", [
         ["Total scenarios", "not run"],
         ["Pass/fail", "not run"],
-        ["Drift count", "0"],
+        ["Mismatch count", "0"],
         ["Failed IDs", "none"],
-        ["Confidence deltas", "none"],
-        ["Governance mismatches", "none"],
+        ["Rule-score deltas", "none"],
+        ["Rule-check mismatches", "none"],
         ["Pipeline version", "not run"]
       ]);
     }
@@ -1650,10 +1779,10 @@
     return renderInspectorSection("Golden Regression Pack", [
       ["Total scenarios", String(report.total)],
       ["Pass/fail", `${report.passed}/${report.total} passing`],
-      ["Drift count", String(report.driftCount)],
+      ["Mismatch count", String(report.driftCount)],
       ["Failed IDs", report.failedScenarioIds.length ? report.failedScenarioIds.join(", ") : "none"],
-      ["Confidence deltas", report.confidenceDeltas.map((item) => `${item.scenarioId}:${item.confidenceDelta}`).join(", ") || "none"],
-      ["Governance mismatches", report.governanceMismatches.length ? report.governanceMismatches.join(", ") : "none"],
+      ["Rule-score deltas", report.confidenceDeltas.map((item) => `${item.scenarioId}:${item.confidenceDelta}`).join(", ") || "none"],
+      ["Rule-check mismatches", report.governanceMismatches.length ? report.governanceMismatches.join(", ") : "none"],
       ["Pipeline version", report.pipelineVersion]
     ]);
   }
@@ -1719,16 +1848,16 @@
     const signals = semantic.detectObservabilitySignals(anchor.originalTitle || "");
     const parts = [];
     if (signals.friction.length) {
-      parts.push(`${signals.friction.length} friction`);
+      parts.push(`${signals.friction.length} attention cue`);
     }
     if (signals.educational.length) {
       parts.push(`${signals.educational.length} educational`);
     }
     if (signals.lowFriction.length) {
-      parts.push(`${signals.lowFriction.length} low-friction`);
+      parts.push(`${signals.lowFriction.length} calm/neutral`);
     }
 
-    return parts.length ? parts.join(", ") : "calm/low-friction baseline";
+    return parts.length ? parts.join(", ") : "calm/neutral baseline";
   }
 
   function describeFilterPolicy(policy) {
@@ -1739,7 +1868,7 @@
       return "GREEN plus strong explanatory YELLOW";
     }
     if (policy === "green-or-deep-yellow") {
-      return "GREEN plus high-quality relevant YELLOW";
+      return "GREEN plus deeper-context YELLOW";
     }
     if (policy === "green-or-simple-yellow") {
       return "GREEN plus simple explanatory YELLOW";
@@ -1753,14 +1882,14 @@
   function renderFilteringSummary() {
     const path = activePath();
     if (!path) {
-      return "No exploration lens selected.";
+      return "No wording lens selected.";
     }
 
     if (!state.scoredResultCount) {
-      return `Lens: ${path.lensLabel || path.label}. Retrieve structured metadata, score first, then filter.`;
+      return `Lens: ${path.lensLabel || path.label}. Inspect visible title metadata, score wording cues first, then filter.`;
     }
 
-    return `Lens: ${path.lensLabel || path.label}. ${state.lastRetrievalSource || "retrieval"} scored ${state.scoredResultCount} results; showing ${state.suggestions.length} allowed by ${describeFilterPolicy(path.filterPolicy)}.`;
+    return `Lens: ${path.lensLabel || path.label}. ${state.lastRetrievalSource || "visible metadata"} scored ${state.scoredResultCount} titles; showing ${state.suggestions.length} allowed by ${describeFilterPolicy(path.filterPolicy)}.`;
   }
 
   function escapeHtml(value) {

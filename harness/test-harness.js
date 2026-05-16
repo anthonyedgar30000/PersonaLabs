@@ -223,13 +223,13 @@
     const source = score || {};
     const reasons = source.reasoning && source.reasoning.reasons || [];
     if (reasons.includes("educational or guidance framing reduced single-signal intensity")) {
-      return "Intense wording was detected, but educational or guidance framing reduced the severity.";
+      return "Intense wording was detected, but educational or guidance framing reduced the classified intensity.";
     }
     if (reasons.includes("domain context softened creator-style intense wording")) {
-      return "Creator or satire/domain context reduced the severity of intense wording.";
+      return "Creator, satire, or domain context reduced the classified intensity of the wording.";
     }
     if (reasons.includes("pet/play context softened aggression wording")) {
-      return "Pet/play context reduced the severity of aggression wording.";
+      return "Pet/play context reduced the classified intensity of aggression wording.";
     }
     if (reasons.includes("cautionary claim wording needs context")) {
       return "Strong claim wording needs more context, so the title stays mixed/unclear.";
@@ -270,7 +270,7 @@
         ? `<p>${escapeHtml(result.passed)}/${escapeHtml(result.total)} scenario checks passing.</p>`
         : "",
       "<table class='classification-table'>",
-      "<thead><tr><th>Title</th><th>Framing label</th><th>Match strength</th><th>Signals</th><th>Reason</th></tr></thead>",
+      "<thead><tr><th>Title</th><th>Framing label</th><th>Rule-match score</th><th>Signals</th><th>Reason</th></tr></thead>",
       "<tbody>",
       results.map((item, index) => {
         const score = item.score || {};
@@ -312,7 +312,7 @@
     const trace = compactTrace(result);
     return [
       `<p><strong>Final label:</strong> ${escapeHtml(trace.finalLabel)}</p>`,
-      `<p><strong>Match strength:</strong> ${escapeHtml(confidenceLabel(trace.confidence))}</p>`,
+      `<p><strong>Rule-match score:</strong> ${escapeHtml(confidenceLabel(trace.confidence))}</p>`,
       `<p><strong>Matched signals:</strong> ${escapeHtml(signalSummary(trace.matchedSignals))}</p>`,
       `<p><strong>Ignored / downweighted signals:</strong> ${escapeHtml((trace.suppressedSignals || []).join(", ") || "none")}</p>`,
       `<p><strong>Decision summary:</strong> ${escapeHtml(trace.decisionSummary)}</p>`,

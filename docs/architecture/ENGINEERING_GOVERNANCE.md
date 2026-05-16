@@ -72,7 +72,7 @@ Before changing scoring weights, thresholds, dictionaries, or override rules:
 
 ### Trace inspector observes only
 
-- The Semantic Trace Inspector must never call scoring functions directly.
+- The Developer Trace Inspector must never call scoring functions directly.
 - The inspector must render only existing canonical results, `traceEvents`, and runtime stages.
 - Inspector utilities may copy, export, clear, filter, or expand traces.
 - Inspector utilities must not mutate scoring state or semantic labels.

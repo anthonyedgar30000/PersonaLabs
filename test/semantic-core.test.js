@@ -13,6 +13,112 @@ test("extracts subject-preserving anchors while removing escalation style terms"
   assert(anchor.removedEscalationTerms.some((item) => item.normalizedTerm === "shocking"));
 });
 
+test("flags roast cook and slam slang as escalatory style terms", () => {
+  const title = "Panel ROASTS COOKS and SLAMS the proposal";
+  const styleTerms = semantic.classifyStyleTerms(title);
+  const normalizedTerms = styleTerms.map((item) => item.normalizedTerm);
+
+  assert.deepEqual(normalizedTerms, ["roasts", "cooks", "slams"]);
+  assert(styleTerms.every((item) => item.category === "domination"));
+
+  const anchor = semantic.analyzeAnchor("The proposal");
+  const path = semantic.buildExplorationPaths(anchor).find((lens) => lens.id === "educational");
+  const score = semantic.scoreCandidate(
+    {
+      title,
+      channel: "Reaction Clips",
+      duration: "7:00"
+    },
+    anchor,
+    path
+  );
+
+  assert.equal(score.label, "RED");
+  assert(normalizedTerms.every((term) => score.matchedTerms.friction.includes(term)));
+  assert(score.debug.escalation_score >= normalizedTerms.length);
+});
+
+test("sports and roast/cook escalation variants surface evidence before final labeling", () => {
+  const cases = [
+    {
+      title: "Gil's Arena COOKS Skip Bayless",
+      expectedTerms: ["cooks"],
+      expectedLabel: "YELLOW",
+      reasonPattern: /escalation signals detected/i
+    },
+    {
+      title: "Stephen A Smith DESTROYS caller",
+      expectedTerms: ["destroys"],
+      expectedLabel: "YELLOW",
+      reasonPattern: /escalation signals detected/i
+    },
+    {
+      title: "NBA Twitter ROASTS player",
+      expectedTerms: ["roasts"],
+      expectedLabel: "YELLOW",
+      reasonPattern: /escalation signals detected/i
+    },
+    {
+      title: "Funny roast battle compilation",
+      expectedTerms: ["roast"],
+      expectedLabel: "YELLOW",
+      reasonPattern: /softened by context/i,
+      softened: true
+    },
+    {
+      title: "Cooking stream makes pasta",
+      expectedTerms: [],
+      expectedLabel: "GREEN",
+      reasonPattern: /low-friction|explanatory|calm/i
+    }
+  ];
+
+  cases.forEach((item) => {
+    const anchor = semantic.analyzeAnchor(item.title);
+    const path = semantic.buildExplorationPaths(anchor).find((lens) => lens.id === "educational");
+    const score = semantic.scoreCandidate(
+      {
+        title: item.title,
+        channel: "Visible YouTube result",
+        duration: "8:00"
+      },
+      anchor,
+      path
+    );
+
+    assert.equal(score.label, item.expectedLabel, item.title);
+    assert.deepEqual(score.debug.matched_escalation_keywords, item.expectedTerms, item.title);
+    assert.deepEqual(score.matchedTerms.friction.filter((term) => item.expectedTerms.includes(term)), item.expectedTerms, item.title);
+    assert.equal(score.debug.final_score_before_label_mapping, score.score, item.title);
+    assert.equal(score.semanticSignals.escalationDebug.finalScoreBeforeLabelMapping, score.score, item.title);
+    assert.equal(score.traceEvents[3].details.escalationDebug.finalScoreBeforeLabelMapping, score.score, item.title);
+    assert.match(score.explanation, item.reasonPattern, item.title);
+
+    if (item.expectedTerms.length > 0) {
+      assert(score.debug.escalation_score_contribution.styleTermPenalty > 0, item.title);
+      assert(score.debug.escalation_score_contribution.appliedPenalty > 0, item.title);
+      assert(!/neutral default: no explicit escalation/i.test(score.explanation), item.title);
+      assert.match(score.evidenceSummary.emotionalIntensity.summary, /Intense wording pattern detected/i, item.title);
+    } else {
+      assert.equal(score.debug.escalation_score_contribution.styleTermPenalty, 0, item.title);
+      assert.equal(score.evidenceSummary.emotionalIntensity.level, "low", item.title);
+    }
+
+    if (item.softened) {
+      assert.equal(score.debug.softening_deductions.classificationSoftened, true, item.title);
+      assert(score.debug.softening_deductions.domainSofteningMatches > 0, item.title);
+    }
+  });
+});
+
+test("detects cooked destroyed and targeted cooking as escalation without flagging generic cooking", () => {
+  const styleTerms = semantic.classifyStyleTerms("Host cooked the segment, cooking him after he was destroyed");
+  const normalizedTerms = styleTerms.map((item) => item.normalizedTerm);
+
+  assert.deepEqual(normalizedTerms, ["cooked", "cooking him", "destroyed"]);
+  assert.deepEqual(semantic.classifyStyleTerms("Cooking stream makes pasta"), []);
+});
+
 test("builds transformed exploration paths that preserve the contextual subject", () => {
   const anchor = semantic.analyzeAnchor("Thomas Massie DESTROYS Iran vote");
   const paths = semantic.buildExplorationPaths(anchor);

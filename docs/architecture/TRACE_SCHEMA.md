@@ -1,6 +1,6 @@
 # Trace Schema
 
-Debug traces make every visible classification inspectable from metadata extraction to final rendering.
+Debug traces make every visible title-framing label inspectable from metadata extraction to final rendering.
 
 Tracing is gated by:
 
@@ -17,7 +17,7 @@ When enabled:
 
 ## Trace object
 
-Each trace mirrors the canonical semantic result and adds rendering/pipeline event metadata.
+Each trace mirrors the deterministic title-framing result and adds rendering/pipeline event metadata.
 
 ```js
 {
@@ -53,12 +53,12 @@ Each trace mirrors the canonical semantic result and adds rendering/pipeline eve
 
 ## Pipeline stages
 
-Canonical scoring stages:
+Deterministic scoring stages:
 
 1. metadata normalization
 2. domain detection
 3. signal matching
-4. semantic scoring
+4. rule scoring
 5. confidence consistency validation
 6. suppression/override evaluation
 7. contradiction detection
@@ -68,8 +68,8 @@ Runtime rendering stages:
 
 1. video/card detected
 2. metadata extracted
-3. semantic scoring started
-4. domain/tone/friction signals matched
+3. rule scoring started
+4. topic/tone/attention cues matched
 5. suppression/override rules applied
 6. final classification selected
 7. overlay rendered
@@ -77,20 +77,20 @@ Runtime rendering stages:
 9. database save attempted
 10. database save succeeded or database save failed
 
-## Semantic Trace Inspector
+## Developer Trace Inspector
 
-When debug mode is enabled, the side panel includes a developer-facing Semantic
-Trace Inspector. The inspector observes canonical scoring output only. It does
+When debug mode is enabled, the side panel includes a developer-facing rule-match
+trace inspector. The inspector observes deterministic scoring output only. It does
 not call scoring functions and does not derive labels.
 
 Inspector sections:
 
 - Input: raw title, metadata, source URL, timestamp.
-- Contextual Anchors: extracted anchor, normalized terms, inferred domain, domain boosts.
-- Term Analysis: matched positive terms, matched friction terms, suppressed terms, ignored/override terms.
-- Scoring Flow: pipeline stages, confidence evolution, scoring modifiers, final label.
-- Governance: contradictions, override reasons, canonical validation, semantic path validation.
-- Retrieval Transformation: selected lens, transformed paths, filters, exclusions.
+- Contextual Anchors: extracted anchor, normalized terms, matched wording group, wording boosts.
+- Term Analysis: matched calm/explanatory terms, matched attention cues, suppressed terms, ignored/override terms.
+- Scoring Flow: pipeline stages, rule-score components, scoring modifiers, final label.
+- Rule checks: contradictions, override reasons, score-field consistency, scoring path.
+- Rewritten Search Details: selected lens, rewritten searches, filters, exclusions.
 - Trace Events: canonical `traceEvents`.
 - Runtime Events: overlay/panel/database `stages`.
 
@@ -106,7 +106,7 @@ Inspector utilities:
 
 ## Replay Analysis
 
-Replay uses exported canonical trace JSON as input and delegates to
+Replay uses exported trace JSON as input and delegates to
 `semantic.replayTraces(...)`. Replay must call canonical `scoreContent(...)`
 only; it must not introduce another scoring system.
 

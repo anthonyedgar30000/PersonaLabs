@@ -85,7 +85,7 @@ test("local harness renders compact trace hierarchy with raw JSON disclosure", (
         emotionalIntensity: { level: "low", summary: "No strong intense wording pattern was detected.", terms: [] },
         amplificationLanguage: { detected: false, summary: "No strong amplification wording detected.", terms: [] },
         conflictLanguage: { detected: false, summary: "No conflict-oriented wording detected.", terms: [] },
-        uncertainty: { level: "low", summary: "Low ambiguity in the deterministic framing interpretation.", competingSignals: false }
+        uncertainty: { level: "low", summary: "Few competing matched wording patterns under this fixed rule set.", competingSignals: false }
       },
       explanation: "Calm/pet content detected.",
       traceEvents: [{ stage: "final label selection" }]
@@ -93,7 +93,7 @@ test("local harness renders compact trace hierarchy with raw JSON disclosure", (
   });
 
   assert.match(html, /Final label/);
-  assert.match(html, /Match strength/);
+  assert.match(html, /Rule-match score/);
   assert.match(html, /96 \(high match\)/);
   assert.match(html, /Matched signals/);
   assert.match(html, /Calm\/explanatory signals: cute/);

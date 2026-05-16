@@ -1,28 +1,28 @@
 # Scoring Pipeline
 
-The canonical scoring pipeline lives in `semantic.scoreContent(...)` in `src/semantic-core.js`.
+The deterministic title-framing scoring pipeline lives in `semantic.scoreContent(...)` in `src/semantic-core.js`.
 
-No active UI component should select a semantic label outside this pipeline.
+No active UI component should select a framing label outside this pipeline.
 
 ## Ordered pipeline stages
 
 1. **Metadata normalization**
    - Input candidate fields are normalized: `videoId`, `title`, `channel`, `duration`, and `url`.
-   - Missing fields are allowed, but confidence and reasoning must reflect available evidence.
+   - Missing fields are allowed, but rule-match score and reasoning must reflect available evidence.
 
 2. **Anchor and lens resolution**
    - The current anchor is either supplied directly or derived from the candidate title.
    - The selected lens contributes preferred terms and filtering policy.
 
-3. **Domain detection**
+3. **Wording-group detection**
    - Animal/pet/nature signals are detected from calm animal terms.
    - Educational/explanatory context is detected from explanatory terms.
-   - Low-friction source format is detected from interview, public radio, long-form, or trusted-source style terms.
-   - Otherwise the domain is `general`.
+   - Lower-intensity source format is detected from interview, public radio, long-form, or trusted-source style terms.
+   - Otherwise the wording group is `general`.
 
 4. **Signal matching**
-   - Positive terms include educational, low-friction, calm-positive, calm-animal, neutral-reporting, interview/discussion, lower-friction-source, long-form, and beginner signals.
-   - Friction terms include style/framing friction, harmless energetic pet terms, animal distress terms, and mixed-source terms.
+   - Calm/explanatory terms include educational, low-friction, calm-positive, calm-animal, neutral-reporting, interview/discussion, lower-friction-source, long-form, and beginner signals.
+   - Attention-cue terms include intense style/framing cues, harmless energetic pet terms, animal distress terms, and mixed-source terms.
 
 5. **Score component calculation**
    - Topic relevance.
@@ -41,53 +41,53 @@ No active UI component should select a semantic label outside this pipeline.
    - Safe animal/pet/nature cases can remain GREEN when no distress/escalation is present.
    - Harmless energetic pet pacing can produce YELLOW when chaotic but non-dangerous.
    - Explicit animal distress overrides safe-domain assumptions and produces RED.
-   - Severe escalation/friction can produce RED.
+   - Severe escalation/attention cues can produce RED.
 
 7. **Final label assignment**
-   - `RED`: explicit animal distress, danger, severe escalation, or high-friction style evidence.
+   - `RED`: explicit animal distress, danger, severe escalation, or high-intensity style evidence.
    - `GREEN`: calm animal/pet content, low-friction explanatory content, or strong calm/positive evidence.
    - `YELLOW`: mixed/neutral content, harmless chaotic pet energy, or insufficient GREEN evidence.
 
-8. **Confidence calculation**
-   - Domain confidence.
-   - Friction confidence.
-   - Positive-signal confidence.
-   - Final confidence derived from the relevant component based on final label.
+8. **Rule-score calculation**
+   - Topic-word score component.
+   - Attention-cue score component.
+   - Calm/explanatory cue score component.
+   - Final rule-match score derived from the relevant component based on final label.
 
 9. **Contradiction detection**
    - Detects label/explanation disagreement.
    - Detects empty matched terms with explanations that claim terms matched.
    - Detects expected-label disagreement when a caller supplies an expected label for diagnostics.
 
-10. **Canonical result construction**
-    - Returns label, confidence, matched terms, suppressed terms, semantic signals, observability signals, reasoning, trace id, pipeline version, scoring path, contradictions, domain context, and compatibility fields.
+10. **Deterministic result construction**
+    - Returns label, rule-match score, matched terms, suppressed terms, rule signals, wording cue groups, reasoning, trace id, pipeline version, scoring path, contradictions, wording context, and compatibility fields.
 
 ## Precedence rules
 
-1. Explicit animal distress or danger overrides calm animal domain.
+1. Explicit animal distress or danger overrides calm animal wording groups.
 2. Severe friction/escalation overrides weak positive evidence.
 3. Calm animal/pet content with no distress is GREEN.
 4. Chaotic but non-dangerous animal/pet energy is YELLOW.
 5. Strong calm, low-friction, continuity, explanatory, or trusted-source evidence can produce GREEN.
 6. Mixed or under-evidenced content defaults to YELLOW.
 
-## Confidence math
+## Rule-score math
 
-Current confidence is deterministic and component-based:
+Current rule-match scoring is deterministic and component-based:
 
 - `domainConfidence` is derived from topic relevance, continuity, and animal-domain evidence.
 - `frictionConfidence` is derived from style term count, penalty, animal distress, harmless energy, and capitalization pressure.
 - `positiveSignalConfidence` is derived from calm-positive, calm-animal, educational framing, informational tone, source format, format, and calm language.
-- Final confidence:
+- Final rule-match score:
   - `RED`: max of friction confidence and a minimum red floor.
   - `GREEN`: max of domain and positive-signal confidence.
   - `YELLOW`: average of domain, friction, and positive-signal confidence with a minimum mixed-confidence floor.
 
-All confidence values are clamped to `0-100`.
+All rule-match score values are clamped to `0-100`.
 
-## Semantic transforms
+## Rewritten search lenses
 
-Semantic transforms are generated by `buildExplorationPaths(...)`:
+Rewritten search lenses are generated by `buildExplorationPaths(...)`:
 
 - calmer/lower-friction route;
 - educational route;
@@ -95,18 +95,18 @@ Semantic transforms are generated by `buildExplorationPaths(...)`:
 - beginner route;
 - long-form route.
 
-Transforms preserve subject continuity while changing search framing. They do not change candidate classification directly; they influence scoring through lens preferred terms and filtering policy.
+Rewritten searches preserve subject continuity while changing search framing. They do not change candidate classification directly; they influence scoring through lens preferred terms and filtering policy.
 
 ## Retrieval filtering
 
 Retrieval uses score-first/filter-second:
 
 1. Retrieve structured metadata.
-2. Score every candidate through canonical scoring.
+2. Score every candidate through deterministic scoring.
 3. Filter by selected lens policy.
 4. Render only allowed suggestions.
 
-Filtering must use canonical labels and canonical score components.
+Filtering must use deterministic labels and score components.
 
 ## Scoring examples
 
