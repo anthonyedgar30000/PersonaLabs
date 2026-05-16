@@ -52,7 +52,7 @@
       Object.freeze({
         id: "mvp-political-outrage",
         category: "inflammatory",
-        description: "Outrage framing should classify as high-friction.",
+        description: "Outrage framing should classify as intense / attention-grabbing.",
         expectedLabel: "RED",
         expectedConfidenceRange: [80, 100],
         expectedGovernanceOutcomes: ["explicit escalation or distress framing detected"],
@@ -196,14 +196,14 @@
 
   function confidenceLabel(confidence) {
     const value = Number(confidence) || 0;
-    return `${value} (${confidenceBand(value)} confidence)`;
+    return `${value} (${confidenceBand(value)} match)`;
   }
 
   function signalValues(signals) {
     const groups = signals || {};
     const labels = {
-      positive: "Low-friction signals",
-      friction: "High-friction signals"
+      positive: "Calm/explanatory signals",
+      friction: "Intense/attention-grabbing signals"
     };
     return Object.keys(groups)
       .sort()
@@ -237,7 +237,7 @@
         ? `<p>${escapeHtml(result.passed)}/${escapeHtml(result.total)} scenario checks passing.</p>`
         : "",
       "<table class='classification-table'>",
-      "<thead><tr><th>Title</th><th>Label</th><th>Confidence</th><th>Signals</th><th>Reason</th></tr></thead>",
+      "<thead><tr><th>Title</th><th>Label</th><th>Match strength</th><th>Signals</th><th>Reason</th></tr></thead>",
       "<tbody>",
       results.map((item, index) => {
         const score = item.score || {};
@@ -277,7 +277,7 @@
     const trace = compactTrace(result);
     return [
       `<p><strong>Final label:</strong> ${escapeHtml(trace.finalLabel)}</p>`,
-      `<p><strong>Confidence:</strong> ${escapeHtml(confidenceLabel(trace.confidence))}</p>`,
+      `<p><strong>Match strength:</strong> ${escapeHtml(confidenceLabel(trace.confidence))}</p>`,
       `<p><strong>Matched signals:</strong> ${escapeHtml(signalSummary(trace.matchedSignals))}</p>`,
       `<p><strong>Ignored / downweighted signals:</strong> ${escapeHtml((trace.suppressedSignals || []).join(", ") || "none")}</p>`,
       `<p><strong>Final explanation:</strong> ${escapeHtml(trace.finalExplanation || "none")}</p>`,

@@ -206,6 +206,49 @@ test("does not treat neutral claim-response verbs as high-friction by default", 
   assert(score.reasons.includes("neutral reporting language"));
 });
 
+test("educational and guidance framing soften single intense title terms", () => {
+  const cases = [
+    {
+      title: "Shocking New Study Reveals How Sleep Affects Memory",
+      channel: "Science Classroom"
+    },
+    {
+      title: "Emergency Preparedness Checklist for Families",
+      channel: "Safety Guide"
+    }
+  ];
+
+  cases.forEach((item) => {
+    const anchor = semantic.analyzeAnchor(item.title);
+    const path = semantic.buildExplorationPaths(anchor).find((lens) => lens.id === "educational");
+    const score = semantic.scoreCandidate(
+      {
+        title: item.title,
+        channel: item.channel,
+        duration: "10:00"
+      },
+      anchor,
+      path
+    );
+
+    assert.notEqual(score.label, "RED", item.title);
+    assert(score.reasons.includes("educational or guidance framing reduced single-signal intensity"), item.title);
+  });
+});
+
+test("science sleep titles do not trigger animal distress handling", () => {
+  const title = "Shocking New Study Reveals How Sleep Affects Memory";
+  const score = semantic.scoreContent({
+    candidate: { title, channel: "Science Classroom", duration: "9:00" },
+    anchor: title,
+    scoringPath: "test-contextual-framing"
+  });
+
+  assert.notEqual(score.explanation, "explicit animal distress or danger framing detected");
+  assert.equal(score.debug.calm_animal_score >= 1, true);
+  assert.equal(score.debug.final_classification_reason.includes("animal distress"), false);
+});
+
 test("boosts discussion of sensitive topics on lower-friction source formats", () => {
   const anchor = semantic.analyzeAnchor("Thomas Massie Iran vote");
   const path = semantic.buildExplorationPaths(anchor).find((item) => item.id === "educational");

@@ -126,7 +126,27 @@
     "long-form",
     "documentary",
     "primer",
-    "guide"
+    "guide",
+    "explanation",
+    "study",
+    "research",
+    "checklist"
+  ];
+
+  const CONTEXTUAL_DOWNWEIGHT_TERMS = [
+    "study",
+    "research",
+    "researchers",
+    "published",
+    "guide",
+    "checklist",
+    "preparedness",
+    "safety",
+    "planning",
+    "tutorial",
+    "explained",
+    "explanation",
+    "analysis"
   ];
 
   const NEUTRAL_REPORTING_TERMS = [
@@ -246,6 +266,28 @@
   ];
 
   const CALM_POSITIVE_TERMS = CALM_NATURE_ANIMAL_SIGNALS;
+
+  const ANIMAL_SUBJECT_TERMS = [
+    "animal",
+    "animals",
+    "pet",
+    "pets",
+    "cat",
+    "cats",
+    "kitten",
+    "kittens",
+    "dog",
+    "dogs",
+    "puppy",
+    "puppies",
+    "bunny",
+    "bunnies",
+    "rabbit",
+    "rabbits",
+    "bird",
+    "birds",
+    "wildlife"
+  ];
 
   const HARMLESS_ENERGETIC_TERMS = [
     "hyper",
@@ -883,10 +925,13 @@
   }
 
   function classifyScoredCandidate(metrics) {
+    const contextSoftensFriction = metrics.contextualDownweight >= 1 && metrics.styleTermCount <= 2 && metrics.animalDistressScore === 0;
     const severeFriction =
-      metrics.styleTermCount >= 2 ||
-      (metrics.styleTermCount >= 1 && metrics.capitalizationRatio > 0.5) ||
-      (metrics.styleTermCount >= 1 && metrics.penalty >= 16);
+      !contextSoftensFriction && (
+        metrics.styleTermCount >= 2 ||
+        (metrics.styleTermCount >= 1 && metrics.capitalizationRatio > 0.5) ||
+        (metrics.styleTermCount >= 1 && metrics.penalty >= 16)
+      );
     const hasContinuity = metrics.topicRelevance >= 14 || metrics.continuity >= 4;
     const strongExplanatory = metrics.educationalFraming >= 8;
     const hasFormatTrust = metrics.informationalTone >= 6 || metrics.sourceFormat >= 5;
@@ -900,7 +945,7 @@
       metrics.styleTermCount === 0 &&
       metrics.capitalizationRatio <= 0.36;
 
-    if (clearCalmAnimalSubject && metrics.animalDistressScore > 0) {
+    if (metrics.animalSubjectScore > 0 && metrics.animalDistressScore > 0) {
       return {
         color: "RED",
         label: "high-friction/escalatory",
@@ -1311,10 +1356,14 @@
     const lowFrictionMatches = countMatches(tokens, CALM_LOW_FRICTION_TERMS);
     const calmPositiveMatches = countMatches(tokens, CALM_POSITIVE_TERMS);
     const calmNatureAnimalMatches = countMatches(tokens, CALM_NATURE_ANIMAL_SIGNALS);
+    const animalSubjectMatches = countMatches(titleTokens, ANIMAL_SUBJECT_TERMS);
     const harmlessEnergeticMatches = countMatches(titleTokens, HARMLESS_ENERGETIC_TERMS);
     const animalDistressMatches = countMatches(titleTokens, ANIMAL_DISTRESS_TERMS);
     const beginnerMatches = countMatches(tokens, BEGINNER_TERMS);
     const neutralReportingMatches = countMatches(tokens, NEUTRAL_REPORTING_TERMS);
+    const contextualDownweightMatches =
+      countMatches(tokens, CONTEXTUAL_DOWNWEIGHT_TERMS) +
+      (titleTokens.includes("how") && titleTokens.includes("works") ? 2 : 0);
     const interviewDiscussionMatches = countMatches(tokens, INTERVIEW_DISCUSSION_TERMS);
     const lowerFrictionSourceMatches = countMatches(tokens, LOWER_FRICTION_SOURCE_TERMS);
     const mixedSourceMatches = countMatches(tokens, MIXED_SOURCE_TERMS);
@@ -1356,11 +1405,13 @@
       sourceFormat,
       calmPositive: calmPositiveMatches,
       calmAnimalScore: calmNatureAnimalMatches,
+      animalSubjectScore: animalSubjectMatches,
       escalationScore: styleTerms.length,
       harmlessEnergy: harmlessEnergeticMatches,
       animalDistressScore: animalDistressMatches,
       penalty,
       styleTermCount: styleTerms.length,
+      contextualDownweight: contextualDownweightMatches,
       capitalizationRatio: capRatio
     };
     const classification = classifyScoredCandidate(classificationMetrics);
@@ -1408,6 +1459,9 @@
     }
     if (styleTerms.length > 0) {
       reasons.push("escalation signals detected; ranked lower");
+    }
+    if (styleTerms.length > 0 && contextualDownweightMatches >= 1) {
+      reasons.push("educational or guidance framing reduced single-signal intensity");
     }
     if (reasons.length === 0) {
       reasons.push("visible result with partial subject overlap");
