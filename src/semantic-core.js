@@ -9,6 +9,8 @@
 })(typeof globalThis !== "undefined" ? globalThis : window, function createPersonaLabsSemantic() {
   "use strict";
 
+  const PIPELINE_VERSION = "canonical-semantic-v1";
+
   const STYLE_TAXONOMY = {
     escalation: [
       "breaking",
@@ -991,8 +993,169 @@
     };
   }
 
-  function scoreCandidate(candidate, anchorOrTitle, explorationPath) {
-    const anchor = typeof anchorOrTitle === "string" ? analyzeAnchor(anchorOrTitle) : anchorOrTitle;
+  function videoIdFromCandidate(candidate) {
+    const explicit = candidate && candidate.videoId;
+    if (explicit) {
+      return explicit;
+    }
+
+    try {
+      const parsed = new URL((candidate && candidate.url) || "", "https://www.youtube.com");
+      const videoId = parsed.searchParams.get("v");
+      if (videoId) {
+        return videoId;
+      }
+
+      const shortsMatch = parsed.pathname.match(/\/shorts\/([^/?#]+)/);
+      return shortsMatch ? shortsMatch[1] : "";
+    } catch (error) {
+      return "";
+    }
+  }
+
+  function traceIdForCandidate(candidate, scoringPath) {
+    const source = [
+      videoIdFromCandidate(candidate),
+      candidate && candidate.title,
+      candidate && candidate.channel,
+      scoringPath,
+      Date.now(),
+      Math.random().toString(36).slice(2, 8)
+    ].filter(Boolean).join(":");
+    let hash = 0;
+
+    for (let index = 0; index < source.length; index += 1) {
+      hash = ((hash << 5) - hash + source.charCodeAt(index)) | 0;
+    }
+
+    return `pl-${Math.abs(hash).toString(36)}-${Date.now().toString(36)}`;
+  }
+
+  function termsFromSignals(signals) {
+    return unique((signals || []).map((signal) => signal && (signal.normalizedTerm || signal.term || signal.category)).filter(Boolean));
+  }
+
+  function matchedTermsForCanonical(signals) {
+    return {
+      positive: unique([
+        ...termsFromSignals(signals.educational),
+        ...termsFromSignals(signals.lowFriction),
+        ...termsFromSignals(signals.calmPositive),
+        ...termsFromSignals(signals.calmNatureAnimal),
+        ...termsFromSignals(signals.neutralReporting),
+        ...termsFromSignals(signals.interviewDiscussion),
+        ...termsFromSignals(signals.lowerFrictionSource),
+        ...termsFromSignals(signals.longForm),
+        ...termsFromSignals(signals.beginner)
+      ]),
+      friction: unique([
+        ...termsFromSignals(signals.friction),
+        ...termsFromSignals(signals.harmlessEnergetic),
+        ...termsFromSignals(signals.animalDistress),
+        ...termsFromSignals(signals.mixedSource)
+      ])
+    };
+  }
+
+  function suppressedTermsForCanonical(anchor) {
+    return unique(((anchor && anchor.removedEscalationTerms) || [])
+      .map((signal) => signal && (signal.normalizedTerm || signal.term || signal.category))
+      .filter(Boolean));
+  }
+
+  function domainContextForCanonical(metrics) {
+    if (metrics.calmAnimalScore > 0) {
+      return {
+        domain: "animal-pet-nature",
+        boosts: ["calm animal/nature signals"],
+        confidenceSource: "calmAnimalScore"
+      };
+    }
+
+    if (metrics.educationalFraming > 0) {
+      return {
+        domain: "educational/explanatory",
+        boosts: ["educational framing"],
+        confidenceSource: "educationalFraming"
+      };
+    }
+
+    if (metrics.sourceFormat > 0 || metrics.informationalTone > 0) {
+      return {
+        domain: "low-friction-source",
+        boosts: ["source format", "informational tone"].filter((label, index) => index === 0 ? metrics.sourceFormat > 0 : metrics.informationalTone > 0),
+        confidenceSource: "sourceFormat"
+      };
+    }
+
+    return {
+      domain: "general",
+      boosts: [],
+      confidenceSource: "default"
+    };
+  }
+
+  function downgradeReasonsForCanonical(reasons, classification) {
+    return unique([
+      ...(reasons || []).filter((reason) => /ranked lower|neutral default|chaotic|friction|escalation|distress|mixed/i.test(reason)),
+      classification && /yellow|red|mixed|friction|escalation|distress/i.test(`${classification.color} ${classification.reason}`) ? classification.reason : ""
+    ].filter(Boolean));
+  }
+
+  function normalizeScoreContentInput(input, anchorOrTitle, explorationPath) {
+    if (input && input.candidate) {
+      return {
+        candidate: input.candidate,
+        anchor: input.anchor,
+        lens: input.lens || input.explorationPath,
+        scoringPath: input.scoringPath || "canonical-semantic",
+        expectedLabel: input.expectedLabel || ""
+      };
+    }
+
+    return {
+      candidate: input || {},
+      anchor: anchorOrTitle,
+      lens: explorationPath,
+      scoringPath: "legacy-scoreCandidate",
+      expectedLabel: ""
+    };
+  }
+
+  function detectContradictions(result) {
+    const contradictions = [];
+    const explanation = `${result.explanation || ""} ${((result.reasoning && result.reasoning.reasons) || []).join(" ")}`.toLowerCase();
+    const matchedTerms = [
+      ...((result.matchedTerms && result.matchedTerms.positive) || []),
+      ...((result.matchedTerms && result.matchedTerms.friction) || [])
+    ];
+
+    if (matchedTerms.length === 0 && /(matched terms|title contains|contains .*terms|detected .*terms)/i.test(explanation)) {
+      contradictions.push("explanation claims matched terms while matchedTerms is empty");
+    }
+
+    if (result.label === "GREEN" && /(marked yellow|marked red|explicit escalation|high-friction|controversy terms)/i.test(explanation)) {
+      contradictions.push("GREEN label conflicts with escalation/yellow/red explanation language");
+    }
+
+    if (result.classification && result.classification.color !== result.label) {
+      contradictions.push(`canonical label ${result.label} disagrees with classification color ${result.classification.color}`);
+    }
+
+    if (result.expectedLabel && result.expectedLabel !== result.label) {
+      contradictions.push(`expected label ${result.expectedLabel} disagrees with canonical label ${result.label}`);
+    }
+
+    return contradictions;
+  }
+
+  function scoreContent(input, anchorOrTitle, explorationPath) {
+    const normalizedInput = normalizeScoreContentInput(input, anchorOrTitle, explorationPath);
+    const candidate = normalizedInput.candidate || {};
+    const anchorInput = normalizedInput.anchor || candidate.title || "";
+    const anchor = typeof anchorInput === "string" ? analyzeAnchor(anchorInput) : anchorInput;
+    const activeLens = normalizedInput.lens || null;
+    const scoringPath = normalizedInput.scoringPath || "canonical-semantic";
     const title = candidate.title || "";
     const channel = candidate.channel || "";
     const text = normalizeWhitespace(`${title} ${channel}`);
@@ -1015,7 +1178,7 @@
     const interviewDiscussionMatches = countMatches(tokens, INTERVIEW_DISCUSSION_TERMS);
     const lowerFrictionSourceMatches = countMatches(tokens, LOWER_FRICTION_SOURCE_TERMS);
     const mixedSourceMatches = countMatches(tokens, MIXED_SOURCE_TERMS);
-    const preferredMatches = countMatches(tokens, (explorationPath && explorationPath.preferredTerms) || []);
+    const preferredMatches = countMatches(tokens, (activeLens && activeLens.preferredTerms) || []);
     const continuityMatches = countMatches(titleTokens, namedEntityTokens);
     const topicMatches = countMatches(titleTokens, anchorTerms);
     const durationSeconds = parseDurationSeconds(candidate.duration);
@@ -1062,6 +1225,9 @@
     };
     const classification = classifyScoredCandidate(classificationMetrics);
     const confidence = confidenceForScoredCandidate(classificationMetrics, classification);
+    const domainContext = domainContextForCanonical(classificationMetrics);
+    const matchedTerms = matchedTermsForCanonical(signals);
+    const suppressedTerms = suppressedTermsForCanonical(anchor);
 
     const reasons = [];
     if (topicMatches > 0 || continuityMatches > 0) {
@@ -1107,8 +1273,65 @@
       reasons.push("visible result with partial subject overlap");
     }
 
-    return {
+    const result = {
+      traceId: traceIdForCandidate(candidate, scoringPath),
+      pipelineVersion: PIPELINE_VERSION,
+      scoringPath,
+      videoId: videoIdFromCandidate(candidate),
+      title,
+      channel,
+      lens: activeLens && (activeLens.id || activeLens.lensLabel || activeLens.label) || "none",
+      domain: domainContext.domain,
+      label: classification.color,
       score,
+      scores: {
+        final: score,
+        breakdown: {
+          topicRelevance,
+          educationalFraming,
+          calmLanguage,
+          continuity,
+          format,
+          informationalTone,
+          sourceFormat,
+          calmAnimalScore: calmNatureAnimalMatches,
+          harmlessEnergy: harmlessEnergeticMatches,
+          animalDistressScore: animalDistressMatches,
+          penalty
+        },
+        confidence: confidence.confidence,
+        domainConfidence: confidence.domainConfidence,
+        frictionConfidence: confidence.frictionConfidence,
+        positiveSignalConfidence: confidence.positiveSignalConfidence
+      },
+      matchedTerms,
+      suppressedTerms,
+      semanticSignals: {
+        domainBoosts: domainContext.boosts,
+        confidenceDeltas: {
+          domain: confidence.domainConfidence,
+          friction: confidence.frictionConfidence,
+          positiveSignal: confidence.positiveSignalConfidence
+        },
+        semanticOverrides: classification.reason,
+        finalDecisionSource: "canonical.semantic.classifyScoredCandidate"
+      },
+      reasoning: {
+        reasons,
+        finalReason: confidence.finalReason,
+        downgradeReasons: downgradeReasonsForCanonical(reasons, classification)
+      },
+      domainContext,
+      contradictions: [],
+      expectedLabel: normalizedInput.expectedLabel || "",
+      pipelineStages: [
+        "metadata normalization",
+        "domain detection",
+        "signal matching",
+        "semantic scoring",
+        "suppression/override evaluation",
+        "final label selection"
+      ],
       classification,
       confidence: confidence.confidence,
       domainConfidence: confidence.domainConfidence,
@@ -1143,8 +1366,17 @@
         source: sourceSignals
       },
       detectedStyleTerms: styleTerms,
-      capitalizationRatio: capRatio
+      capitalizationRatio: capRatio,
+      explanation: confidence.finalReason,
+      timestamp: new Date().toISOString()
     };
+
+    result.contradictions = detectContradictions(result);
+    return result;
+  }
+
+  function scoreCandidate(candidate, anchorOrTitle, explorationPath) {
+    return scoreContent(candidate, anchorOrTitle, explorationPath);
   }
 
   function hasStrongExplanatoryValue(scoring) {
@@ -1164,7 +1396,7 @@
   }
 
   function isAllowedByLens(scoring, explorationPath) {
-    const color = scoring.classification.color;
+    const color = scoring.label || (scoring.classification && scoring.classification.color);
     const policy = (explorationPath && explorationPath.filterPolicy) || "green-or-explanatory-yellow";
 
     if (color === "RED") {
@@ -1202,7 +1434,12 @@
     return (candidates || [])
       .map((candidate) => ({
         ...candidate,
-        scoring: scoreCandidate(candidate, anchorOrTitle, explorationPath)
+        scoring: scoreContent({
+          candidate,
+          anchor: anchorOrTitle,
+          lens: explorationPath,
+          scoringPath: "retrieval-ranking"
+        })
       }))
       .filter((candidate) => candidate.title)
       .sort((a, b) => {
@@ -1218,7 +1455,12 @@
     return (candidates || [])
       .map((candidate) => ({
         ...candidate,
-        scoring: scoreCandidate(candidate, anchorOrTitle, explorationPath)
+        scoring: scoreContent({
+          candidate,
+          anchor: anchorOrTitle,
+          lens: explorationPath,
+          scoringPath: "retrieval-panel"
+        })
       }))
       .filter((candidate) => candidate.title);
   }
@@ -1269,6 +1511,7 @@
     isAllowedByLens,
     rankCandidates,
     removeSensationalTerms,
+    scoreContent,
     scoreCandidate,
     scoreCandidates,
     tokenize

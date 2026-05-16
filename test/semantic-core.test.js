@@ -1,7 +1,6 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
-const headlineAnalyzer = require("../lib/headlineAnalyzer");
 const semantic = require("../src/semantic-core");
 
 test("extracts subject-preserving anchors while removing escalation style terms", () => {
@@ -464,7 +463,7 @@ test("governance regressions keep mature scoring expectations stable", () => {
   assert.equal(outrageTitle.classification.color, "RED");
 });
 
-test("overlay headline and panel semantic paths agree for canonical calm animal label", () => {
+test("overlay and panel paths use the same canonical label", () => {
   const candidate = {
     title: "Cute Baby Bunny Compilation",
     channel: "Wholesome Pets",
@@ -472,9 +471,42 @@ test("overlay headline and panel semantic paths agree for canonical calm animal 
   };
   const anchor = semantic.analyzeAnchor(candidate.title);
   const path = semantic.buildExplorationPaths(anchor).find((lens) => lens.id === "calmer");
-  const panelScore = semantic.scoreCandidate(candidate, anchor, path);
-  const overlayHeadline = headlineAnalyzer.analyzeHeadline(candidate.title, candidate.channel, "chill");
+  const panelScore = semantic.scoreContent({ candidate, anchor, lens: path, scoringPath: "retrieval-panel" });
+  const overlayScore = semantic.scoreContent({ candidate, anchor, lens: path, scoringPath: "overlay" });
 
-  assert.equal(panelScore.classification.color, "GREEN");
-  assert.equal(overlayHeadline.visibleOverlay.label, panelScore.classification.color);
+  assert.equal(panelScore.label, "GREEN");
+  assert.equal(overlayScore.label, panelScore.label);
+  assert.equal(overlayScore.classification.color, overlayScore.label);
+});
+
+test("canonical score detects duplicate path disagreement and empty matched-term consistency", () => {
+  const anchor = semantic.analyzeAnchor("Obscure Segment 17");
+  const path = semantic.buildExplorationPaths(anchor).find((lens) => lens.id === "educational");
+  const neutral = semantic.scoreContent({
+    candidate: {
+      title: "Obscure Segment 17",
+      channel: "Channel 42",
+      duration: "9:00"
+    },
+    anchor,
+    lens: path,
+    scoringPath: "test-canonical"
+  });
+  const disagreement = semantic.scoreContent({
+    candidate: {
+      title: "Cute Baby Bunny Compilation",
+      channel: "Wholesome Pets",
+      duration: "12:00"
+    },
+    anchor: semantic.analyzeAnchor("Cute Baby Bunny Compilation"),
+    lens: path,
+    scoringPath: "test-duplicate",
+    expectedLabel: "RED"
+  });
+
+  assert.equal(neutral.matchedTerms.positive.length, 0);
+  assert.equal(neutral.matchedTerms.friction.length, 0);
+  assert(!/title contains|matched terms/i.test(neutral.explanation));
+  assert.deepEqual(neutral.contradictions, []);
+  assert(disagreement.contradictions.some((item) => /expected label RED disagrees/.test(item)));
 });

@@ -2,7 +2,7 @@
 
 PersonaLabs classifications must be represented as one canonical semantic result object.
 
-## Canonical result object
+## Canonical semantic result object
 
 ```js
 {
@@ -15,13 +15,26 @@ PersonaLabs classifications must be represented as one canonical semantic result
   label,
   confidence,
   scores,
-  matchedSignals,
-  suppressedSignals,
+  matchedTerms,
+  suppressedTerms,
+  semanticSignals,
+  observabilitySignals,
+  reasoning,
+  pipelineVersion,
+  scoringPath,
+  contradictions,
+  domainContext,
   downgradeReasons,
   explanation,
   timestamp
 }
 ```
+
+Runtime canonical scores may also expose compatibility fields such as
+`classification`, `score`, `breakdown`, `matchedSignals`,
+`suppressedSignals`, and `debug` while older call sites are migrated. These
+fields must mirror the canonical fields and must not become alternate decision
+sources.
 
 ## Field definitions
 
@@ -34,28 +47,55 @@ PersonaLabs classifications must be represented as one canonical semantic result
 - `label`: Final visible classification label: `GREEN`, `YELLOW`, or `RED`.
 - `confidence`: Numeric 0-100 confidence for the final label.
 - `scores`: Score components used to select or explain the label.
-- `matchedSignals`: Structured matched signals, at minimum `{ positive: [], friction: [] }`.
-- `suppressedSignals`: Signals suppressed by safe-domain or contextual rules.
+- `matchedTerms`: Structured matched terms, at minimum `{ positive: [], friction: [] }`.
+- `suppressedTerms`: Terms suppressed by safe-domain or contextual rules.
+- `semanticSignals`: Semantic contributions such as domain boosts, confidence deltas, semantic overrides, and final decision source.
+- `observabilitySignals`: Raw matched observability signal groups from the canonical semantic pipeline.
+- `reasoning`: Structured reasoning, including human-readable reasons, final reason, and downgrade reasons.
+- `pipelineVersion`: Version string for the canonical semantic pipeline.
+- `scoringPath`: Runtime path consuming the canonical score, such as `overlay`, `retrieval-panel`, or `retrieval-ranking`.
+- `contradictions`: Explicit contradictions detected between label, explanation, and matched terms.
+- `domainContext`: Domain classification context, boosts, and confidence source.
 - `downgradeReasons`: Human-readable reasons a candidate was downgraded, capped, or kept from a stronger positive label.
 - `explanation`: Final user-facing or debug-facing classification reason.
 - `timestamp`: ISO timestamp for the classification event.
 
+## Canonical function
+
+All active runtime classification decisions must originate from:
+
+```js
+semantic.scoreContent({
+  candidate,
+  anchor,
+  lens,
+  scoringPath,
+  expectedLabel
+})
+```
+
+`semantic.scoreCandidate(...)` and `semantic.scoreCandidates(...)` are
+compatibility adapters that delegate to `scoreContent(...)`.
+
 ## Current scoring path audit
 
-As of this branch, duplicate scoring paths still exist:
+The active runtime now routes overlay, retrieval, and panel decisions through
+`semantic.scoreContent(...)`.
 
-1. **Overlay path**
-   - `src/content.js` calls `headlineAnalyzer.analyzeHeadline(...)`.
-   - It also calls `semantic.scoreCandidate(...)` when an anchor exists.
-   - `resolveVisibleOverlay(...)` selects the visible overlay label from headline governance, with a semantic safe-domain override.
+- `src/content.js` overlay rendering calls `semantic.scoreContent(...)`.
+- `src/retrieval-pipeline.js` panel/retrieval scoring calls `semantic.scoreCandidates(...)`, which delegates to `semantic.scoreContent(...)`.
+- `src/content.js` panel recommendations render the same canonical label and confidence from `suggestion.scoring`.
 
-2. **Panel recommendation path**
-   - `src/retrieval-pipeline.js` calls `semantic.scoreCandidates(...)`.
-   - `src/content.js` renders panel recommendations from `suggestion.scoring.classification.color`.
+## Remaining legacy scoring code
 
-This split is documented before any replacement work. The current stabilization pass does not rewrite scoring. It adds canonical trace objects around both paths so output differences are inspectable.
+`lib/headlineAnalyzer.js` still exists as legacy isolated code with regression
+tests, but it is no longer loaded by the extension manifest and is not used by
+the overlay or panel rendering paths. It should not be reintroduced as a UI
+decision source.
 
 ## Required convergence rule
 
-New code must not add another label source. Any future overlay/panel unification should make both rendering paths consume the canonical semantic result object rather than independently computing visible labels.
+New code must not add another label source. Overlay, retrieval filtering, panel
+recommendations, trace logging, and persistence attempts must consume the
+canonical semantic result object.
 

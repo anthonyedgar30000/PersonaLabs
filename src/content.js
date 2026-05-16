@@ -3,7 +3,6 @@
 
   const semantic = window.PersonaLabsSemantic;
   const retrieval = window.PersonaLabsRetrieval;
-  const headlineAnalyzer = window.PersonaLabsHeadlineAnalyzer;
   const LOG_PREFIX = "[PersonaLabs rendering]";
   const DEBUG_RENDERING = true;
 
@@ -18,11 +17,6 @@
 
   if (!retrieval) {
     console.warn(LOG_PREFIX, "content.js executed, but retrieval pipeline is unavailable");
-    return;
-  }
-
-  if (!headlineAnalyzer) {
-    console.warn(LOG_PREFIX, "content.js executed, but headline analyzer is unavailable");
     return;
   }
 
@@ -366,6 +360,10 @@
   }
 
   function downgradeReasonsForTrace(scoring, headline, visibleOverlay) {
+    if (scoring && scoring.reasoning && scoring.reasoning.downgradeReasons) {
+      return scoring.reasoning.downgradeReasons;
+    }
+
     const reasons = [
       ...((scoring && scoring.reasons) || []).filter((reason) => /downgrade|ranked lower|neutral default|chaotic|friction|escalation|suppression|cap/i.test(reason)),
       ...((headline && headline.reasons) || []).filter((reason) => /yellow|red|suppressed|uncertain|risk/i.test(reason)),
@@ -376,6 +374,10 @@
   }
 
   function scoreComponentsForTrace(scoring, headline) {
+    if (scoring && scoring.scores) {
+      return scoring.scores;
+    }
+
     return {
       semanticScore: scoring ? scoring.score : null,
       semanticBreakdown: scoring && scoring.breakdown ? scoring.breakdown : {},
@@ -402,12 +404,24 @@
       label: "",
       confidence: null,
       scores: {},
+      matchedTerms: {
+        positive: [],
+        friction: []
+      },
       matchedSignals: {
         positive: [],
         friction: []
       },
+      suppressedTerms: [],
       suppressedSignals: [],
       downgradeReasons: [],
+      semanticSignals: {},
+      observabilitySignals: {},
+      reasoning: {},
+      pipelineVersion: "",
+      scoringPath: "",
+      contradictions: [],
+      domainContext: {},
       explanation: "",
       timestamp: new Date().toISOString(),
       renderingTarget: renderingTarget || "unknown",
@@ -425,17 +439,34 @@
       return null;
     }
 
-    trace.domain = detectDomainForTrace(scoring, headline);
-    trace.matchedSignals = {
-      positive: matchedPositiveSignalsForTrace(scoring, headline),
-      friction: matchedFrictionSignalsForTrace(scoring, headline)
-    };
-    trace.suppressedSignals = suppressedSignalsForTrace(headline, state.anchor);
+    if (scoring && scoring.traceId) {
+      trace.traceId = scoring.traceId;
+    }
+    trace.domain = (scoring && scoring.domain) || detectDomainForTrace(scoring, headline);
+    trace.matchedTerms = scoring && scoring.matchedTerms
+      ? {
+          positive: scoring.matchedTerms.positive || [],
+          friction: scoring.matchedTerms.friction || []
+        }
+      : {
+          positive: matchedPositiveSignalsForTrace(scoring, headline),
+          friction: matchedFrictionSignalsForTrace(scoring, headline)
+        };
+    trace.matchedSignals = trace.matchedTerms;
+    trace.suppressedTerms = scoring && scoring.suppressedTerms ? scoring.suppressedTerms : suppressedSignalsForTrace(headline, state.anchor);
+    trace.suppressedSignals = trace.suppressedTerms;
     trace.scores = scoreComponentsForTrace(scoring, headline);
-    trace.label = (visibleOverlay && visibleOverlay.label) || (scoring && scoring.classification && scoring.classification.color) || (headline && headline.label) || "";
+    trace.label = (scoring && scoring.label) || (visibleOverlay && visibleOverlay.label) || (scoring && scoring.classification && scoring.classification.color) || (headline && headline.label) || "";
     trace.confidence = scoring ? scoring.confidence : confidenceNumber(visibleOverlay && visibleOverlay.confidence);
     trace.downgradeReasons = downgradeReasonsForTrace(scoring, headline, visibleOverlay);
-    trace.explanation = (scoring && scoring.finalReason) || (visibleOverlay && visibleOverlay.reason) || (headline && headline.explanation) || "";
+    trace.explanation = (scoring && scoring.explanation) || (scoring && scoring.finalReason) || (visibleOverlay && visibleOverlay.reason) || (headline && headline.explanation) || "";
+    trace.contradictions = scoring && scoring.contradictions ? scoring.contradictions : [];
+    trace.pipelineVersion = scoring && scoring.pipelineVersion;
+    trace.scoringPath = scoring && scoring.scoringPath;
+    trace.semanticSignals = scoring && scoring.semanticSignals ? scoring.semanticSignals : {};
+    trace.observabilitySignals = scoring && scoring.observabilitySignals ? scoring.observabilitySignals : {};
+    trace.reasoning = scoring && scoring.reasoning ? scoring.reasoning : {};
+    trace.domainContext = scoring && scoring.domainContext ? scoring.domainContext : {};
     trace.renderingTarget = renderingTarget || trace.renderingTarget;
     trace.timestamp = new Date().toISOString();
     return trace;
@@ -823,7 +854,7 @@
       scored: explorationSet.scored.map((item) => ({
         title: item.title,
         score: item.scoring.score,
-        color: item.scoring.classification.color,
+        color: item.scoring.label,
         allowed: explorationSet.suggestions.includes(item)
       })),
       suggestions: explorationSet.suggestions.length
@@ -877,11 +908,14 @@
         lens: selectedLensLabel(activePath()),
         hasAnchor: Boolean(state.anchor)
       }, { once: true });
-      const scoring = state.anchor ? semantic.scoreCandidate(candidate, state.anchor, activePath()) : null;
-      const headline = headlineAnalyzer.analyzeHeadline(candidate.title, candidate.channel, "chill");
-      const visibleOverlay = resolveVisibleOverlay(headline, scoring);
+      const scoring = semantic.scoreContent({
+        candidate,
+        anchor: state.anchor || candidate.title,
+        lens: activePath(),
+        scoringPath: "overlay"
+      });
       const styleSignals = semantic.classifyStyleTerms(candidate.title);
-      updateTraceFromScoring(trace, scoring, headline, visibleOverlay, "overlay");
+      updateTraceFromScoring(trace, scoring, null, null, "overlay");
       recordTraceStage(trace, "domain/tone/friction signals matched", {
         domain: trace && trace.domain,
         matchedSignals: trace && trace.matchedSignals,
@@ -889,34 +923,31 @@
       }, { once: true });
       recordTraceStage(trace, "suppression/override rules applied", {
         suppressedSignals: trace && trace.suppressedSignals,
-        visibleOverlayCode: visibleOverlay && visibleOverlay.code,
-        headlineSuppressedWeakTerms: headline.governance && headline.governance.suppressedWeakTerms
+        semanticOverrides: scoring.semanticSignals && scoring.semanticSignals.semanticOverrides,
+        contradictions: scoring.contradictions
       }, { once: true });
       recordTraceStage(trace, "final classification selected", {
         label: trace && trace.label,
         confidence: trace && trace.confidence,
         explanation: trace && trace.explanation
       }, { once: true });
-      const label = `PL ${visibleOverlay.label}`;
-      const category = visibleOverlay.color;
+      const label = `PL ${scoring.label}`;
+      const category = scoring.label.toLowerCase();
       const details = {
         ...describeCard(card, candidate),
         traceId: trace && trace.traceId,
-        headlineScores: headline.scores,
-        headlineExplanation: headline.explanation,
-        visibleOverlay,
-        headlineGovernance: headline.governance,
-        matchedTerms: summarizeHeadlineTerms(headline),
-        semanticScore: scoring && scoring.score,
-        semanticColor: scoring && scoring.classification.color,
+        canonicalScore: scoring.score,
+        canonicalLabel: scoring.label,
+        matchedTerms: scoring.matchedTerms,
+        contradictions: scoring.contradictions,
         category,
         label
       };
 
       debugLog("assigned deterministic classification", details);
 
-      const titleBadgeCreated = upsertTitleBadge(card, label, category, scoring, headline, visibleOverlay);
-      const overlayCreated = upsertThumbnailOverlay(card, label, category, scoring, headline, visibleOverlay);
+      const titleBadgeCreated = upsertTitleBadge(card, label, category, scoring);
+      const overlayCreated = upsertThumbnailOverlay(card, label, category, scoring);
 
       if (titleBadgeCreated || overlayCreated) {
         renderedCount += 1;
@@ -949,48 +980,6 @@
     if (personaLabsDebugEnabled() && renderedCount > 0) {
       scheduleRender();
     }
-  }
-
-  function resolveVisibleOverlay(headline, scoring) {
-    const baseOverlay = headline.visibleOverlay || {
-      label: headline.label,
-      color: headline.color,
-      confidence: headline.confidence || "medium",
-      reason: headline.explanation
-    };
-    const semanticColor = scoring && scoring.classification && scoring.classification.color;
-    const calmAnimalScore = scoring && scoring.breakdown && scoring.breakdown.calmAnimalScore;
-    const animalDistressScore = scoring && scoring.breakdown && scoring.breakdown.animalDistressScore;
-    const headlineHasRed = headline.scores && headline.scores.red_score > 0;
-
-    if (
-      semanticColor === "GREEN" &&
-      baseOverlay.label === "YELLOW" &&
-      calmAnimalScore > 0 &&
-      animalDistressScore === 0 &&
-      !headlineHasRed
-    ) {
-      return {
-        label: "GREEN",
-        color: "green",
-        confidence: "medium",
-        reason: "Visible overlay kept GREEN because semantic scoring detected harmless animal/pet content and headline YELLOW was only uncertainty.",
-        code: "visible.safe_domain_semantic_green_override"
-      };
-    }
-
-    return {
-      ...baseOverlay,
-      code: baseOverlay.code || "visible.headline_governance"
-    };
-  }
-
-  function summarizeHeadlineTerms(headline) {
-    return {
-      green: headline.matchedTerms.green.map((match) => match.term),
-      yellow: headline.matchedTerms.yellow.map((match) => match.term),
-      red: headline.matchedTerms.red.map((match) => match.term)
-    };
   }
 
   function confidenceNumber(value) {
@@ -1029,56 +1018,48 @@
     };
   }
 
-  function formatHeadlineTooltip(headline, scoring, visibleOverlay) {
-    const terms = summarizeHeadlineTerms(headline);
-    const confidence = classificationConfidence(scoring, visibleOverlay);
+  function formatCanonicalTooltip(scoring) {
+    const confidence = classificationConfidence(scoring);
     const matched = [
-      terms.green.length ? `green: ${terms.green.join(", ")}` : "",
-      terms.yellow.length ? `yellow: ${terms.yellow.join(", ")}` : "",
-      terms.red.length ? `red: ${terms.red.join(", ")}` : ""
-    ]
-      .filter(Boolean)
-      .join(" | ");
+      scoring.matchedTerms && scoring.matchedTerms.positive.length ? `positive: ${scoring.matchedTerms.positive.join(", ")}` : "",
+      scoring.matchedTerms && scoring.matchedTerms.friction.length ? `friction: ${scoring.matchedTerms.friction.join(", ")}` : ""
+    ].filter(Boolean).join(" | ");
 
     return [
-      `Visible overlay: ${visibleOverlay.label} (${visibleOverlay.confidence}).`,
+      `Visible overlay: ${scoring.label} (${formatConfidence(confidence.confidence)}).`,
       `Confidence: ${formatConfidence(confidence.confidence)}.`,
-      scoring ? `Domain confidence: ${formatConfidence(confidence.domainConfidence)}.` : "",
-      scoring ? `Friction confidence: ${formatConfidence(confidence.frictionConfidence)}.` : "",
-      scoring ? `Positive-signal confidence: ${formatConfidence(confidence.positiveSignalConfidence)}.` : "",
+      `Domain confidence: ${formatConfidence(confidence.domainConfidence)}.`,
+      `Friction confidence: ${formatConfidence(confidence.frictionConfidence)}.`,
+      `Positive-signal confidence: ${formatConfidence(confidence.positiveSignalConfidence)}.`,
       confidence.finalReason ? `Final reason: ${confidence.finalReason}.` : "",
-      visibleOverlay.reason,
-      headline.explanation,
-      `Headline scores: green ${headline.scores.green_score}, yellow ${headline.scores.yellow_score}, red ${headline.scores.red_score}.`,
-      headline.governance && headline.governance.suppressedWeakTerms.length
-        ? `Suppressed weak safe-domain terms: ${headline.governance.suppressedWeakTerms.join(", ")}.`
-        : "",
+      `Canonical score: ${scoring.score}.`,
       matched ? `Matched terms: ${matched}.` : "Matched terms: none.",
-      scoring ? `Semantic score: ${scoring.score} (${scoring.classification.color}).` : ""
+      scoring.suppressedTerms && scoring.suppressedTerms.length ? `Suppressed terms: ${scoring.suppressedTerms.join(", ")}.` : "",
+      scoring.contradictions && scoring.contradictions.length ? `Contradictions: ${scoring.contradictions.join(" | ")}.` : ""
     ]
       .filter(Boolean)
       .join("\n");
   }
 
-  function renderHeadlineOverlay(label, headline, visibleOverlay, scoring) {
-    const terms = summarizeHeadlineTerms(headline);
-    const confidence = classificationConfidence(scoring, visibleOverlay);
-    const matched = [...terms.green, ...terms.yellow, ...terms.red].slice(0, 4).join(", ") || "no matched terms";
-    const confidenceDetails = scoring
-      ? `Domain ${formatConfidence(confidence.domainConfidence)} / Friction ${formatConfidence(confidence.frictionConfidence)} / Positive ${formatConfidence(confidence.positiveSignalConfidence)}`
-      : "";
+  function renderCanonicalOverlay(label, scoring) {
+    const confidence = classificationConfidence(scoring);
+    const matched = [
+      ...((scoring.matchedTerms && scoring.matchedTerms.positive) || []),
+      ...((scoring.matchedTerms && scoring.matchedTerms.friction) || [])
+    ].slice(0, 4).join(", ") || "no matched terms";
+    const confidenceDetails = `Domain ${formatConfidence(confidence.domainConfidence)} / Friction ${formatConfidence(confidence.frictionConfidence)} / Positive ${formatConfidence(confidence.positiveSignalConfidence)}`;
 
     return [
       `<span class="personalabs-overlay-label">${escapeHtml(label)}</span>`,
       `<span class="personalabs-overlay-confidence">Confidence ${escapeHtml(formatConfidence(confidence.confidence))}</span>`,
-      confidenceDetails ? `<span class="personalabs-overlay-confidence">${escapeHtml(confidenceDetails)}</span>` : "",
-      `<span class="personalabs-overlay-breakdown">G ${headline.scores.green_score} / Y ${headline.scores.yellow_score} / R ${headline.scores.red_score}</span>`,
-      `<span class="personalabs-overlay-reason">${escapeHtml(visibleOverlay.reason || headline.explanation)}</span>`,
+      `<span class="personalabs-overlay-confidence">${escapeHtml(confidenceDetails)}</span>`,
+      `<span class="personalabs-overlay-breakdown">Score ${scoring.score} / ${escapeHtml(scoring.domain)}</span>`,
+      `<span class="personalabs-overlay-reason">${escapeHtml(scoring.explanation || scoring.finalReason)}</span>`,
       `<span class="personalabs-overlay-terms">${escapeHtml(matched)}</span>`
     ].filter(Boolean).join("");
   }
 
-  function upsertTitleBadge(card, label, category, scoring, headline, visibleOverlay) {
+  function upsertTitleBadge(card, label, category, scoring) {
     const titleElement = findTitleElement(card);
     if (!titleElement) {
       warnLog("title badge skipped; no title element found", { tag: card && card.tagName });
@@ -1094,7 +1075,7 @@
 
     badge.textContent = label;
     badge.dataset.signal = category;
-    badge.title = formatHeadlineTooltip(headline, scoring, visibleOverlay);
+    badge.title = formatCanonicalTooltip(scoring);
 
     return badge.isConnected;
   }
@@ -1115,7 +1096,7 @@
     );
   }
 
-  function upsertThumbnailOverlay(card, label, category, scoring, headline, visibleOverlay) {
+  function upsertThumbnailOverlay(card, label, category, scoring) {
     const host = findThumbnailHost(card);
     if (!host) {
       warnLog("thumbnail overlay skipped; no host found", { tag: card && card.tagName });
@@ -1133,9 +1114,9 @@
       host.appendChild(overlay);
     }
 
-    overlay.innerHTML = renderHeadlineOverlay(label, headline, visibleOverlay, scoring);
+    overlay.innerHTML = renderCanonicalOverlay(label, scoring);
     overlay.dataset.signal = category;
-    overlay.title = formatHeadlineTooltip(headline, scoring, visibleOverlay);
+    overlay.title = formatCanonicalTooltip(scoring);
 
     return overlay.isConnected;
   }
@@ -1316,24 +1297,24 @@
         .slice(0, 3)
         .map((reason) => `<span>${escapeHtml(reason)}</span>`)
         .join("");
-      const color = suggestion.scoring.classification.color.toLowerCase();
+      const color = suggestion.scoring.label.toLowerCase();
 
       item.dataset.classification = color;
       item.innerHTML = [
         `<div class='personalabs-score' data-classification='${color}'>${suggestion.scoring.score}</div>`,
         "<div>",
-        `<div class='personalabs-classification' data-classification='${color}'>${escapeHtml(suggestion.scoring.classification.color)} | ${escapeHtml(suggestion.scoring.classification.label)} | Confidence ${escapeHtml(formatConfidence(confidence.confidence))}</div>`,
+        `<div class='personalabs-classification' data-classification='${color}'>${escapeHtml(suggestion.scoring.label)} | ${escapeHtml(suggestion.scoring.classification.label)} | Confidence ${escapeHtml(formatConfidence(confidence.confidence))}</div>`,
         `<h4>${link}</h4>`,
         `<p>${escapeHtml(suggestion.channel || "Visible YouTube result")}</p>`,
         `<div class='personalabs-confidence-details'>Domain ${escapeHtml(formatConfidence(confidence.domainConfidence))} | Friction ${escapeHtml(formatConfidence(confidence.frictionConfidence))} | Positive ${escapeHtml(formatConfidence(confidence.positiveSignalConfidence))}</div>`,
-        `<p class='personalabs-final-reason'>Final reason: ${escapeHtml(confidence.finalReason || suggestion.scoring.classification.reason || "classification reason unavailable")}</p>`,
+        `<p class='personalabs-final-reason'>Final reason: ${escapeHtml(suggestion.scoring.explanation || confidence.finalReason || suggestion.scoring.classification.reason || "classification reason unavailable")}</p>`,
         `<div class='personalabs-reasons'>${reasons}</div>`,
         "</div>"
       ].join("");
       list.appendChild(item);
       recordTraceStage(trace, "panel recommendation rendered", {
         title: suggestion.title,
-        color: suggestion.scoring.classification.color,
+        color: suggestion.scoring.label,
         confidence: suggestion.scoring.confidence
       }, { once: true });
       attemptDatabaseTraceSave(trace);
