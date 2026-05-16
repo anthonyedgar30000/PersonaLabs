@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PersonaLabs Test Harness</title>
+    <link rel="stylesheet" href="./test-harness.css">
+  </head>
+  <body>
+    <main class="personalabs-harness">
+      <header class="personalabs-harness-header">
+        <p class="eyebrow">PersonaLabs Debug Harness</p>
+        <h1>Local Test Harness MVP</h1>
+        <p>Runs canonical scenarios through <code>window.PersonaLabsTestAPI</code> and stores evidence bundles locally.</p>
+      </header>
+
+      <section class="harness-section" aria-labelledby="api-status-title">
+        <h2 id="api-status-title">API Status</h2>
+        <div id="api-status"></div>
+      </section>
+
+      <section class="harness-section" aria-labelledby="pipeline-health-title">
+        <h2 id="pipeline-health-title">Pipeline Health</h2>
+        <div id="pipeline-health"></div>
+      </section>
+
+      <section class="harness-section" aria-labelledby="scenario-runner-title">
+        <h2 id="scenario-runner-title">Scenario Runner</h2>
+        <div class="action-row">
+          <button type="button" id="run-default-scenario">Run First Scenario</button>
+          <button type="button" id="run-default-pack">Run Default Pack</button>
+          <button type="button" id="run-json">Run JSON</button>
+        </div>
+        <textarea id="scenario-json" spellcheck="false" aria-label="Scenario or scenario pack JSON"></textarea>
+        <div id="scenario-results"></div>
+      </section>
+
+      <section class="harness-section" aria-labelledby="evidence-title">
+        <h2 id="evidence-title">Evidence Bundle Viewer</h2>
+        <div class="action-row">
+          <button type="button" id="refresh-evidence">Refresh Evidence</button>
+          <button type="button" id="copy-evidence">Copy JSON</button>
+          <button type="button" id="download-evidence">Download JSON</button>
+        </div>
+        <div id="evidence-viewer"></div>
+      </section>
+
+      <section class="harness-section" aria-labelledby="trace-title">
+        <h2 id="trace-title">Trace Viewer</h2>
+        <div class="action-row">
+          <button type="button" id="refresh-traces">Refresh Traces</button>
+        </div>
+        <div id="trace-viewer"></div>
+      </section>
+
+      <section class="harness-section" aria-labelledby="drift-title">
+        <h2 id="drift-title">Drift Summary</h2>
+        <div id="drift-summary"></div>
+      </section>
+    </main>
+
+    <script>
+      window.PERSONALABS_DEBUG = true;
+    </script>
+    <script src="../src/semantic-core.js"></script>
+    <script src="../src/test-harness-api.js"></script>
+    <script src="./test-harness.js"></script>
+  </body>
+</html>
