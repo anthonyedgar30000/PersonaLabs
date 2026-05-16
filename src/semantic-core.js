@@ -66,14 +66,38 @@ const RED_ESCALATION_TERMS = [
   "attack",
 ];
 
+const CONTEXTUAL_ANIMAL_YELLOW_TERMS = [
+  "chaotic",
+  "screaming",
+  "loud",
+  "fails",
+  "fail",
+];
+
+const HARMLESS_ANIMAL_CONTEXT_TERMS = [
+  "playing",
+  "funny",
+  "zoomies",
+  "cute",
+  "compilation",
+  "shorts",
+];
+
 export function classifySemanticContent(content = {}) {
   const text = joinText(content.title, content.channel, content.description);
   const domain = detectDomain(text);
   const redSignals = findTerms(text, RED_ESCALATION_TERMS);
   const rawYellowSignals = findTerms(text, YELLOW_ESCALATION_TERMS);
-  const suppressedSignals = domain === DOMAINS.ANIMAL_PET_NATURE
+  const baseSuppressedSignals = domain === DOMAINS.ANIMAL_PET_NATURE
     ? findTerms(text, LOW_SEVERITY_ANIMAL_TERMS)
     : [];
+  const contextualYellowSignals = domain === DOMAINS.ANIMAL_PET_NATURE
+    ? findContextualAnimalYellowSignals(text, rawYellowSignals)
+    : [];
+  const suppressedSignals = [
+    ...baseSuppressedSignals,
+    ...contextualYellowSignals,
+  ];
   const yellowSignals = domain === DOMAINS.ANIMAL_PET_NATURE
     ? rawYellowSignals.filter((term) => !suppressedSignals.includes(term))
     : rawYellowSignals;
@@ -122,6 +146,16 @@ function detectDomain(text) {
   return findTerms(text, ANIMAL_PET_NATURE_TERMS).length > 0
     ? DOMAINS.ANIMAL_PET_NATURE
     : DOMAINS.GENERAL;
+}
+
+function findContextualAnimalYellowSignals(text, rawYellowSignals) {
+  const hasHarmlessContext = findTerms(text, HARMLESS_ANIMAL_CONTEXT_TERMS).length > 0;
+
+  if (!hasHarmlessContext) {
+    return [];
+  }
+
+  return rawYellowSignals.filter((term) => CONTEXTUAL_ANIMAL_YELLOW_TERMS.includes(term));
 }
 
 function explain({ label, baselineSafe, redSignals, yellowSignals }) {
