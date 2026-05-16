@@ -14,6 +14,7 @@
   const RESULT_STORE_KEY = "__PersonaLabsTestResults";
   const TRACE_STORE_KEY = "__PersonaLabsTestTraces";
   const SENSITIVE_KEY_PATTERN = /cookie|token|authorization|password|secret|session|account|email/i;
+  const SAFE_CONTROL_KEY_PATTERN = /^(.*Included|.*Allowed|.*Enabled|includes.*|exposes.*|evidenceExports.*|governanceBypassAllowed|readOnlyExceptTestExecution)$/;
 
   function debugEnabled(root) {
     return Boolean(root && (root.PERSONALABS_DEBUG === true || root.PERSONALABS_DEBUG === "true"));
@@ -51,7 +52,7 @@
     }
 
     return Object.keys(value).reduce((safe, key) => {
-      if (SENSITIVE_KEY_PATTERN.test(key)) {
+      if (SENSITIVE_KEY_PATTERN.test(key) && !SAFE_CONTROL_KEY_PATTERN.test(key)) {
         safe[key] = "[REDACTED]";
         return safe;
       }
