@@ -7,6 +7,10 @@
   const LOG_PREFIX = "[PersonaLabs rendering]";
   const DEBUG_RENDERING = true;
 
+  if (typeof window.PERSONALABS_DEBUG === "undefined") {
+    window.PERSONALABS_DEBUG = false;
+  }
+
   if (!semantic) {
     console.warn(LOG_PREFIX, "content.js executed, but semantic core is unavailable");
     return;
@@ -93,6 +97,7 @@
     annotationTimer: null,
     scanTimer: null,
     renderTimer: null,
+    traces: [],
     mutationCount: 0
   };
 
@@ -113,6 +118,16 @@
       console.warn(LOG_PREFIX, message);
     } else {
       console.warn(LOG_PREFIX, message, payload);
+    }
+  }
+
+  function personaLabsDebugEnabled() {
+    return window.PERSONALABS_DEBUG === true;
+  }
+
+  function traceLog(stage, trace) {
+    if (personaLabsDebugEnabled()) {
+      console.debug("[PersonaLabs trace]", stage, trace);
     }
   }
 
@@ -215,6 +230,247 @@
     }
   }
 
+  function videoIdFromUrl(url) {
+    try {
+      const parsed = new URL(url || "", location.origin);
+      if (parsed.searchParams.get("v")) {
+        return parsed.searchParams.get("v");
+      }
+
+      const shortsMatch = parsed.pathname.match(/\/shorts\/([^/?#]+)/);
+      if (shortsMatch) {
+        return shortsMatch[1];
+      }
+    } catch (error) {
+      return "";
+    }
+
+    return "";
+  }
+
+  function generateTraceId(candidate) {
+    const source = [
+      (candidate && candidate.videoId) || videoIdFromUrl(candidate && candidate.url),
+      candidate && candidate.title,
+      candidate && candidate.channel,
+      Date.now(),
+      Math.random().toString(36).slice(2, 8)
+    ].filter(Boolean).join(":");
+
+    let hash = 0;
+    for (let index = 0; index < source.length; index += 1) {
+      hash = ((hash << 5) - hash + source.charCodeAt(index)) | 0;
+    }
+
+    return `pl-${Math.abs(hash).toString(36)}-${Date.now().toString(36)}`;
+  }
+
+  function selectedLensLabel(lens) {
+    const selected = lens || activePath();
+    if (!selected) {
+      return "none";
+    }
+
+    return selected.id || selected.lensLabel || selected.label || "unknown";
+  }
+
+  function uniqueStrings(values) {
+    const seen = new Set();
+    return (values || []).reduce((output, value) => {
+      const normalized = String(value || "").trim();
+      if (normalized && !seen.has(normalized)) {
+        seen.add(normalized);
+        output.push(normalized);
+      }
+      return output;
+    }, []);
+  }
+
+  function termFromSignal(signal) {
+    if (!signal) {
+      return "";
+    }
+
+    if (typeof signal === "string") {
+      return signal;
+    }
+
+    return signal.term || signal.normalizedTerm || signal.category || "";
+  }
+
+  function signalTerms(signals) {
+    return uniqueStrings((signals || []).map(termFromSignal));
+  }
+
+  function detectDomainForTrace(scoring, headline) {
+    if (headline && headline.governance && headline.governance.safeDomain && headline.governance.safeDomain.isSafeAnimalDomain) {
+      return "animal-pet-nature";
+    }
+
+    if (scoring && scoring.breakdown) {
+      if (scoring.breakdown.calmAnimalScore > 0) {
+        return "animal-pet-nature";
+      }
+      if (scoring.breakdown.educationalFraming > 0) {
+        return "educational/explanatory";
+      }
+      if (scoring.breakdown.sourceFormat > 0 || scoring.breakdown.informationalTone > 0) {
+        return "low-friction-source";
+      }
+    }
+
+    return "general";
+  }
+
+  function matchedPositiveSignalsForTrace(scoring, headline) {
+    const observability = (scoring && scoring.observabilitySignals) || {};
+    const terms = [
+      ...signalTerms(observability.educational),
+      ...signalTerms(observability.lowFriction),
+      ...signalTerms(observability.calmPositive),
+      ...signalTerms(observability.calmNatureAnimal),
+      ...signalTerms(observability.neutralReporting),
+      ...signalTerms(observability.interviewDiscussion),
+      ...signalTerms(observability.lowerFrictionSource),
+      ...signalTerms(observability.longForm),
+      ...signalTerms(observability.beginner),
+      ...signalTerms(headline && headline.matchedTerms && headline.matchedTerms.green)
+    ];
+
+    return uniqueStrings(terms);
+  }
+
+  function matchedFrictionSignalsForTrace(scoring, headline) {
+    const observability = (scoring && scoring.observabilitySignals) || {};
+    const source = (headline && headline.sourceAdjustment) || {};
+    const terms = [
+      ...signalTerms(observability.friction),
+      ...signalTerms(observability.animalDistress),
+      ...signalTerms(observability.mixedSource),
+      ...signalTerms(scoring && scoring.detectedStyleTerms),
+      ...signalTerms(headline && headline.matchedTerms && headline.matchedTerms.yellow),
+      ...signalTerms(headline && headline.matchedTerms && headline.matchedTerms.red),
+      ...signalTerms(source.riskMatches)
+    ];
+
+    return uniqueStrings(terms);
+  }
+
+  function suppressedSignalsForTrace(headline, anchor) {
+    const suppressed = [
+      ...((headline && headline.governance && headline.governance.suppressedWeakTerms) || []),
+      ...(((anchor && anchor.removedEscalationTerms) || []).map(termFromSignal))
+    ];
+
+    return uniqueStrings(suppressed);
+  }
+
+  function scoreComponentsForTrace(scoring, headline) {
+    return {
+      semanticScore: scoring ? scoring.score : null,
+      semanticBreakdown: scoring && scoring.breakdown ? scoring.breakdown : {},
+      headlineScores: headline && headline.scores ? headline.scores : {},
+      confidence: scoring ? scoring.confidence : null,
+      domainConfidence: scoring ? scoring.domainConfidence : null,
+      frictionConfidence: scoring ? scoring.frictionConfidence : null,
+      positiveSignalConfidence: scoring ? scoring.positiveSignalConfidence : null
+    };
+  }
+
+  function createTrace(candidate, renderingTarget, lens) {
+    if (!personaLabsDebugEnabled()) {
+      return null;
+    }
+
+    const trace = {
+      traceId: generateTraceId(candidate),
+      videoId: (candidate && candidate.videoId) || videoIdFromUrl(candidate && candidate.url),
+      title: (candidate && candidate.title) || "",
+      channel: (candidate && candidate.channel) || "",
+      selectedLens: selectedLensLabel(lens),
+      detectedDomain: "unknown",
+      matchedPositiveSignals: [],
+      matchedFrictionSignals: [],
+      suppressedSignals: [],
+      scoreComponents: {},
+      finalLabel: "",
+      confidence: null,
+      explanation: "",
+      renderingTarget: renderingTarget || "unknown",
+      timestamp: new Date().toISOString(),
+      stages: []
+    };
+
+    state.traces.unshift(trace);
+    state.traces = state.traces.slice(0, 50);
+    window.PersonaLabsDebugTraces = state.traces;
+    return trace;
+  }
+
+  function updateTraceFromScoring(trace, scoring, headline, visibleOverlay, renderingTarget) {
+    if (!trace) {
+      return null;
+    }
+
+    trace.detectedDomain = detectDomainForTrace(scoring, headline);
+    trace.matchedPositiveSignals = matchedPositiveSignalsForTrace(scoring, headline);
+    trace.matchedFrictionSignals = matchedFrictionSignalsForTrace(scoring, headline);
+    trace.suppressedSignals = suppressedSignalsForTrace(headline, state.anchor);
+    trace.scoreComponents = scoreComponentsForTrace(scoring, headline);
+    trace.finalLabel = (visibleOverlay && visibleOverlay.label) || (scoring && scoring.classification && scoring.classification.color) || (headline && headline.label) || "";
+    trace.confidence = scoring ? scoring.confidence : confidenceNumber(visibleOverlay && visibleOverlay.confidence);
+    trace.explanation = (scoring && scoring.finalReason) || (visibleOverlay && visibleOverlay.reason) || (headline && headline.explanation) || "";
+    trace.renderingTarget = renderingTarget || trace.renderingTarget;
+    trace.timestamp = new Date().toISOString();
+    return trace;
+  }
+
+  function recordTraceStage(trace, stage, details, options) {
+    if (!trace || !personaLabsDebugEnabled()) {
+      return;
+    }
+
+    if (options && options.once && trace.stages.some((entry) => entry.stage === stage)) {
+      return;
+    }
+
+    const entry = {
+      stage,
+      timestamp: new Date().toISOString(),
+      details: details || {}
+    };
+    trace.stages.push(entry);
+    trace.timestamp = entry.timestamp;
+    traceLog(stage, trace);
+  }
+
+  function attemptDatabaseTraceSave(trace) {
+    if (!trace || trace.databaseSaveAttempted) {
+      return;
+    }
+
+    trace.databaseSaveAttempted = true;
+    recordTraceStage(trace, "database save attempted", { traceId: trace.traceId }, { once: true });
+
+    const adapter = window.PersonaLabsTraceDatabase;
+    if (!adapter || typeof adapter.saveTrace !== "function") {
+      recordTraceStage(trace, "database save failed", { reason: "trace database adapter unavailable" }, { once: true });
+      return;
+    }
+
+    try {
+      Promise.resolve(adapter.saveTrace(trace))
+        .then(() => {
+          recordTraceStage(trace, "database save succeeded", { traceId: trace.traceId }, { once: true });
+        })
+        .catch((error) => {
+          recordTraceStage(trace, "database save failed", { message: error && error.message }, { once: true });
+        });
+    } catch (error) {
+      recordTraceStage(trace, "database save failed", { message: error && error.message }, { once: true });
+    }
+  }
+
   function uniqueElements(elements) {
     const seen = new Set();
     const output = [];
@@ -311,6 +567,7 @@
         card.querySelector("a[href*='watch'], a[href*='/shorts/']").getAttribute("href"));
 
     return {
+      videoId: videoIdFromUrl(absoluteUrl(link)),
       title,
       channel,
       duration,
@@ -338,6 +595,7 @@
     ]);
 
     return {
+      videoId: videoIdFromUrl(location.href),
       title,
       channel,
       url: location.href,
@@ -351,6 +609,7 @@
       .filter(Boolean)
       .filter((candidate) => candidate.url || location.pathname === "/results")
       .map((candidate) => ({
+        videoId: candidate.videoId || videoIdFromUrl(candidate.url),
         title: candidate.title,
         channel: candidate.channel,
         duration: candidate.duration,
@@ -507,6 +766,42 @@
       return;
     }
 
+    explorationSet.scored.forEach((item) => {
+      const trace = createTrace(item, "panel", explorationSet.lens);
+      item.personaLabsTrace = trace;
+      recordTraceStage(trace, "video/card detected", {
+        source: explorationSet.retrieval.source,
+        mode: explorationSet.retrieval.mode
+      }, { once: true });
+      recordTraceStage(trace, "metadata extracted", {
+        videoId: item.videoId || videoIdFromUrl(item.url),
+        title: item.title,
+        channel: item.channel,
+        duration: item.duration,
+        url: item.url,
+        source: item.source || explorationSet.retrieval.source
+      }, { once: true });
+      recordTraceStage(trace, "semantic scoring started", {
+        selectedLens: selectedLensLabel(explorationSet.lens),
+        pipeline: explorationSet.pipeline
+      }, { once: true });
+      updateTraceFromScoring(trace, item.scoring, null, null, "panel");
+      recordTraceStage(trace, "domain/tone/friction signals matched", {
+        detectedDomain: trace && trace.detectedDomain,
+        matchedPositiveSignals: trace && trace.matchedPositiveSignals,
+        matchedFrictionSignals: trace && trace.matchedFrictionSignals
+      }, { once: true });
+      recordTraceStage(trace, "suppression/override rules applied", {
+        suppressedSignals: trace && trace.suppressedSignals,
+        finalReason: item.scoring && item.scoring.finalReason
+      }, { once: true });
+      recordTraceStage(trace, "final classification selected", {
+        finalLabel: trace && trace.finalLabel,
+        confidence: trace && trace.confidence,
+        explanation: trace && trace.explanation
+      }, { once: true });
+    });
+
     state.suggestions = explorationSet.suggestions;
     state.scoredResultCount = explorationSet.scored.length;
     debugLog("score-first/filter-second pipeline completed", {
@@ -552,15 +847,47 @@
         return;
       }
 
+      const trace = createTrace(candidate, "overlay", activePath());
+      recordTraceStage(trace, "video/card detected", describeCard(card, candidate), { once: true });
+      recordTraceStage(trace, "metadata extracted", {
+        videoId: candidate.videoId || videoIdFromUrl(candidate.url),
+        title: candidate.title,
+        channel: candidate.channel,
+        duration: candidate.duration,
+        url: candidate.url
+      }, { once: true });
+
       card.dataset.personaLabsTitle = titleKey;
+      recordTraceStage(trace, "semantic scoring started", {
+        selectedLens: selectedLensLabel(activePath()),
+        hasAnchor: Boolean(state.anchor)
+      }, { once: true });
       const scoring = state.anchor ? semantic.scoreCandidate(candidate, state.anchor, activePath()) : null;
       const headline = headlineAnalyzer.analyzeHeadline(candidate.title, candidate.channel, "chill");
       const visibleOverlay = resolveVisibleOverlay(headline, scoring);
       const styleSignals = semantic.classifyStyleTerms(candidate.title);
+      updateTraceFromScoring(trace, scoring, headline, visibleOverlay, "overlay");
+      recordTraceStage(trace, "domain/tone/friction signals matched", {
+        detectedDomain: trace && trace.detectedDomain,
+        matchedPositiveSignals: trace && trace.matchedPositiveSignals,
+        matchedFrictionSignals: trace && trace.matchedFrictionSignals,
+        styleSignals
+      }, { once: true });
+      recordTraceStage(trace, "suppression/override rules applied", {
+        suppressedSignals: trace && trace.suppressedSignals,
+        visibleOverlayCode: visibleOverlay && visibleOverlay.code,
+        headlineSuppressedWeakTerms: headline.governance && headline.governance.suppressedWeakTerms
+      }, { once: true });
+      recordTraceStage(trace, "final classification selected", {
+        finalLabel: trace && trace.finalLabel,
+        confidence: trace && trace.confidence,
+        explanation: trace && trace.explanation
+      }, { once: true });
       const label = `PL ${visibleOverlay.label}`;
       const category = visibleOverlay.color;
       const details = {
         ...describeCard(card, candidate),
+        traceId: trace && trace.traceId,
         headlineScores: headline.scores,
         headlineExplanation: headline.explanation,
         visibleOverlay,
@@ -580,11 +907,18 @@
       if (titleBadgeCreated || overlayCreated) {
         renderedCount += 1;
         debugLog("overlay/badge render result", {
+          traceId: trace && trace.traceId,
           title: candidate.title,
           titleBadgeCreated,
           overlayCreated,
           category
         });
+        recordTraceStage(trace, "overlay rendered", {
+          titleBadgeCreated,
+          overlayCreated,
+          category
+        }, { once: true });
+        attemptDatabaseTraceSave(trace);
       } else {
         skippedCount += 1;
         warnLog("overlay creation failed for detected card", details);
@@ -816,6 +1150,9 @@
 
     if (!anchor) {
       panel.appendChild(renderEmptyState());
+      if (personaLabsDebugEnabled()) {
+        panel.appendChild(renderDebugTraces());
+      }
       return;
     }
 
@@ -823,6 +1160,9 @@
     panel.appendChild(renderPaths(path));
     panel.appendChild(renderSuggestions());
     panel.appendChild(renderPrinciples());
+    if (personaLabsDebugEnabled()) {
+      panel.appendChild(renderDebugTraces());
+    }
   }
 
   function renderHeader() {
@@ -953,6 +1293,7 @@
       const item = document.createElement("li");
       const link = suggestion.url ? `<a href='${escapeAttribute(suggestion.url)}'>${escapeHtml(suggestion.title)}</a>` : escapeHtml(suggestion.title);
       const confidence = classificationConfidence(suggestion.scoring);
+      const trace = suggestion.personaLabsTrace;
       const reasons = suggestion.scoring.reasons
         .slice(0, 3)
         .map((reason) => `<span>${escapeHtml(reason)}</span>`)
@@ -972,6 +1313,12 @@
         "</div>"
       ].join("");
       list.appendChild(item);
+      recordTraceStage(trace, "panel recommendation rendered", {
+        title: suggestion.title,
+        color: suggestion.scoring.classification.color,
+        confidence: suggestion.scoring.confidence
+      }, { once: true });
+      attemptDatabaseTraceSave(trace);
     });
 
     section.appendChild(list);
@@ -993,6 +1340,49 @@
       "<li>Contextual observability badges support guided exploration.</li>",
       "</ul>"
     ].join("");
+    return section;
+  }
+
+  function renderDebugTraces() {
+    const section = document.createElement("section");
+    section.className = "personalabs-section personalabs-debug-traces";
+    const json = JSON.stringify(state.traces, null, 2);
+    const latest = state.traces[0];
+    const summary = latest
+      ? `${state.traces.length} traces captured. Latest: ${latest.finalLabel || "pending"} ${latest.title || "untitled"}`
+      : "No traces captured yet.";
+
+    section.innerHTML = [
+      "<p class='personalabs-eyebrow'>Debug Traces</p>",
+      "<h3>Classification trace log</h3>",
+      `<p class='personalabs-muted'>${escapeHtml(summary)}</p>`,
+      "<div class='personalabs-debug-actions'>",
+      "<button type='button' data-action='copy-traces'>Copy JSON</button>",
+      "<button type='button' data-action='export-traces'>Export JSON</button>",
+      "</div>",
+      `<pre>${escapeHtml(json || "[]")}</pre>`
+    ].join("");
+
+    const copyButton = section.querySelector("[data-action='copy-traces']");
+    const exportButton = section.querySelector("[data-action='export-traces']");
+
+    copyButton.addEventListener("click", () => {
+      const payload = JSON.stringify(state.traces, null, 2);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(payload);
+      }
+    });
+
+    exportButton.addEventListener("click", () => {
+      const blob = new Blob([JSON.stringify(state.traces, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "personalabs-debug-traces.json";
+      link.click();
+      URL.revokeObjectURL(url);
+    });
+
     return section;
   }
 
