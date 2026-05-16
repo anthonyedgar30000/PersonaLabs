@@ -110,6 +110,77 @@ test("YELLOW: Loud Cat Screaming Meme has meaningful animal escalation", () => {
   assert.deepEqual(result.escalationSignals.yellow, ["screaming", "loud"]);
 });
 
+test("GREEN: Funny Parrots Screaming suppresses playful animal screaming", () => {
+  const result = classifySemanticContent({
+    title: "Funny Parrots Screaming",
+    channel: "Bird Clips",
+    lens: "calmer",
+  });
+
+  assert.equal(result.label, LABELS.GREEN);
+  assert.equal(result.domain, DOMAINS.ANIMAL_PET_NATURE);
+  assert.deepEqual(result.escalationSignals.yellow, []);
+  assert.ok(result.suppressedSignals.includes("screaming"));
+});
+
+test("GREEN: Loud Puppy Playing suppresses loud harmless play", () => {
+  const result = classifySemanticContent({
+    title: "Loud Puppy Playing",
+    channel: "Dog Clips",
+    lens: "calmer",
+  });
+
+  assert.equal(result.label, LABELS.GREEN);
+  assert.deepEqual(result.escalationSignals.yellow, []);
+  assert.ok(result.suppressedSignals.includes("loud"));
+});
+
+test("GREEN: Funny Cat Fails suppresses playful animal fails", () => {
+  const result = classifySemanticContent({
+    title: "Funny Cat Fails",
+    channel: "Pet Clips",
+    lens: "calmer",
+  });
+
+  assert.equal(result.label, LABELS.GREEN);
+  assert.deepEqual(result.escalationSignals.yellow, []);
+  assert.ok(result.suppressedSignals.includes("fails"));
+});
+
+test("GREEN: Chaotic Bunny Zoomies suppresses harmless chaos", () => {
+  const result = classifySemanticContent({
+    title: "Chaotic Bunny Zoomies",
+    channel: "Rabbit Clips",
+    lens: "calmer",
+  });
+
+  assert.equal(result.label, LABELS.GREEN);
+  assert.deepEqual(result.escalationSignals.yellow, []);
+  assert.ok(result.suppressedSignals.includes("chaotic"));
+});
+
+test("YELLOW: Chaotic Animal Prank keeps escalation without harmless context", () => {
+  const result = classifySemanticContent({
+    title: "Chaotic Animal Prank",
+    channel: "Animal Clips",
+    lens: "calmer",
+  });
+
+  assert.equal(result.label, LABELS.YELLOW);
+  assert.deepEqual(result.escalationSignals.yellow, ["chaotic", "prank"]);
+});
+
+test("RED: Animal Abuse Investigation remains RED", () => {
+  const result = classifySemanticContent({
+    title: "Animal Abuse Investigation",
+    channel: "Animal Reports",
+    lens: "calmer",
+  });
+
+  assert.equal(result.label, LABELS.RED);
+  assert.deepEqual(result.escalationSignals.red, ["abuse"]);
+});
+
 test("GREEN: Hyper Dog Zoomies Compilation suppresses harmless animal stimulation", () => {
   const result = classifySemanticContent({
     title: "Hyper Dog Zoomies Compilation",
