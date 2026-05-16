@@ -79,9 +79,9 @@ test("classifies scored candidates into operational observability colors", () =>
     path
   );
 
-  assert.equal(green.classification.color, "GREEN");
-  assert.equal(yellow.classification.color, "YELLOW");
-  assert.equal(red.classification.color, "RED");
+  assert.equal(green.label, "GREEN");
+  assert.equal(yellow.label, "YELLOW");
+  assert.equal(red.label, "RED");
 });
 
 test("exposes numeric confidence fields with final classification reason", () => {
@@ -140,9 +140,9 @@ test("scores first, then filters according to the selected exploration lens", ()
   const educationalSet = semantic.buildIntentionalExplorationSet(candidates, anchor, educational);
 
   assert.equal(calmerSet.scored.length, 3);
-  assert.deepEqual(calmerSet.suggestions.map((item) => item.scoring.classification.color), ["GREEN"]);
+  assert.deepEqual(calmerSet.suggestions.map((item) => item.scoring.label), ["GREEN"]);
   assert.deepEqual(
-    educationalSet.suggestions.map((item) => item.scoring.classification.color),
+    educationalSet.suggestions.map((item) => item.scoring.label),
     ["GREEN", "YELLOW"]
   );
   assert(calmerSet.pipeline.includes("score results"));
@@ -168,7 +168,7 @@ test("does not require cloud, embeddings, or opaque recommendation inputs", () =
     "animalDistressScore",
     "penalty"
   ]);
-  assert.equal(score.classification.color, "GREEN");
+  assert.equal(score.label, "GREEN");
 });
 
 test("treats interview and public radio format as lower-friction despite controversial topic terms", () => {
@@ -184,8 +184,8 @@ test("treats interview and public radio format as lower-friction despite controv
     path
   );
 
-  assert.notEqual(score.classification.color, "RED");
-  assert(["GREEN", "YELLOW"].includes(score.classification.color));
+  assert.notEqual(score.label, "RED");
+  assert(["GREEN", "YELLOW"].includes(score.label));
   assert(score.reasons.includes("lower-friction source format"));
 });
 
@@ -202,7 +202,7 @@ test("does not treat neutral claim-response verbs as high-friction by default", 
     path
   );
 
-  assert.notEqual(score.classification.color, "RED");
+  assert.notEqual(score.label, "RED");
   assert(score.reasons.includes("neutral reporting language"));
 });
 
@@ -219,8 +219,8 @@ test("boosts discussion of sensitive topics on lower-friction source formats", (
     path
   );
 
-  assert.notEqual(score.classification.color, "RED");
-  assert(["GREEN", "YELLOW"].includes(score.classification.color));
+  assert.notEqual(score.label, "RED");
+  assert(["GREEN", "YELLOW"].includes(score.label));
   assert(score.reasons.includes("neutral reporting language"));
   assert(score.reasons.includes("lower-friction source format"));
 });
@@ -257,7 +257,7 @@ test("requires actual escalation framing for RED classifications", () => {
       path
     );
 
-    assert.equal(score.classification.color, "RED", item.title);
+    assert.equal(score.label, "RED", item.title);
   });
 });
 
@@ -295,7 +295,7 @@ test("classifies calm animal and relaxing content as GREEN", () => {
       path
     );
 
-    assert.equal(score.classification.color, "GREEN", title);
+    assert.equal(score.label, "GREEN", title);
     assert(score.reasons.includes("calm/relaxing positive signals"));
     assert(score.reasons.includes("calm animal/nature signals"));
     assert(score.reasons.includes("Calm/pet content detected; no distress or escalation signals found."));
@@ -326,7 +326,7 @@ test("classifies energetic harmless pet pacing as YELLOW without escalation", ()
       path
     );
 
-    assert.equal(score.classification.color, "YELLOW", title);
+    assert.equal(score.label, "YELLOW", title);
     assert(score.reasons.includes("chaotic but non-dangerous animal/pet energy"));
     assert.equal(score.debug.escalation_score, 0);
   });
@@ -353,7 +353,7 @@ test("does not downgrade harmless animal pacing terms to YELLOW by themselves", 
       path
     );
 
-    assert.equal(score.classification.color, "GREEN", title);
+    assert.equal(score.label, "GREEN", title);
     assert.equal(score.debug.escalation_score, 0);
   });
 });
@@ -379,7 +379,7 @@ test("classifies animal distress and escalation framing as RED", () => {
       path
     );
 
-    assert.equal(score.classification.color, "RED", title);
+    assert.equal(score.label, "RED", title);
     assert(score.debug.escalation_score > 0);
     assert.match(score.debug.final_classification_reason, /escalation|distress/i);
   });
@@ -398,7 +398,7 @@ test("unknown low-friction content defaults to YELLOW-neutral, not RED", () => {
     path
   );
 
-  assert.equal(score.classification.color, "YELLOW");
+  assert.equal(score.label, "YELLOW");
   assert.equal(score.detectedStyleTerms.length, 0);
 });
 
@@ -433,10 +433,10 @@ test("governance regressions keep mature scoring expectations stable", () => {
     calmer
   );
 
-  assert.equal(calmAnimal.classification.color, "GREEN");
-  assert.equal(harmlessAnimal.classification.color, "GREEN");
-  assert.notEqual(harmlessAnimal.classification.color, "YELLOW");
-  assert.equal(animalDistress.classification.color, "RED");
+  assert.equal(calmAnimal.label, "GREEN");
+  assert.equal(harmlessAnimal.label, "GREEN");
+  assert.notEqual(harmlessAnimal.label, "YELLOW");
+  assert.equal(animalDistress.label, "RED");
 
   const civicAnchor = semantic.analyzeAnchor("Thomas Massie Iran vote");
   const educational = semantic.buildExplorationPaths(civicAnchor).find((lens) => lens.id === "educational");
@@ -459,8 +459,8 @@ test("governance regressions keep mature scoring expectations stable", () => {
     educational
   );
 
-  assert(["GREEN", "YELLOW"].includes(publicRadioInterview.classification.color));
-  assert.equal(outrageTitle.classification.color, "RED");
+  assert(["GREEN", "YELLOW"].includes(publicRadioInterview.label));
+  assert.equal(outrageTitle.label, "RED");
 });
 
 test("overlay and panel paths use the same canonical label", () => {
@@ -476,7 +476,6 @@ test("overlay and panel paths use the same canonical label", () => {
 
   assert.equal(panelScore.label, "GREEN");
   assert.equal(overlayScore.label, panelScore.label);
-  assert.equal(overlayScore.classification.color, overlayScore.label);
 });
 
 test("canonical score detects duplicate path disagreement and empty matched-term consistency", () => {
