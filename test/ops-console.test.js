@@ -86,7 +86,11 @@ test("ops storage declares local-first stores for future backend migration", () 
     "traces",
     "reviews",
     "replayPacks",
-    "regressionSnapshots"
+    "regressionSnapshots",
+    "reliabilitySnapshots",
+    "goldenDatasets",
+    "adversarialRuns",
+    "boundaryReports"
   ]);
   assert.equal(storage.STORE_SCHEMAS.observations.keyPath, "observationId");
   assert(storage.STORE_SCHEMAS.classifications.indexes.includes("pipelineVersion"));

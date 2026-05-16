@@ -206,6 +206,53 @@ label {
   padding-top: 0.75rem;
 }
 
+.reliability-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.reliability-card {
+  background: #111827;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.8rem;
+}
+
+.reliability-card span {
+  color: #93a4bb;
+  font-size: 0.78rem;
+}
+
+.reliability-card strong {
+  color: #e5edf9;
+}
+
+.health-status {
+  border-radius: 999px;
+  display: inline-block;
+  font-weight: 800;
+  padding: 0.15rem 0.5rem;
+}
+
+.health-healthy {
+  background: #14532d;
+  color: #bbf7d0;
+}
+
+.health-degraded {
+  background: #713f12;
+  color: #fef3c7;
+}
+
+.health-investigate,
+.health-unstable {
+  background: #7f1d1d;
+  color: #fecaca;
+}
+
 @media (max-width: 1050px) {
   .ops-grid,
   .lower-grid {

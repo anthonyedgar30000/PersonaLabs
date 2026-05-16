@@ -36,6 +36,8 @@ Update from yesterday | Unknown Channel</textarea></label>
           <button type="button" id="refresh-console">Refresh Console</button>
           <button type="button" id="create-replay-pack">Create Replay Pack</button>
           <button type="button" id="run-replay">Replay Latest Pack</button>
+          <button type="button" id="generate-reliability-snapshot">Generate Reliability Snapshot</button>
+          <button type="button" id="run-adversarial-simulation">Run Adversarial Simulation</button>
         </div>
       </section>
 
@@ -73,6 +75,11 @@ Update from yesterday | Unknown Channel</textarea></label>
           <div id="regression-summary"></div>
         </section>
       </section>
+
+      <section class="ops-panel">
+        <h2>Semantic Reliability Dashboard</h2>
+        <div id="reliability-dashboard"></div>
+      </section>
     </main>
 
     <script>window.PERSONALABS_DEBUG = true;</script>
@@ -83,6 +90,14 @@ Update from yesterday | Unknown Channel</textarea></label>
     <script src="./classification.js"></script>
     <script src="./regression.js"></script>
     <script src="./replay.js"></script>
+    <script src="./health-scoring.js"></script>
+    <script src="./reliability-metrics.js"></script>
+    <script src="./drift-analysis.js"></script>
+    <script src="./golden-datasets.js"></script>
+    <script src="./adversarial.js"></script>
+    <script src="./boundary-analysis.js"></script>
+    <script src="./reliability-trace.js"></script>
+    <script src="./reliability-dashboard.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

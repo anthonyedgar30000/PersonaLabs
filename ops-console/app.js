@@ -4,7 +4,13 @@
   const classification = typeof require === "function" ? require("./classification") : root.PersonaLabsOpsClassification;
   const regression = typeof require === "function" ? require("./regression") : root.PersonaLabsOpsRegression;
   const replay = typeof require === "function" ? require("./replay") : root.PersonaLabsOpsReplay;
-  const api = factory(storage, ingestion, classification, regression, replay);
+  const driftAnalysis = typeof require === "function" ? require("./drift-analysis") : root.PersonaLabsDriftAnalysis;
+  const reliabilityMetrics = typeof require === "function" ? require("./reliability-metrics") : root.PersonaLabsReliabilityMetrics;
+  const boundaryAnalysis = typeof require === "function" ? require("./boundary-analysis") : root.PersonaLabsBoundaryAnalysis;
+  const adversarial = typeof require === "function" ? require("./adversarial") : root.PersonaLabsAdversarial;
+  const reliabilityTrace = typeof require === "function" ? require("./reliability-trace") : root.PersonaLabsReliabilityTrace;
+  const reliabilityDashboard = typeof require === "function" ? require("./reliability-dashboard") : root.PersonaLabsReliabilityDashboard;
+  const api = factory(storage, ingestion, classification, regression, replay, driftAnalysis, reliabilityMetrics, boundaryAnalysis, adversarial, reliabilityTrace, reliabilityDashboard);
 
   if (typeof module === "object" && module.exports) {
     module.exports = api;
@@ -12,7 +18,7 @@
     root.PersonaLabsOpsApp = api;
     api.init(root);
   }
-})(typeof globalThis !== "undefined" ? globalThis : window, function createPersonaLabsOpsApp(storage, ingestion, classification, regression, replay) {
+})(typeof globalThis !== "undefined" ? globalThis : window, function createPersonaLabsOpsApp(storage, ingestion, classification, regression, replay, driftAnalysis, reliabilityMetrics, boundaryAnalysis, adversarial, reliabilityTrace, reliabilityDashboard) {
   "use strict";
 
   const REQUIRED_TEST_API_METHODS = Object.freeze([
@@ -143,15 +149,17 @@
     ].join("");
   }
 
-  function renderTraceInspector(trace, classificationRecord) {
+  function renderTraceInspector(trace, classificationRecord, reliabilityContext) {
     if (!trace) {
       return "<p>Select a classification row to inspect deterministic execution trace details.</p>";
     }
 
     const record = classificationRecord || {};
+    const reliabilityAnnotations = reliabilityTrace.renderReliabilityAnnotations(reliabilityTrace.annotateTrace(trace, reliabilityContext || {}));
     return [
       `<h3>${escapeHtml(record.title || trace.traceId || "Trace")}</h3>`,
       `<p><strong>Pipeline:</strong> ${escapeHtml(trace.pipelineVersion)} | <strong>Trace ID:</strong> ${escapeHtml(trace.traceId || "none")}</p>`,
+      reliabilityAnnotations,
       "<div class='trace-section'><h4>Tokenization</h4>",
       `<pre>${escapeHtml(stringify(trace.tokenization))}</pre></div>`,
       "<div class='trace-section'><h4>Matched Rules / Signals</h4>",
@@ -217,6 +225,31 @@
     ].join("");
   }
 
+  function buildReliabilityContext(state) {
+    const drift = driftAnalysis.analyzeSemanticDrift({
+      classifications: state.classifications,
+      regressionSnapshots: state.regressionSnapshots
+    });
+    const boundaryReport = boundaryAnalysis.createBoundaryReport({
+      classifications: state.classifications,
+      reviews: state.reviews,
+      pipelineVersion: state.classifications[0] && state.classifications[0].pipelineVersion || "unknown"
+    });
+    const snapshot = reliabilityMetrics.createReliabilitySnapshot({
+      classifications: state.classifications,
+      reviews: state.reviews,
+      regressionSnapshots: state.regressionSnapshots,
+      drift,
+      pipelineVersion: state.classifications[0] && state.classifications[0].pipelineVersion || "unknown"
+    });
+    return {
+      drift,
+      boundaryReport,
+      snapshot,
+      latestAdversarialRun: state.adversarialRuns[0] || null
+    };
+  }
+
   function setHtml(documentRef, id, html) {
     const element = documentRef && documentRef.getElementById(id);
     if (element) {
@@ -244,18 +277,31 @@
     state.reviews = await adapter.list("reviews");
     state.replayPacks = await adapter.list("replayPacks");
     state.regressionSnapshots = await adapter.list("regressionSnapshots");
+    state.reliabilitySnapshots = await adapter.list("reliabilitySnapshots");
+    state.goldenDatasets = await adapter.list("goldenDatasets");
+    state.adversarialRuns = await adapter.list("adversarialRuns");
+    state.boundaryReports = await adapter.list("boundaryReports");
   }
 
   async function render(state, adapter, root) {
     const documentRef = root.document;
     const selected = selectedClassification(state);
     const trace = await selectedTrace(state, adapter);
+    const reliabilityContext = buildReliabilityContext(state);
     setHtml(documentRef, "api-status", renderApiStatus(root.PersonaLabsTestAPI));
     setHtml(documentRef, "classification-table", renderClassificationTable(state.classifications, state.view));
     setHtml(documentRef, "table-summary", `${filterAndSortRows(state.classifications, state.view).length}/${state.classifications.length} classifications shown`);
-    setHtml(documentRef, "trace-inspector", renderTraceInspector(trace, selected));
+    setHtml(documentRef, "trace-inspector", renderTraceInspector(trace, selected, {
+      driftWarnings: Object.keys(reliabilityContext.drift).filter((key) => reliabilityContext.drift[key] && reliabilityContext.drift[key].detected),
+      unstableBoundaryTokens: reliabilityContext.boundaryReport.unstableBoundaryTokens
+    }));
     setHtml(documentRef, "review-panel", renderReviewPanel(selected, state.reviews));
     setHtml(documentRef, "regression-summary", renderRegressionSummary(state.regressionSnapshots[0]));
+    setHtml(documentRef, "reliability-dashboard", reliabilityDashboard.renderReliabilityDashboard(
+      state.reliabilitySnapshots[0] || reliabilityContext.snapshot,
+      state.boundaryReports[0] || reliabilityContext.boundaryReport,
+      reliabilityContext.latestAdversarialRun
+    ));
   }
 
   async function init(root) {
@@ -271,6 +317,10 @@
       reviews: [],
       replayPacks: [],
       regressionSnapshots: [],
+      reliabilitySnapshots: [],
+      goldenDatasets: [],
+      adversarialRuns: [],
+      boundaryReports: [],
       selectedClassificationId: "",
       view: {
         search: "",
@@ -398,12 +448,40 @@
       });
     }
 
+    const reliabilityButton = documentRef.getElementById("generate-reliability-snapshot");
+    if (reliabilityButton) {
+      reliabilityButton.addEventListener("click", async () => {
+        const context = buildReliabilityContext(state);
+        await adapter.put("reliabilitySnapshots", context.snapshot);
+        await adapter.put("boundaryReports", context.boundaryReport);
+        await refreshState(state, adapter);
+        await render(state, adapter, root);
+      });
+    }
+
+    const adversarialButton = documentRef.getElementById("run-adversarial-simulation");
+    if (adversarialButton) {
+      adversarialButton.addEventListener("click", async () => {
+        const selected = selectedClassification(state);
+        const observation = selected
+          ? state.observations.find((item) => item.observationId === selected.observationId)
+          : state.observations[0];
+        if (!observation) {
+          return;
+        }
+        await adversarial.runAdversarialPack(adapter, root.PersonaLabsTestAPI, observation);
+        await refreshState(state, adapter);
+        await render(state, adapter, root);
+      });
+    }
+
     return { adapter, state };
   }
 
   return Object.freeze({
     REQUIRED_TEST_API_METHODS,
     apiStatus,
+    buildReliabilityContext,
     createReview,
     escapeHtml,
     filterAndSortRows,

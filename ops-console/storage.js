@@ -10,7 +10,7 @@
   "use strict";
 
   const DB_NAME = "PersonaLabsSemanticOps";
-  const DB_VERSION = 1;
+  const DB_VERSION = 2;
   const LOCAL_STORAGE_PREFIX = "PersonaLabsSemanticOps";
   const STORE_SCHEMAS = Object.freeze({
     observations: Object.freeze({
@@ -36,6 +36,22 @@
     regressionSnapshots: Object.freeze({
       keyPath: "snapshotId",
       indexes: Object.freeze(["createdAt", "basePipelineVersion", "comparisonPipelineVersion"])
+    }),
+    reliabilitySnapshots: Object.freeze({
+      keyPath: "reliabilitySnapshotId",
+      indexes: Object.freeze(["createdAt", "pipelineVersion", "healthStatus"])
+    }),
+    goldenDatasets: Object.freeze({
+      keyPath: "goldenDatasetId",
+      indexes: Object.freeze(["createdAt", "pipelineVersion", "immutable"])
+    }),
+    adversarialRuns: Object.freeze({
+      keyPath: "adversarialRunId",
+      indexes: Object.freeze(["createdAt", "pipelineVersion", "attackFamily"])
+    }),
+    boundaryReports: Object.freeze({
+      keyPath: "boundaryReportId",
+      indexes: Object.freeze(["createdAt", "pipelineVersion"])
     })
   });
 
