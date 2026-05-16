@@ -89,7 +89,8 @@ const HARMLESS_ANIMAL_CONTEXT_TERMS = [
 
 export function classifySemanticContent(content = {}) {
   const text = joinText(content.title, content.channel, content.description);
-  const domain = detectDomain(text);
+  const domainMatches = findTerms(text, ANIMAL_PET_NATURE_TERMS);
+  const domain = detectDomainFromMatches(domainMatches);
   const redSignals = findTerms(text, RED_ESCALATION_TERMS);
   const rawYellowSignals = findTerms(text, YELLOW_ESCALATION_TERMS);
   const baseSuppressedSignals = domain === DOMAINS.ANIMAL_PET_NATURE
@@ -106,10 +107,30 @@ export function classifySemanticContent(content = {}) {
     ? rawYellowSignals.filter((term) => !suppressedSignals.includes(term))
     : rawYellowSignals;
   const baselineSafe = domain === DOMAINS.ANIMAL_PET_NATURE;
+  const score = calculateDebugScore({ baselineSafe, redSignals, yellowSignals });
   const label = chooseLabel({
     baselineSafe,
     redSignals,
     yellowSignals,
+  });
+  const explanation = explain({
+    label,
+    baselineSafe,
+    redSignals,
+    yellowSignals,
+  });
+  const debug = createSemanticDebugLog({
+    content,
+    domain,
+    domainMatches,
+    baselineSafe,
+    rawYellowSignals,
+    yellowSignals,
+    redSignals,
+    suppressedSignals,
+    score,
+    label,
+    explanation,
   });
 
   return {
@@ -121,12 +142,10 @@ export function classifySemanticContent(content = {}) {
       yellow: yellowSignals,
       red: redSignals,
     },
-    explanation: explain({
-      label,
-      baselineSafe,
-      redSignals,
-      yellowSignals,
-    }),
+    finalScore: score.finalWeightedScore,
+    explanation,
+    debug,
+    debugJson: exportClassificationDebugJson(debug),
   };
 }
 
@@ -147,7 +166,11 @@ function chooseLabel({ baselineSafe, redSignals, yellowSignals }) {
 }
 
 function detectDomain(text) {
-  return findTerms(text, ANIMAL_PET_NATURE_TERMS).length > 0
+  return detectDomainFromMatches(findTerms(text, ANIMAL_PET_NATURE_TERMS));
+}
+
+function detectDomainFromMatches(domainMatches) {
+  return domainMatches.length > 0
     ? DOMAINS.ANIMAL_PET_NATURE
     : DOMAINS.GENERAL;
 }
@@ -160,6 +183,138 @@ function findContextualAnimalYellowSignals(text, rawYellowSignals) {
   }
 
   return rawYellowSignals.filter((term) => CONTEXTUAL_ANIMAL_YELLOW_TERMS.includes(term));
+}
+
+
+export function exportClassificationDebugJson(debugLog) {
+  return JSON.stringify(debugLog, null, 2);
+}
+
+function createSemanticDebugLog({
+  content,
+  domain,
+  domainMatches,
+  baselineSafe,
+  rawYellowSignals,
+  yellowSignals,
+  redSignals,
+  suppressedSignals,
+  score,
+  label,
+  explanation,
+}) {
+  const matchedPositiveTerms = [...domainMatches, ...suppressedSignals];
+  const matchedFrictionTerms = [...yellowSignals, ...redSignals];
+  const thresholdDecisions = [
+    {
+      rule: "redSignals.length > 0",
+      matched: redSignals.length > 0,
+      result: redSignals.length > 0 ? LABELS.RED : "continue",
+    },
+    {
+      rule: "yellowSignals.length > 0",
+      matched: yellowSignals.length > 0,
+      result: yellowSignals.length > 0 ? LABELS.YELLOW : "continue",
+    },
+    {
+      rule: "baselineSafe === true",
+      matched: baselineSafe,
+      result: baselineSafe ? LABELS.GREEN : "continue",
+    },
+  ];
+
+  return {
+    pipelineVersion: "semantic-core-debug-v1",
+    input: {
+      title: content.title ?? null,
+      channel: content.channel ?? null,
+      hasDescription: Boolean(content.description),
+    },
+    domain: {
+      detected: domain,
+      matches: domainMatches,
+      baselineSafe,
+    },
+    sourceChannelSignals: {
+      channelDomainMatches: findTerms(content.channel, ANIMAL_PET_NATURE_TERMS),
+      titleDomainMatches: findTerms(content.title, ANIMAL_PET_NATURE_TERMS),
+    },
+    signals: {
+      matchedPositiveTerms,
+      matchedFrictionTerms,
+      rawYellowTerms: rawYellowSignals,
+      activeYellowTerms: yellowSignals,
+      redTerms: redSignals,
+    },
+    contextualSuppressions: suppressedSignals.map((term) => ({
+      term,
+      reason: "Suppressed by animal/pet/nature safe baseline or harmless context.",
+    })),
+    score,
+    thresholdDecisions,
+    falsePositiveMarkers: buildFalsePositiveMarkers({
+      label,
+      baselineSafe,
+      rawYellowSignals,
+      yellowSignals,
+      suppressedSignals,
+      redSignals,
+    }),
+    finalClassification: {
+      color: label,
+      explanation,
+    },
+  };
+}
+
+function calculateDebugScore({ baselineSafe, redSignals, yellowSignals }) {
+  const baselineWeight = baselineSafe ? -1 : 0;
+  const yellowWeight = yellowSignals.length;
+  const redWeight = redSignals.length * 2;
+  const finalWeightedScore = baselineWeight + yellowWeight + redWeight;
+
+  return {
+    baselineWeight,
+    yellowWeight,
+    redWeight,
+    finalWeightedScore,
+  };
+}
+
+function buildFalsePositiveMarkers({
+  label,
+  baselineSafe,
+  rawYellowSignals,
+  yellowSignals,
+  suppressedSignals,
+  redSignals,
+}) {
+  const markers = [];
+
+  if (label === LABELS.YELLOW && baselineSafe) {
+    markers.push({
+      type: "animal_safe_baseline_yellow",
+      message: "Animal safe-baseline content became YELLOW; review active friction terms.",
+      activeTerms: yellowSignals,
+    });
+  }
+
+  if (rawYellowSignals.length > yellowSignals.length) {
+    markers.push({
+      type: "suppressed_yellow_terms",
+      message: "Some YELLOW terms were contextually suppressed.",
+      suppressedTerms: suppressedSignals,
+    });
+  }
+
+  if (label === LABELS.RED && redSignals.length === 0) {
+    markers.push({
+      type: "red_without_red_terms",
+      message: "RED classification lacks explicit RED terms.",
+    });
+  }
+
+  return markers;
 }
 
 function explain({ label, baselineSafe, redSignals, yellowSignals }) {
