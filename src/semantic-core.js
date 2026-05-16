@@ -149,6 +149,61 @@
     "analysis"
   ];
 
+  const DOMAIN_SOFTENING_TERMS = [
+    "satire",
+    "parody",
+    "comedy",
+    "sketch",
+    "fake debate",
+    "boss",
+    "final boss",
+    "speedrun",
+    "gameplay",
+    "gaming",
+    "match",
+    "tournament",
+    "goal",
+    "knockout",
+    "highlights"
+  ];
+
+  const PET_PLAY_CONTEXT_TERMS = [
+    "playtime",
+    "playing",
+    "play",
+    "funny",
+    "cute",
+    "zoomies"
+  ];
+
+  const CAUTIONARY_CLAIM_TERMS = [
+    "hypnosis",
+    "reprogram",
+    "reprogram your brain",
+    "brainwash",
+    "manipulation",
+    "propaganda",
+    "control your mind",
+    "guaranteed",
+    "secret cure",
+    "simple trick",
+    "savings trick",
+    "fixed my",
+    "don't want you to know",
+    "banks don't want",
+    "is a lie",
+    "lied to you",
+    "everyone is wrong"
+  ];
+
+  const SENSITIVE_GUIDANCE_TERMS = [
+    "hurricane",
+    "evacuation",
+    "shelter",
+    "war",
+    "court case"
+  ];
+
   const NEUTRAL_REPORTING_TERMS = [
     "denies",
     "says",
@@ -308,6 +363,7 @@
     "shocking",
     "panic",
     "attack",
+    "attacks",
     "attacked",
     "injury",
     "injured",
@@ -925,7 +981,10 @@
   }
 
   function classifyScoredCandidate(metrics) {
-    const contextSoftensFriction = metrics.contextualDownweight >= 1 && metrics.styleTermCount <= 2 && metrics.animalDistressScore === 0;
+    const contextSoftensFriction =
+      (metrics.contextualDownweight >= 1 || metrics.domainSoftening >= 1) &&
+      metrics.styleTermCount <= 2 &&
+      metrics.animalDistressScore === 0;
     const severeFriction =
       !contextSoftensFriction && (
         metrics.styleTermCount >= 2 ||
@@ -945,6 +1004,15 @@
       metrics.styleTermCount === 0 &&
       metrics.capitalizationRatio <= 0.36;
 
+    if (metrics.animalSubjectScore > 0 && metrics.animalDistressScore > 0 && metrics.petPlayContext > 0) {
+      return {
+        color: "YELLOW",
+        label: "mixed but useful",
+        meaning: "Pet/play context includes aggression wording, so the title remains mixed rather than high-intensity.",
+        reason: "pet/play context softened aggression wording"
+      };
+    }
+
     if (metrics.animalSubjectScore > 0 && metrics.animalDistressScore > 0) {
       return {
         color: "RED",
@@ -963,6 +1031,15 @@
       };
     }
 
+    if (clearCalmAnimalSubject && noAnimalDistress && (metrics.styleTermCount > 0 || metrics.cautionaryClaim > 0)) {
+      return {
+        color: "YELLOW",
+        label: "mixed but useful",
+        meaning: "Calm subject contains attention-grabbing or cautionary wording.",
+        reason: "calm subject with attention-grabbing framing"
+      };
+    }
+
     if (clearCalmAnimalSubject && noAnimalDistress) {
       return {
         color: "GREEN",
@@ -978,6 +1055,15 @@
         label: "high-friction/escalatory",
         meaning: "High-friction or escalatory framing; filtered out of guided exploration.",
         reason: "explicit escalation or distress framing detected"
+      };
+    }
+
+    if (metrics.cautionaryClaim > 0 || metrics.sensitiveGuidance > 0) {
+      return {
+        color: "YELLOW",
+        label: "mixed but useful",
+        meaning: "Cautionary, sensitive, or strong-claim wording needs context beyond the title.",
+        reason: "cautionary or sensitive framing needs context"
       };
     }
 
@@ -1361,6 +1447,10 @@
     const animalDistressMatches = countMatches(titleTokens, ANIMAL_DISTRESS_TERMS);
     const beginnerMatches = countMatches(tokens, BEGINNER_TERMS);
     const neutralReportingMatches = countMatches(tokens, NEUTRAL_REPORTING_TERMS);
+    const domainSofteningMatches = countMatches(tokens, DOMAIN_SOFTENING_TERMS);
+    const petPlayContextMatches = countMatches(tokens, PET_PLAY_CONTEXT_TERMS);
+    const cautionaryClaimMatches = countMatches(tokens, CAUTIONARY_CLAIM_TERMS);
+    const sensitiveGuidanceMatches = countMatches(tokens, SENSITIVE_GUIDANCE_TERMS);
     const contextualDownweightMatches =
       countMatches(tokens, CONTEXTUAL_DOWNWEIGHT_TERMS) +
       (titleTokens.includes("how") && titleTokens.includes("works") ? 2 : 0);
@@ -1412,6 +1502,10 @@
       penalty,
       styleTermCount: styleTerms.length,
       contextualDownweight: contextualDownweightMatches,
+      domainSoftening: domainSofteningMatches,
+      petPlayContext: petPlayContextMatches,
+      cautionaryClaim: cautionaryClaimMatches,
+      sensitiveGuidance: sensitiveGuidanceMatches,
       capitalizationRatio: capRatio
     };
     const classification = classifyScoredCandidate(classificationMetrics);
@@ -1462,6 +1556,18 @@
     }
     if (styleTerms.length > 0 && contextualDownweightMatches >= 1) {
       reasons.push("educational or guidance framing reduced single-signal intensity");
+    }
+    if (styleTerms.length > 0 && domainSofteningMatches > 0) {
+      reasons.push("domain context softened creator-style intense wording");
+    }
+    if (petPlayContextMatches > 0 && animalDistressMatches > 0) {
+      reasons.push("pet/play context softened aggression wording");
+    }
+    if (cautionaryClaimMatches > 0) {
+      reasons.push("cautionary claim wording needs context");
+    }
+    if (sensitiveGuidanceMatches > 0) {
+      reasons.push("sensitive guidance topic needs context");
     }
     if (reasons.length === 0) {
       reasons.push("visible result with partial subject overlap");

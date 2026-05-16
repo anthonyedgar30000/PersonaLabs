@@ -249,6 +249,46 @@ test("science sleep titles do not trigger animal distress handling", () => {
   assert.equal(score.debug.final_classification_reason.includes("animal distress"), false);
 });
 
+test("trust-stress title pack stays calibrated around ambiguous framing", () => {
+  const cases = [
+    ["BREAKING: NASA Confirms New Evidence of Water on Mars", ["YELLOW"]],
+    ["Shocking Study Finds Walking 20 Minutes a Day Improves Memory", ["YELLOW"]],
+    ["How Propaganda Works: Emotional Manipulation Explained", ["YELLOW"]],
+    ["Emergency Preparedness Checklist for Families", ["YELLOW"]],
+    ["This Simple Trick Fixed My Back Pain", ["YELLOW"]],
+    ["The Truth About Seed Oils", ["YELLOW"]],
+    ["Everything You Know About Nutrition Is a Lie", ["YELLOW"]],
+    ["Cute Kitten ATTACKS Owner During Playtime", ["YELLOW"]],
+    ["He DESTROYED the Final Boss in 10 Seconds", ["YELLOW"]],
+    ["Satire: Senator DESTROYS Himself in Fake Debate", ["YELLOW"]],
+    ["Calm Explanation of the Most Disturbing Court Case", ["YELLOW"]],
+    ["Relaxing Rain Sounds — Black Screen — No Ads", ["GREEN"]],
+    ["Peaceful Focus Hypnosis to Reprogram Your Brain", ["YELLOW"]],
+    ["Banks Don't Want You to Know This Savings Trick", ["YELLOW"]],
+    ["Beginner Python Tutorial: Avoid These 5 Common Mistakes", ["GREEN"]],
+    ["I Tried Waking Up at 5AM for 30 Days", ["GREEN", "YELLOW"]],
+    ["Why Everyone Is Wrong About AI", ["YELLOW"]],
+    ["Public Radio Explains the Immigration Court Backlog", ["GREEN", "YELLOW"]],
+    ["LIVE: Hurricane Evacuation Updates and Shelter Locations", ["YELLOW"]],
+    ["They Lied to You About Retirement", ["YELLOW"]],
+    ["¿Por qué todos hablan de esta película?", ["GREEN", "YELLOW"]],
+    ["Cette vidéo va changer ta vie", ["GREEN", "YELLOW"]],
+    ["Ukraine War Explained: Timeline, Context, and Maps", ["YELLOW"]],
+    ["The Dark Side of Minimalism", ["GREEN", "YELLOW"]],
+    ["You Won't Believe How Calm This Aquarium Is", ["YELLOW"]]
+  ];
+
+  cases.forEach(([title, expectedLabels]) => {
+    const score = semantic.scoreContent({
+      candidate: { title, channel: "Trust QA", duration: "10:00" },
+      anchor: title,
+      scoringPath: "trust-stress-pack"
+    });
+
+    assert(expectedLabels.includes(score.label), `${title} classified ${score.label}`);
+  });
+});
+
 test("boosts discussion of sensitive topics on lower-friction source formats", () => {
   const anchor = semantic.analyzeAnchor("Thomas Massie Iran vote");
   const path = semantic.buildExplorationPaths(anchor).find((item) => item.id === "educational");
