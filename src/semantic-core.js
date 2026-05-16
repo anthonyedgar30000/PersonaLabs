@@ -16,9 +16,12 @@ const ANIMAL_PET_NATURE_TERMS = [
   "cat",
   "dog",
   "fish",
+  "hamster",
+  "hamsters",
   "kitten",
   "mini lop",
   "pet",
+  "pets",
   "puppy",
   "rabbit",
   "rabbits",
@@ -32,6 +35,7 @@ const LOW_SEVERITY_ANIMAL_TERMS = [
   "playing",
   "energetic",
   "compilation",
+  "hyper",
   "shorts",
   "viral",
   "relaxing",
@@ -66,10 +70,13 @@ export function classifySemanticContent(content = {}) {
   const text = joinText(content.title, content.channel, content.description);
   const domain = detectDomain(text);
   const redSignals = findTerms(text, RED_ESCALATION_TERMS);
-  const yellowSignals = findTerms(text, YELLOW_ESCALATION_TERMS);
+  const rawYellowSignals = findTerms(text, YELLOW_ESCALATION_TERMS);
   const suppressedSignals = domain === DOMAINS.ANIMAL_PET_NATURE
     ? findTerms(text, LOW_SEVERITY_ANIMAL_TERMS)
     : [];
+  const yellowSignals = domain === DOMAINS.ANIMAL_PET_NATURE
+    ? rawYellowSignals.filter((term) => !suppressedSignals.includes(term))
+    : rawYellowSignals;
   const baselineSafe = domain === DOMAINS.ANIMAL_PET_NATURE;
   const label = chooseLabel({
     baselineSafe,
