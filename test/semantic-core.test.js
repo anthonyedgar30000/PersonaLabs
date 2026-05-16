@@ -540,6 +540,15 @@ test("canonical score exposes structured semantic trace events", () => {
   );
   assert.deepEqual(score.traceEvents.map((event) => event.order), [1, 2, 3, 4, 5, 6, 7, 8]);
   assert.equal(score.traceEvents[0].details.title, candidate.title);
+  score.traceEvents.forEach((event) => {
+    assert.equal(event.traceId, score.traceId);
+    assert.equal(typeof event.stage, "string");
+    assert.equal(typeof event.timestamp, "string");
+    assert.equal(event.input.title, candidate.title);
+    assert.equal(event.canonicalLabel, score.label);
+    assert.deepEqual(event.contradictions, score.contradictions);
+    assert.equal(event.metadata.scoringPath, score.scoringPath);
+  });
   assert.equal(score.traceEvents[1].details.domain, score.domain);
   assert.deepEqual(score.traceEvents[2].details.matchedTerms, score.matchedTerms);
   assert.deepEqual(score.traceEvents[3].details.confidenceDeltas, score.semanticSignals.confidenceDeltas);

@@ -70,6 +70,13 @@ Before changing scoring weights, thresholds, dictionaries, or override rules:
 3. make the smallest scoring change;
 4. verify traces explain the new behavior.
 
+### Trace inspector observes only
+
+- The Semantic Trace Inspector must never call scoring functions directly.
+- The inspector must render only existing canonical results, `traceEvents`, and runtime stages.
+- Inspector utilities may copy, export, clear, filter, or expand traces.
+- Inspector utilities must not mutate scoring state or semantic labels.
+
 ### Regression tests are required for scoring changes
 
 Tests must cover:

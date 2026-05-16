@@ -1197,84 +1197,74 @@
     };
   }
 
+  function semanticTraceEvent(result, order, stage, derivedState) {
+    return {
+      traceId: result.traceId,
+      order,
+      stage,
+      timestamp: result.timestamp,
+      input: {
+        title: result.title,
+        channel: result.channel,
+        videoId: result.videoId,
+        lens: result.lens
+      },
+      derivedState,
+      confidence: {
+        final: result.confidence,
+        domain: result.domainConfidence,
+        friction: result.frictionConfidence,
+        positiveSignal: result.positiveSignalConfidence
+      },
+      canonicalLabel: result.label,
+      contradictions: result.contradictions,
+      metadata: {
+        order,
+        pipelineVersion: result.pipelineVersion,
+        scoringPath: result.scoringPath
+      },
+      details: derivedState
+    };
+  }
+
   function semanticTraceEventsForResult(result) {
     return [
-      {
-        order: 1,
-        stage: "metadata normalization",
-        timestamp: result.timestamp,
-        details: {
-          title: result.title,
-          channel: result.channel,
-          videoId: result.videoId,
-          lens: result.lens,
-          scoringPath: result.scoringPath
-        }
-      },
-      {
-        order: 2,
-        stage: "domain detection",
-        timestamp: result.timestamp,
-        details: {
-          domain: result.domain,
-          domainContext: result.domainContext
-        }
-      },
-      {
-        order: 3,
-        stage: "signal matching",
-        timestamp: result.timestamp,
-        details: {
-          matchedTerms: result.matchedTerms,
-          observabilitySignals: result.observabilitySignals
-        }
-      },
-      {
-        order: 4,
-        stage: "semantic scoring",
-        timestamp: result.timestamp,
-        details: {
-          scores: result.scores,
-          confidenceDeltas: result.semanticSignals.confidenceDeltas
-        }
-      },
-      {
-        order: 5,
-        stage: "confidence consistency validation",
-        timestamp: result.timestamp,
-        details: {
-          confidenceValidation: result.confidenceValidation
-        }
-      },
-      {
-        order: 6,
-        stage: "suppression/override evaluation",
-        timestamp: result.timestamp,
-        details: {
-          suppressedTerms: result.suppressedTerms,
-          overrides: result.semanticSignals.semanticOverrides,
-          downgradeReasons: result.reasoning.downgradeReasons
-        }
-      },
-      {
-        order: 7,
-        stage: "contradiction detection",
-        timestamp: result.timestamp,
-        details: {
-          contradictions: result.contradictions
-        }
-      },
-      {
-        order: 8,
-        stage: "final label selection",
-        timestamp: result.timestamp,
-        details: {
-          label: result.label,
-          confidence: result.confidence,
-          explanation: result.explanation,
-          finalDecisionSource: result.semanticSignals.finalDecisionSource
-        }
-      }
+      semanticTraceEvent(result, 1, "metadata normalization", {
+        title: result.title,
+        channel: result.channel,
+        videoId: result.videoId,
+        lens: result.lens,
+        scoringPath: result.scoringPath
+      }),
+      semanticTraceEvent(result, 2, "domain detection", {
+        domain: result.domain,
+        domainContext: result.domainContext
+      }),
+      semanticTraceEvent(result, 3, "signal matching", {
+        matchedTerms: result.matchedTerms,
+        observabilitySignals: result.observabilitySignals
+      }),
+      semanticTraceEvent(result, 4, "semantic scoring", {
+        scores: result.scores,
+        confidenceDeltas: result.semanticSignals.confidenceDeltas
+      }),
+      semanticTraceEvent(result, 5, "confidence consistency validation", {
+        confidenceValidation: result.confidenceValidation
+      }),
+      semanticTraceEvent(result, 6, "suppression/override evaluation", {
+        suppressedTerms: result.suppressedTerms,
+        overrides: result.semanticSignals.semanticOverrides,
+        downgradeReasons: result.reasoning.downgradeReasons
+      }),
+      semanticTraceEvent(result, 7, "contradiction detection", {
+        contradictions: result.contradictions
+      }),
+      semanticTraceEvent(result, 8, "final label selection", {
+        label: result.label,
+        confidence: result.confidence,
+        explanation: result.explanation,
+        finalDecisionSource: result.semanticSignals.finalDecisionSource
+      })
     ];
   }
 

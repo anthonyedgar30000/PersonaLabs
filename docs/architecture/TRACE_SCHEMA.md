@@ -77,6 +77,31 @@ Runtime rendering stages:
 9. database save attempted
 10. database save succeeded or database save failed
 
+## Semantic Trace Inspector
+
+When debug mode is enabled, the side panel includes a developer-facing Semantic
+Trace Inspector. The inspector observes canonical scoring output only. It does
+not call scoring functions and does not derive labels.
+
+Inspector sections:
+
+- Input: raw title, metadata, source URL, timestamp.
+- Contextual Anchors: extracted anchor, normalized terms, inferred domain, domain boosts.
+- Term Analysis: matched positive terms, matched friction terms, suppressed terms, ignored/override terms.
+- Scoring Flow: pipeline stages, confidence evolution, scoring modifiers, final label.
+- Governance: contradictions, override reasons, canonical validation, semantic path validation.
+- Retrieval Transformation: selected lens, transformed paths, filters, exclusions.
+- Trace Events: canonical `traceEvents`.
+- Runtime Events: overlay/panel/database `stages`.
+
+Inspector utilities:
+
+- copy JSON;
+- export JSON;
+- clear trace history;
+- toggle verbose trace rendering;
+- filter traces by all, overlay, panel, or contradictions.
+
 ## Trace events
 
 Canonical `scoreContent(...)` results expose `traceEvents[]`. Runtime debug
@@ -86,10 +111,16 @@ Each `traceEvents[]` entry has:
 
 ```js
 {
+  traceId: string,
   order: number,
   stage: string,
   timestamp: string,
-  details: object
+  input: object,
+  derivedState: object,
+  confidence: object,
+  canonicalLabel: string,
+  contradictions: string[],
+  metadata: object
 }
 ```
 
@@ -97,9 +128,15 @@ Each runtime `stages[]` entry has:
 
 ```js
 {
+  traceId: string,
   stage: string,
   timestamp: string,
-  details: object
+  input: object,
+  derivedState: object,
+  confidence: object,
+  canonicalLabel: string,
+  contradictions: string[],
+  metadata: object
 }
 ```
 

@@ -332,11 +332,14 @@
 }
 
 .personalabs-debug-actions {
+  align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
-.personalabs-debug-actions button {
+.personalabs-debug-actions button,
+.personalabs-debug-actions select {
   background: rgba(143, 199, 255, 0.12);
   border: 1px solid rgba(143, 199, 255, 0.32);
   border-radius: 9px;
@@ -345,6 +348,61 @@
   font-size: 11px;
   font-weight: 800;
   padding: 6px 8px;
+}
+
+.personalabs-debug-actions label {
+  color: var(--pl-muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.personalabs-inspector-block {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+}
+
+.personalabs-inspector-block dl {
+  display: grid;
+  gap: 4px 8px;
+  grid-template-columns: 105px minmax(0, 1fr);
+  margin: 0;
+}
+
+.personalabs-inspector-block dt,
+.personalabs-inspector-block p {
+  color: var(--pl-muted);
+  font-size: 10px;
+  margin: 0;
+}
+
+.personalabs-inspector-block dd {
+  color: var(--pl-text);
+  font-size: 10px;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.personalabs-inspector-events {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 0;
+  padding-left: 16px;
+}
+
+.personalabs-inspector-events li {
+  color: var(--pl-muted);
+  font-size: 10px;
+}
+
+.personalabs-inspector-events code {
+  color: var(--pl-accent-strong);
+  display: block;
+  white-space: pre-wrap;
 }
 
 .personalabs-debug-traces pre {

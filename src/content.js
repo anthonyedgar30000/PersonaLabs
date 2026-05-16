@@ -92,6 +92,8 @@
     scanTimer: null,
     renderTimer: null,
     traces: [],
+    debugTraceFilter: "all",
+    debugVerboseTraces: false,
     mutationCount: 0
   };
 
@@ -486,8 +488,29 @@
     }
 
     const entry = {
+      traceId: trace.traceId,
       stage,
       timestamp: new Date().toISOString(),
+      input: {
+        title: trace.title,
+        channel: trace.channel,
+        videoId: trace.videoId,
+        lens: trace.lens
+      },
+      derivedState: details || {},
+      confidence: {
+        final: trace.confidence,
+        domain: trace.scores && trace.scores.domainConfidence,
+        friction: trace.scores && trace.scores.frictionConfidence,
+        positiveSignal: trace.scores && trace.scores.positiveSignalConfidence
+      },
+      canonicalLabel: trace.label,
+      contradictions: trace.contradictions || [],
+      metadata: {
+        renderingTarget: trace.renderingTarget,
+        scoringPath: trace.scoringPath,
+        pipelineVersion: trace.pipelineVersion
+      },
       details: details || {}
     };
     trace.stages.push(entry);
@@ -1349,35 +1372,94 @@
   function renderDebugTraces() {
     const section = document.createElement("section");
     section.className = "personalabs-section personalabs-debug-traces";
-    const json = JSON.stringify(state.traces, null, 2);
-    const latest = state.traces[0];
+    const traces = filteredDebugTraces();
+    const json = JSON.stringify(traces, null, 2);
+    const latest = traces[0] || state.traces[0];
     const summary = latest
-      ? `${state.traces.length} traces captured. Latest: ${latest.label || "pending"} ${latest.title || "untitled"}`
+      ? `${state.traces.length} traces captured; ${traces.length} shown. Latest: ${latest.label || "pending"} ${latest.title || "untitled"}`
       : "No traces captured yet.";
+    const traceEvents = latest ? latest.traceEvents || [] : [];
+    const runtimeStages = latest ? latest.stages || [] : [];
+    const confidenceDeltas = latest && latest.semanticSignals ? latest.semanticSignals.confidenceDeltas || {} : {};
+    const transformedPaths = (state.paths || []).map((path) => `${path.id}: ${path.query}`);
+    const retrievalFilters = activePath() ? [describeFilterPolicy(activePath().filterPolicy)] : [];
+    const warnings = latest && latest.contradictions && latest.contradictions.length
+      ? latest.contradictions
+      : ["No contradiction warnings for selected trace."];
 
     section.innerHTML = [
       "<p class='personalabs-eyebrow'>Debug Traces</p>",
-      "<h3>Classification trace log</h3>",
+      "<h3>Semantic Trace Inspector</h3>",
       `<p class='personalabs-muted'>${escapeHtml(summary)}</p>`,
       "<div class='personalabs-debug-actions'>",
       "<button type='button' data-action='copy-traces'>Copy JSON</button>",
       "<button type='button' data-action='export-traces'>Export JSON</button>",
+      "<button type='button' data-action='clear-traces'>Clear</button>",
+      `<button type='button' data-action='toggle-verbose'>${state.debugVerboseTraces ? "Compact traces" : "Verbose traces"}</button>`,
+      "<label>Filter <select data-action='filter-traces'>",
+      `<option value='all'${state.debugTraceFilter === "all" ? " selected" : ""}>All</option>`,
+      `<option value='overlay'${state.debugTraceFilter === "overlay" ? " selected" : ""}>Overlay</option>`,
+      `<option value='panel'${state.debugTraceFilter === "panel" ? " selected" : ""}>Panel</option>`,
+      `<option value='contradictions'${state.debugTraceFilter === "contradictions" ? " selected" : ""}>Contradictions</option>`,
+      "</select></label>",
       "</div>",
+      latest ? renderInspectorSection("Input", [
+        ["Raw title", latest.title || "none"],
+        ["Raw metadata", `${latest.channel || "no channel"} | ${latest.videoId || "no video id"}`],
+        ["Source URL", latest.url || "not captured"],
+        ["Timestamp", latest.timestamp || "none"]
+      ]) : "",
+      latest ? renderInspectorSection("Contextual Anchors", [
+        ["Extracted anchor", state.anchor && state.anchor.subjectAnchor || "none"],
+        ["Normalized anchor", state.anchor && state.anchor.keyTerms ? state.anchor.keyTerms.join(", ") : "none"],
+        ["Inferred domain", latest.domain || "unknown"],
+        ["Matched semantic domains", latest.domainContext && latest.domainContext.boosts ? latest.domainContext.boosts.join(", ") || "none" : "none"]
+      ]) : "",
+      latest ? renderInspectorListSection("Term Analysis", {
+        "Matched positive terms": latest.matchedTerms && latest.matchedTerms.positive,
+        "Matched friction terms": latest.matchedTerms && latest.matchedTerms.friction,
+        "Removed/suppressed terms": latest.suppressedTerms,
+        "Ignored terms": [],
+        "Override terms": latest.semanticSignals && latest.semanticSignals.semanticOverrides ? [latest.semanticSignals.semanticOverrides] : []
+      }) : "",
+      latest ? renderInspectorSection("Scoring Flow", [
+        ["Stages", (latest.pipelineStages || []).join(" -> ") || "none"],
+        ["Confidence evolution", `domain ${formatConfidence(confidenceDeltas.domain)} | friction ${formatConfidence(confidenceDeltas.friction)} | positive ${formatConfidence(confidenceDeltas.positiveSignal)} | final ${formatConfidence(latest.confidence)}`],
+        ["Applied modifiers", latest.reasoning && latest.reasoning.reasons ? latest.reasoning.reasons.join(" | ") : "none"],
+        ["Final canonical label", latest.label || "none"]
+      ]) : "",
+      latest ? renderInspectorListSection("Governance", {
+        "Contradictions detected": warnings,
+        "Override reasons": latest.reasoning && latest.reasoning.downgradeReasons,
+        "Canonical agreement validation": latest.confidenceValidation ? [`confidence valid: ${latest.confidenceValidation.valid}`] : ["not available"],
+        "Semantic path validation": [latest.scoringPath || "unknown"]
+      }) : "",
+      renderInspectorListSection("Retrieval Transformation", {
+        "Selected lens": [activePath() && (activePath().lensLabel || activePath().label) || "none"],
+        "Transformed exploration paths": transformedPaths,
+        "Retrieval filters applied": retrievalFilters,
+        "Retrieval exclusions": ["RED excluded by filter policy"]
+      }),
+      latest ? renderInspectorEvents("Trace Events", traceEvents, state.debugVerboseTraces) : "",
+      latest ? renderInspectorEvents("Runtime Events", runtimeStages, state.debugVerboseTraces) : "",
       `<pre>${escapeHtml(json || "[]")}</pre>`
     ].join("");
 
     const copyButton = section.querySelector("[data-action='copy-traces']");
     const exportButton = section.querySelector("[data-action='export-traces']");
+    const clearButton = section.querySelector("[data-action='clear-traces']");
+    const verboseButton = section.querySelector("[data-action='toggle-verbose']");
+    const filterSelect = section.querySelector("[data-action='filter-traces']");
 
     copyButton.addEventListener("click", () => {
-      const payload = JSON.stringify(state.traces, null, 2);
+      const payload = JSON.stringify(filteredDebugTraces(), null, 2);
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(payload);
       }
     });
 
     exportButton.addEventListener("click", () => {
-      const blob = new Blob([JSON.stringify(state.traces, null, 2)], { type: "application/json" });
+      const blob = new Blob([JSON.stringify(filteredDebugTraces(), null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -1386,7 +1468,74 @@
       URL.revokeObjectURL(url);
     });
 
+    clearButton.addEventListener("click", () => {
+      state.traces = [];
+      window.PersonaLabsDebugTraces = state.traces;
+      scheduleRender();
+    });
+
+    verboseButton.addEventListener("click", () => {
+      state.debugVerboseTraces = !state.debugVerboseTraces;
+      scheduleRender();
+    });
+
+    filterSelect.addEventListener("change", () => {
+      state.debugTraceFilter = filterSelect.value;
+      scheduleRender();
+    });
+
     return section;
+  }
+
+  function filteredDebugTraces() {
+    if (state.debugTraceFilter === "overlay") {
+      return state.traces.filter((trace) => trace.renderingTarget === "overlay");
+    }
+    if (state.debugTraceFilter === "panel") {
+      return state.traces.filter((trace) => trace.renderingTarget === "panel");
+    }
+    if (state.debugTraceFilter === "contradictions") {
+      return state.traces.filter((trace) => trace.contradictions && trace.contradictions.length);
+    }
+    return state.traces;
+  }
+
+  function renderInspectorSection(title, rows) {
+    return [
+      "<div class='personalabs-inspector-block'>",
+      `<h4>${escapeHtml(title)}</h4>`,
+      "<dl>",
+      rows.map(([label, value]) => `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value || "none")}</dd>`).join(""),
+      "</dl>",
+      "</div>"
+    ].join("");
+  }
+
+  function renderInspectorListSection(title, groups) {
+    return [
+      "<div class='personalabs-inspector-block'>",
+      `<h4>${escapeHtml(title)}</h4>`,
+      Object.entries(groups).map(([label, values]) => {
+        const list = values && values.length ? values : ["none"];
+        return `<p><strong>${escapeHtml(label)}:</strong> ${escapeHtml(list.join(", "))}</p>`;
+      }).join(""),
+      "</div>"
+    ].join("");
+  }
+
+  function renderInspectorEvents(title, events, verbose) {
+    const rendered = (events || []).map((event) => {
+      const label = event.metadata && event.metadata.order ? `${event.metadata.order}. ${event.stage}` : event.stage;
+      const detail = verbose ? JSON.stringify(event, null, 2) : `${event.timestamp || ""} | ${event.canonicalLabel || ""}`;
+      return `<li><span>${escapeHtml(label)}</span><code>${escapeHtml(detail)}</code></li>`;
+    }).join("");
+
+    return [
+      "<div class='personalabs-inspector-block'>",
+      `<h4>${escapeHtml(title)}</h4>`,
+      `<ol class='personalabs-inspector-events'>${rendered || "<li><span>none</span><code></code></li>"}</ol>`,
+      "</div>"
+    ].join("");
   }
 
   function renderSignalSummary(anchor) {

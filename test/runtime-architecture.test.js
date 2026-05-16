@@ -23,3 +23,15 @@ test("debug trace collection is gated by PERSONALABS_DEBUG", () => {
   assert.match(contentRuntime, /window\.PersonaLabsDebugTraces = state\.traces/);
 });
 
+test("semantic trace inspector exposes debug-only inspection utilities", () => {
+  const contentRuntime = fs.readFileSync(path.join(root, "src", "content.js"), "utf8");
+
+  assert.match(contentRuntime, /Semantic Trace Inspector/);
+  assert.match(contentRuntime, /data-action='clear-traces'/);
+  assert.match(contentRuntime, /data-action='toggle-verbose'/);
+  assert.match(contentRuntime, /data-action='filter-traces'/);
+  assert.match(contentRuntime, /renderInspectorSection\("Input"/);
+  assert.match(contentRuntime, /renderInspectorListSection\("Governance"/);
+  assert.match(contentRuntime, /renderInspectorEvents\("Trace Events"/);
+});
+

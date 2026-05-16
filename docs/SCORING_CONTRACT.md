@@ -64,6 +64,9 @@ sources.
 - `explanation`: Final user-facing or debug-facing classification reason.
 - `timestamp`: ISO timestamp for the classification event.
 
+Trace inspector note: developer-facing inspection UI must consume this object and
+its `traceEvents`; it must not perform scoring or derive alternate labels.
+
 ## Canonical function
 
 All active runtime classification decisions must originate from:
