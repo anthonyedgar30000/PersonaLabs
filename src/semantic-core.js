@@ -12,6 +12,8 @@ export const DOMAINS = Object.freeze({
 const ANIMAL_PET_NATURE_TERMS = [
   "animal",
   "aquarium",
+  "bird",
+  "birds",
   "bunny",
   "cat",
   "dog",
@@ -20,6 +22,8 @@ const ANIMAL_PET_NATURE_TERMS = [
   "hamsters",
   "kitten",
   "mini lop",
+  "parrot",
+  "parrots",
   "pet",
   "pets",
   "puppy",
