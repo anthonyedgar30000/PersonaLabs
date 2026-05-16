@@ -43,6 +43,18 @@ export class PersonaLabsDatabase {
     return this.getVideo(Number(result.lastInsertRowid));
   }
 
+  saveVideo(video) {
+    const existing = video.platformVideoId
+      ? this.findVideoByPlatformId(video.platform, video.platformVideoId)
+      : undefined;
+
+    if (!existing) {
+      return this.createVideo(video);
+    }
+
+    return this.updateVideo(existing.id, video);
+  }
+
   getVideo(id) {
     return hydrateJsonFields(this.db.prepare("SELECT * FROM videos WHERE id = ?").get(id));
   }
@@ -139,6 +151,10 @@ export class PersonaLabsDatabase {
       WHERE video_id = ?
       ORDER BY id
     `).all(videoId).map(hydrateJsonFields);
+  }
+
+  getClassificationHistory(videoId) {
+    return this.listClassificationEventsForVideo(videoId);
   }
 
   deleteClassificationEvent(id) {
