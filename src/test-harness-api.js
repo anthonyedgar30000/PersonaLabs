@@ -158,7 +158,8 @@
       pipelineVersion: result && result.pipelineVersion,
       traceId: score.traceId,
       scoringPath: score.scoringPath,
-      explanation: score.explanation
+      explanation: score.explanation,
+      evidenceSummary: score.evidenceSummary || null
     });
   }
 

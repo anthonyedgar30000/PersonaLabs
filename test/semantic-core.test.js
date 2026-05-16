@@ -297,6 +297,41 @@ test("trust-stress title pack stays calibrated around ambiguous framing", () => 
   });
 });
 
+test("ambiguous title evidence separates topic framing intensity conflict and uncertainty", () => {
+  const cases = [
+    "How Outrage Media Works: A Calm Analysis",
+    "You Won't Believe How Calm This Aquarium Is",
+    "Cute Kitten ATTACKS Owner During Playtime",
+    "Everything You Know About Nutrition Is a Lie",
+    "Satire: Senator DESTROYS Himself in Fake Debate",
+    "Emergency Safety Guide: What to Do During a Hurricane",
+    "Calm Explanation of Why Everything You Know Is a Lie",
+    "He DESTROYED the World Record in Mario Kart",
+    "This Natural Trick Cured My Anxiety",
+    "Official Study: Shocking Results Explained",
+    "The Truth About Seed Oils",
+    "Why Everyone Is Wrong About AI",
+    "LIVE: Hurricane Evacuation Updates and Shelter Locations",
+    "Shocking Study Finds Walking 20 Minutes a Day Improves Memory",
+    "Banks Don't Want You to Know This Savings Trick"
+  ];
+
+  cases.forEach((title) => {
+    const score = semantic.scoreContent({
+      candidate: { title, channel: "Evidence QA", duration: "10:00" },
+      anchor: title,
+      scoringPath: "ambiguous-evidence-pack"
+    });
+
+    assert.equal(score.label, "YELLOW", title);
+    assert.equal(typeof score.evidenceSummary.topicDetection.summary, "string", title);
+    assert.equal(typeof score.evidenceSummary.framingDetection.summary, "string", title);
+    assert(["low", "medium", "high"].includes(score.evidenceSummary.emotionalIntensity.level), title);
+    assert(["medium", "high"].includes(score.evidenceSummary.uncertainty.level), title);
+    assert.match(score.evidenceSummary.boundedClaim, /title wording patterns only/i);
+  });
+});
+
 test("boosts discussion of sensitive topics on lower-friction source formats", () => {
   const anchor = semantic.analyzeAnchor("Thomas Massie Iran vote");
   const path = semantic.buildExplorationPaths(anchor).find((item) => item.id === "educational");

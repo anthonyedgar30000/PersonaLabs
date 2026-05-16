@@ -240,6 +240,18 @@
     return source.explanation || source.reasoning && source.reasoning.finalReason || "Deterministic signal matches produced this framing label.";
   }
 
+  function evidenceSummaryLines(summary) {
+    const source = summary || {};
+    return [
+      source.topicDetection && `Topic: ${source.topicDetection.summary}`,
+      source.framingDetection && `Framing: ${source.framingDetection.summary}`,
+      source.emotionalIntensity && `Intensity: ${source.emotionalIntensity.level} — ${source.emotionalIntensity.summary}`,
+      source.amplificationLanguage && source.amplificationLanguage.detected ? `Amplification: ${source.amplificationLanguage.terms.join(", ")}` : "",
+      source.conflictLanguage && source.conflictLanguage.detected ? `Conflict wording: ${source.conflictLanguage.terms.join(", ")}` : "",
+      source.uncertainty && `Uncertainty: ${source.uncertainty.level} — ${source.uncertainty.summary}`
+    ].filter(Boolean);
+  }
+
   function flattenResults(result) {
     if (!result) {
       return [];
@@ -287,6 +299,7 @@
       suppressedSignals: score.suppressedTerms || [],
       finalExplanation: score.explanation || "",
       decisionSummary: decisionSummary(score),
+      evidenceSummary: score.evidenceSummary || null,
       rawTrace: score
     };
   }
@@ -303,6 +316,7 @@
       `<p><strong>Matched signals:</strong> ${escapeHtml(signalSummary(trace.matchedSignals))}</p>`,
       `<p><strong>Ignored / downweighted signals:</strong> ${escapeHtml((trace.suppressedSignals || []).join(", ") || "none")}</p>`,
       `<p><strong>Decision summary:</strong> ${escapeHtml(trace.decisionSummary)}</p>`,
+      trace.evidenceSummary ? `<p><strong>Evidence summary:</strong> ${escapeHtml(evidenceSummaryLines(trace.evidenceSummary).join(" "))}</p>` : "",
       `<p><strong>Final explanation:</strong> ${escapeHtml(trace.finalExplanation || "none")}</p>`,
       "<details><summary>Raw trace JSON</summary>",
       `<pre>${escapeHtml(stringifyJson(trace.rawTrace))}</pre>`,
@@ -325,6 +339,7 @@
       ignoredSignals: matchedSuppressed[index] && matchedSuppressed[index].suppressedSignals || [],
       explanation: result.explanation || governance[index] && governance[index].governanceDecisions && governance[index].governanceDecisions.explanation || "",
       decisionSummary: result.explanation || "",
+      evidenceSummary: result.evidenceSummary || null,
       traceId: result.traceId || ""
     }));
     return {
@@ -506,6 +521,7 @@
     copyJson,
     decisionSummary,
     downloadJson,
+    evidenceSummaryLines,
     escapeHtml,
     flattenResults,
     getApi,
