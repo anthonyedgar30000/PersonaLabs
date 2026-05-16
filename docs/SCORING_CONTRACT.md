@@ -1,8 +1,8 @@
 # PersonaLabs Scoring Contract
 
-PersonaLabs classifications must be represented as one canonical semantic result object.
+PersonaLabs title-framing labels must be represented as one deterministic result object.
 
-## Canonical semantic result object
+## Deterministic title-framing result object
 
 ```js
 {
@@ -45,20 +45,20 @@ sources.
 - `title`: Extracted visible title used for scoring.
 - `channel`: Extracted channel/source name used for source and metadata signals.
 - `lens`: Selected PersonaLabs exploration lens or mode.
-- `domain`: Detected content domain, such as `animal-pet-nature`, `educational/explanatory`, `low-friction-source`, or `general`.
+- `domain`: Matched wording group, such as `animal-pet-nature`, `educational/explanatory`, `low-friction-source`, or `general`.
 - `label`: Final visible classification label: `GREEN`, `YELLOW`, or `RED`.
-- `confidence`: Numeric 0-100 confidence for the final label.
+- `confidence`: Internal 0-100 rule-match score for the final label; not empirical certainty.
 - `scores`: Score components used to select or explain the label.
 - `matchedTerms`: Structured matched terms, at minimum `{ positive: [], friction: [] }`.
 - `suppressedTerms`: Terms suppressed by safe-domain or contextual rules.
-- `semanticSignals`: Semantic contributions such as domain boosts, confidence deltas, semantic overrides, and final decision source.
-- `observabilitySignals`: Raw matched observability signal groups from the canonical semantic pipeline.
+- `semanticSignals`: Rule contributions such as wording-group boosts, score components, overrides, and final decision source.
+- `observabilitySignals`: Raw matched wording signal groups from the deterministic pipeline.
 - `reasoning`: Structured reasoning, including human-readable reasons, final reason, and downgrade reasons.
 - `pipelineVersion`: Version string for the canonical semantic pipeline.
 - `scoringPath`: Runtime path consuming the canonical score, such as `overlay`, `retrieval-panel`, or `retrieval-ranking`.
 - `contradictions`: Explicit contradictions detected between label, explanation, and matched terms.
-- `confidenceValidation`: Validation result proving final and component confidence fields are in range and synchronized.
-- `domainContext`: Domain classification context, boosts, and confidence source.
+- `confidenceValidation`: Consistency check confirming final and component score fields are in range and synchronized; not empirical validation.
+- `domainContext`: Wording-group context, boosts, and score source.
 - `traceEvents`: Ordered semantic telemetry events emitted by the canonical scoring pipeline.
 - `downgradeReasons`: Human-readable reasons a candidate was downgraded, capped, or kept from a stronger positive label.
 - `explanation`: Final user-facing or debug-facing classification reason.
@@ -93,15 +93,15 @@ semantic.replayTrace(trace)
 semantic.replayTraces(traces)
 ```
 
-Replay accepts exported canonical trace JSON, reconstructs canonical scoring
-input, calls `scoreContent(...)`, and compares the current canonical result to
-the historical trace. Replay reports label drift, confidence drift,
-contradiction drift, governance decision changes, retrieval agreement changes,
-and pipeline version changes.
+Replay accepts exported trace JSON, reconstructs deterministic scoring input,
+calls `scoreContent(...)`, and compares the current result to the historical
+trace. Replay reports label mismatches, rule-score deltas, contradiction
+changes, rule-check changes, retrieval agreement changes, and pipeline version
+changes.
 
 ## Scenario pack contract
 
-Scenario packs validate canonical governance without adding scoring systems:
+Scenario packs validate deterministic label rules without adding scoring systems:
 
 ```js
 {

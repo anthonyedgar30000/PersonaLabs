@@ -1,15 +1,16 @@
 # PersonaLabs
 
-PersonaLabs is an observability-driven semantic navigation layer for YouTube
-exploration.
+PersonaLabs is an educational deterministic framing-analysis tool for YouTube
+titles.
 
-The system helps users preserve topic and event continuity while changing the style
-of exploration. It is designed to feel like: "I am exploring this topic
-intentionally" instead of "I am trapped inside a recommendation funnel."
+The system helps users see how observable wording styles can influence a title's
+emotional feel and attention profile. It focuses on visible title/channel text
+and deterministic rule matches.
 
 PersonaLabs does not determine truth, rank ideology, censor content, or replace
-YouTube. It gives users transparent, local-first tools for generating calmer and
-more explanatory paths from a selected contextual anchor.
+YouTube. It does not assess creator intent, morality, misinformation, user mental
+state, or content quality. It gives users transparent, local-first cues for
+noticing escalation, amplification, calm/neutral, and explanatory wording.
 
 ## Core Principles
 
@@ -20,7 +21,7 @@ more explanatory paths from a selected contextual anchor.
 - Explainable outputs and transparent scoring summaries
 - Calm, non-judgmental interaction design
 - Privacy-aware architecture
-- Behavioral observability over coercive filtering
+- Bounded wording analysis over coercive filtering
 - Score first; filter second
 - Bare Metal mode always available
 
@@ -39,16 +40,16 @@ more explanatory paths from a selected contextual anchor.
    - domination framing
    - clickbait signals
    - educational signals
-   - calm/low-friction signals
-5. PersonaLabs creates subject-preserving transformed searches:
+   - calm/neutral signals
+5. PersonaLabs creates optional subject-preserving rewritten searches:
    - Like this, but calmer
    - Like this, but educational
    - Like this, but deeper
    - Like this, but beginner-friendly
    - Like this, but longer-form
 
-The transformed query preserves the original topic, event, people, and entities.
-Only the exploration style changes.
+The rewritten query preserves the original topic, event, people, and entities.
+Only the wording lens changes.
 
 Example:
 
@@ -80,15 +81,15 @@ preserving event continuity:
 - beginner friendly
 - longer-form
 
-## Structured Retrieval and Result Filtering
+## Visible Metadata and Result Filtering
 
-After a transformed search is opened, PersonaLabs runs a retrieval pipeline that
-returns structured video metadata, scores the returned videos/channels with
-deterministic logic, and applies the selected exploration lens.
+After a rewritten search is opened, PersonaLabs reads visible or provider-supplied
+video metadata, scores title/channel wording with deterministic logic, and applies
+the selected wording lens.
 
 The current browser extension still includes a temporary visible-page metadata
 provider so the UI works before a YouTube Data API key/configuration exists. The
-ranking architecture no longer depends on content-script scoring of scraped DOM
+scoring architecture no longer depends on content-script scoring of scraped DOM
 nodes; the DOM adapter is isolated behind the Retrieval Layer and can be replaced
 by YouTube Data API retrieval.
 
@@ -97,19 +98,19 @@ Pipeline:
 1. Contextual anchor
 2. Transformation query generation
 3. Structured metadata retrieval
-4. Deterministic observability scoring
-5. Lens-aware reranking/filtering
-6. Intentional exploration presentation
+4. Deterministic wording-cue scoring
+5. Lens-aware filtering
+6. Title framing presentation
 
-It prioritizes:
+It surfaces:
 
 - topic relevance
 - educational framing
-- lower sensational wording
+- lower-intensity wording
 - explanatory terminology
 - longer-form structure
 
-It deprioritizes:
+It flags or filters:
 
 - outrage framing
 - excessive capitalization
@@ -121,21 +122,21 @@ It deprioritizes:
 
 The color system summarizes title framing only:
 
-- GREEN: calm or straightforward title framing
-- YELLOW: mixed or unclear title framing
-- RED: intense or attention-grabbing title framing
+- GREEN: calm or straightforward title wording
+- YELLOW: mixed or unclear title wording
+- RED: intense or attention-grabbing title wording
 
 Lens behavior:
 
 - CALMER: only GREEN videos allowed
 - LOWER FRICTION: only GREEN videos allowed
 - EDUCATIONAL: GREEN prioritized; strong explanatory YELLOW allowed
-- DEEPER DIVE: GREEN plus high-quality relevant YELLOW
+- DEEPER DIVE: GREEN plus deeper-context YELLOW
 - BEGINNER FRIENDLY: GREEN plus simple explanatory YELLOW
 - LONGER-FORM: GREEN plus relevant long-form YELLOW
 
-Suggested results include the title, channel, classification color, score, and
-plain-language explanations such as:
+Suggested results include the title, channel, framing label, rule-match score, and
+plain-language wording-cue explanations such as:
 
 - lower-friction language
 - explanatory framing
@@ -145,18 +146,18 @@ plain-language explanations such as:
 
 ## Overlay Badges
 
-PersonaLabs badges are contextual observability signals. They do not block,
-approve, censor, or fact-check videos. They help users notice when a visible card
-contains escalation language, which GREEN/YELLOW/RED class a result falls into,
-and how strongly a result fits the active contextual anchor.
+PersonaLabs badges are contextual title-framing cues. They do not block, approve,
+censor, fact-check, or assess video quality. They help users notice when a visible
+card title contains escalation language, which GREEN/YELLOW/RED wording label a
+result falls into, and which deterministic rule matches contributed.
 
 ## Architecture
 
 ```text
 manifest.json
 src/
-  semantic-core.js        Anchor extraction, observability signals, deterministic scoring
-  retrieval-pipeline.js  Retrieval/query/scoring/ranking interfaces
+  semantic-core.js        Anchor extraction, wording cues, deterministic scoring
+  retrieval-pipeline.js  Retrieval/query/scoring/filtering interfaces
   content.js             YouTube anchor selector and presentation layer
   content.css            Panel, badge, and overlay styling
 lib/
@@ -172,12 +173,12 @@ Layer boundaries:
 
 - Retrieval Layer: structured metadata retrieval via mock providers, temporary
   visible-page metadata provider, and a YouTube Data API provider interface.
-- Observability Layer: deterministic scoring, emotional compression/framing
-  analysis, escalation/clickbait detection, educational density, calmness, and
+- Wording Analysis Layer: deterministic scoring, title framing analysis,
+  escalation/clickbait detection, educational phrasing, calm/neutral wording, and
   long-form signals.
 - Transformation Layer: subject-preserving "this but calmer/educational/deeper"
   query generation.
-- Ranking Layer: GREEN/YELLOW/RED reranking and lens-aware filtering.
+- Filtering Layer: GREEN/YELLOW/RED label filtering by the selected wording lens.
 - Presentation Layer: browser extension control panel, contextual anchor
   selection, and visible classification UI.
 - Headline Labeling Layer: deterministic `analyzeHeadline(title, source, mode)`
@@ -233,4 +234,5 @@ All AI-generated outputs require:
 
 ## Vision
 
-AI helping people notice when they are no longer acting intentionally.
+A deterministic tool for noticing how title wording can shape attention and
+emotional feel.

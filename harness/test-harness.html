@@ -3,15 +3,15 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>PersonaLabs Title Classifier</title>
+    <title>PersonaLabs Title Framing Explorer</title>
     <link rel="stylesheet" href="./test-harness.css">
   </head>
   <body>
     <main class="personalabs-harness">
       <header class="personalabs-harness-header">
         <p class="eyebrow">PersonaLabs MVP</p>
-        <h1>PersonaLabs Title Classifier</h1>
-        <p>Paste YouTube titles. See rule-based framing labels, match strength, and why each title was classified.</p>
+        <h1>PersonaLabs Title Framing Explorer</h1>
+        <p>Paste YouTube titles. See rule-based framing labels, rule-match scores, and matched wording cues.</p>
       </header>
 
       <section class="harness-section" aria-labelledby="api-status-title">
@@ -33,7 +33,7 @@
         <h2 id="results-title">Results</h2>
         <p class="microcopy">GREEN = calm / straightforward framing. YELLOW = mixed or unclear framing. RED = intense / attention-grabbing framing.</p>
         <p class="microcopy">Colors summarize title framing only. PersonaLabs evaluates title wording patterns, not truth, intent, or content quality.</p>
-        <p class="microcopy">Match strength reflects deterministic rule matches, not certainty about the video.</p>
+        <p class="microcopy">Rule-match score reflects deterministic wording matches, not certainty about the video.</p>
         <p class="microcopy">Signal coverage is strongest for English-language title wording.</p>
         <div id="classification-results"></div>
       </section>

@@ -1173,7 +1173,7 @@
       },
       amplificationLanguage: {
         detected: amplificationTerms.length > 0,
-        summary: amplificationTerms.length ? "Strong certainty or attention-grabbing wording detected." : "No strong amplification wording detected.",
+        summary: amplificationTerms.length ? "Certainty-style or attention-grabbing phrasing detected; this does not assess whether the claim is true." : "No strong amplification wording detected.",
         terms: unique(amplificationTerms)
       },
       conflictLanguage: {
@@ -1184,7 +1184,7 @@
       uncertainty: {
         level: uncertaintyLevel,
         summary: uncertaintyLevel === "low"
-          ? "Low ambiguity in the deterministic framing interpretation."
+          ? "Few competing matched wording patterns under this fixed rule set."
           : hasCompetingSignals
             ? "Multiple competing framing signals detected."
             : needsContext

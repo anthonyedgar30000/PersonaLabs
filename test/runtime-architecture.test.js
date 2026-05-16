@@ -26,10 +26,10 @@ test("debug trace collection is gated by PERSONALABS_DEBUG", () => {
 test("semantic trace inspector exposes debug-only inspection utilities", () => {
   const contentRuntime = fs.readFileSync(path.join(root, "src", "content.js"), "utf8");
 
-  assert.match(contentRuntime, /Semantic Trace Inspector/);
+  assert.match(contentRuntime, /Developer trace inspector/);
   assert.match(contentRuntime, /<summary>/);
   assert.match(contentRuntime, /renderPipelineHealth/);
-  assert.match(contentRuntime, /Pipeline Health/);
+  assert.match(contentRuntime, /Developer: pipeline check/);
   assert.match(contentRuntime, /data-action='clear-traces'/);
   assert.match(contentRuntime, /data-action='toggle-verbose'/);
   assert.match(contentRuntime, /data-action='filter-traces'/);
@@ -45,8 +45,8 @@ test("semantic trace inspector exposes debug-only inspection utilities", () => {
   assert.match(contentRuntime, /renderInspectorSection\("Input"/);
   assert.match(contentRuntime, /renderInspectorListSection\("Extracted Terms"/);
   assert.match(contentRuntime, /renderInspectorListSection\("Detected Signals"/);
-  assert.match(contentRuntime, /renderInspectorSection\("Confidence Deltas"/);
-  assert.match(contentRuntime, /renderInspectorListSection\("Governance Decisions"/);
+  assert.match(contentRuntime, /renderInspectorSection\("Rule-match components"/);
+  assert.match(contentRuntime, /renderInspectorListSection\("Rule Checks"/);
   assert.match(contentRuntime, /renderInspectorListSection\("Contradictions"/);
   assert.match(contentRuntime, /renderInspectorEvents\("Trace Events"/);
 });
@@ -61,7 +61,7 @@ test("overlays stay compact while detailed debugging stays in the inspector", ()
   assert(!/personalabs-overlay-breakdown/.test(overlayFunction));
   assert(!/personalabs-overlay-terms/.test(overlayFunction));
   assert(!/matchedTerms/.test(overlayFunction));
-  assert.match(contentRuntime, /Canonical Trace JSON/);
+  assert.match(contentRuntime, /Rule-match Trace JSON/);
 });
 
 test("overlay candidates are scoped to video surfaces only", () => {
@@ -93,7 +93,7 @@ test("inspector observes traces without participating in scoring", () => {
   assert(!/scoreContent|scoreCandidate|scoreCandidates/.test(pipelineHealthFunction));
   assert.match(pipelineHealthFunction, /Overlay\/panel agreement/);
   assert.match(pipelineHealthFunction, /Retrieval agreement/);
-  assert.match(pipelineHealthFunction, /Semantic drift warning/);
+  assert.match(pipelineHealthFunction, /Label mismatch warning/);
 });
 
 test("replay UI delegates to canonical replay helpers", () => {
