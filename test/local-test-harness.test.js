@@ -65,7 +65,7 @@ test("local harness renders compact classification results", () => {
   assert.match(html, /label-green/);
   assert.match(html, /confidence-high/);
   assert.match(html, /96 \(high confidence\)/);
-  assert.match(html, /positive: cute/);
+  assert.match(html, /Low-friction signals: cute/);
   assert.match(html, /Update from yesterday/);
   assert.match(html, /label-yellow/);
 });
@@ -87,8 +87,8 @@ test("local harness renders compact trace hierarchy with raw JSON disclosure", (
   assert.match(html, /Confidence/);
   assert.match(html, /96 \(high confidence\)/);
   assert.match(html, /Matched signals/);
-  assert.match(html, /positive: cute/);
-  assert.match(html, /Suppressed signals/);
+  assert.match(html, /Low-friction signals: cute/);
+  assert.match(html, /Ignored \/ downweighted signals/);
   assert.match(html, /Final explanation/);
   assert.match(html, /Raw trace JSON/);
 });

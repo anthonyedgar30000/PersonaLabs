@@ -3,15 +3,15 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>PersonaLabs Test Harness</title>
+    <title>PersonaLabs Title Classifier</title>
     <link rel="stylesheet" href="./test-harness.css">
   </head>
   <body>
     <main class="personalabs-harness">
       <header class="personalabs-harness-header">
-        <p class="eyebrow">PersonaLabs Debug Harness</p>
-        <h1>Local Test Harness MVP</h1>
-        <p>Paste YouTube titles, classify them through <code>window.PersonaLabsTestAPI</code>, inspect compact traces, and export evidence JSON.</p>
+        <p class="eyebrow">PersonaLabs MVP</p>
+        <h1>PersonaLabs Title Classifier</h1>
+        <p>Paste YouTube titles. See deterministic labels, confidence, and why each title was classified.</p>
       </header>
 
       <section class="harness-section" aria-labelledby="api-status-title">
@@ -25,12 +25,14 @@
         <label>Titles <textarea id="title-input" spellcheck="false" aria-label="YouTube title lines"></textarea></label>
         <div class="action-row">
           <button type="button" id="classify-titles">Classify Titles</button>
-          <button type="button" id="run-scenarios">Run Smoke Scenarios</button>
+          <button type="button" id="run-scenarios">Run Example Pack</button>
         </div>
       </section>
 
       <section class="harness-section" aria-labelledby="results-title">
         <h2 id="results-title">Results</h2>
+        <p class="microcopy">GREEN = low-friction / aligned. YELLOW = uncertain / mixed. RED = high-friction / manipulative.</p>
+        <p class="microcopy">Confidence reflects deterministic rule strength, not truth certainty.</p>
         <div id="classification-results"></div>
       </section>
 

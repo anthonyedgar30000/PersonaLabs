@@ -79,6 +79,12 @@ label {
   text-transform: uppercase;
 }
 
+.microcopy {
+  color: #52647a;
+  font-size: 0.92rem;
+  margin: 0.35rem 0;
+}
+
 .harness-section {
   background: #fff;
   border: 1px solid #dfe6f1;

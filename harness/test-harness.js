@@ -201,11 +201,15 @@
 
   function signalValues(signals) {
     const groups = signals || {};
+    const labels = {
+      positive: "Low-friction signals",
+      friction: "High-friction signals"
+    };
     return Object.keys(groups)
       .sort()
       .map((group) => {
         const values = groups[group] || [];
-        return values.length ? `${group}: ${values.join(", ")}` : "";
+        return values.length ? `${labels[group] || group}: ${values.join(", ")}` : "";
       })
       .filter(Boolean);
   }
@@ -275,7 +279,7 @@
       `<p><strong>Final label:</strong> ${escapeHtml(trace.finalLabel)}</p>`,
       `<p><strong>Confidence:</strong> ${escapeHtml(confidenceLabel(trace.confidence))}</p>`,
       `<p><strong>Matched signals:</strong> ${escapeHtml(signalSummary(trace.matchedSignals))}</p>`,
-      `<p><strong>Suppressed signals:</strong> ${escapeHtml((trace.suppressedSignals || []).join(", ") || "none")}</p>`,
+      `<p><strong>Ignored / downweighted signals:</strong> ${escapeHtml((trace.suppressedSignals || []).join(", ") || "none")}</p>`,
       `<p><strong>Final explanation:</strong> ${escapeHtml(trace.finalExplanation || "none")}</p>`,
       "<details><summary>Raw trace JSON</summary>",
       `<pre>${escapeHtml(stringifyJson(trace.rawTrace))}</pre>`,
