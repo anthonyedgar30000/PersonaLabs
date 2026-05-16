@@ -157,6 +157,81 @@ export class PersonaLabsDatabase {
     return this.listClassificationEventsForVideo(videoId);
   }
 
+  listRecentHistory(limit = 25) {
+    return this.db.prepare(`
+      SELECT
+        ce.id AS classification_event_id,
+        ce.video_id,
+        v.platform,
+        v.platform_video_id,
+        v.url,
+        v.title,
+        v.channel_name,
+        ce.final_color,
+        ce.lens,
+        ce.domain,
+        ce.explanation,
+        ce.created_at,
+        (
+          SELECT expected_color
+          FROM user_feedback uf
+          WHERE uf.classification_event_id = ce.id
+          ORDER BY uf.id DESC
+          LIMIT 1
+        ) AS user_correction,
+        (
+          SELECT comment
+          FROM user_feedback uf
+          WHERE uf.classification_event_id = ce.id
+          ORDER BY uf.id DESC
+          LIMIT 1
+        ) AS user_correction_comment
+      FROM classification_events ce
+      JOIN videos v ON v.id = ce.video_id
+      ORDER BY ce.id DESC
+      LIMIT ?
+    `).all(limit);
+  }
+
+  getHistoryStats() {
+    const totalsByColor = this.db.prepare(`
+      SELECT final_color, COUNT(*) AS count
+      FROM classification_events
+      GROUP BY final_color
+      ORDER BY final_color
+    `).all();
+    const total = this.db.prepare(`
+      SELECT COUNT(*) AS count
+      FROM classification_events
+    `).get().count;
+
+    return {
+      total,
+      byColor: Object.fromEntries(totalsByColor.map((row) => [row.final_color, row.count])),
+    };
+  }
+
+  deleteHistoryRecord(classificationEventId) {
+    return this.deleteClassificationEvent(classificationEventId);
+  }
+
+  clearLocalHistory() {
+    const result = this.db.prepare("DELETE FROM videos").run();
+    this.db.prepare("DELETE FROM search_sessions").run();
+
+    return result.changes;
+  }
+
+  saveUserCorrection({ classificationEventId, videoId, expectedColor, comment }) {
+    return this.createUserFeedback({
+      classificationEventId,
+      videoId,
+      feedbackType: "color_correction",
+      expectedColor,
+      comment,
+    });
+  }
+
   deleteClassificationEvent(id) {
     return this.db.prepare("DELETE FROM classification_events WHERE id = ?").run(id).changes > 0;
   }
