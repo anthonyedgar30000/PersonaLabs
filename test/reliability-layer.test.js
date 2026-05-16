@@ -101,10 +101,13 @@ test("reliability metrics quantify stability, variance, ambiguity, and disagreem
 test("semantic drift analysis detects sudden, slow, inflation, collapse, oscillation, overlap, and rule patterns", () => {
   const classifications = [
     ...sampleClassifications(),
+    { observationId: "low-1", actualCategory: "YELLOW", confidence: 30, classifiedAt: "2026-01-03T01:00:00.000Z", matchedSignals: {} },
+    { observationId: "low-2", actualCategory: "YELLOW", confidence: 32, classifiedAt: "2026-01-03T02:00:00.000Z", matchedSignals: {} },
+    { observationId: "low-3", actualCategory: "YELLOW", confidence: 35, classifiedAt: "2026-01-03T03:00:00.000Z", matchedSignals: {} },
     ...Array.from({ length: 10 }, (_, index) => ({
       observationId: `collapse-${index}`,
       actualCategory: "RED",
-      confidence: 70 + index,
+      confidence: 88 + index,
       classifiedAt: `2026-01-${String(index + 4).padStart(2, "0")}T00:00:00.000Z`,
       matchedSignals: { friction: ["meltdown"] },
       contradictionState: { hasContradictions: false }
