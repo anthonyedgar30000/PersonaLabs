@@ -25,41 +25,41 @@ const ANIMAL_PET_NATURE_TERMS = [
 ];
 
 const LOW_SEVERITY_ANIMAL_TERMS = [
-  "compilation",
-  "cute",
-  "energetic",
   "funny",
+  "zoomies",
+  "silly",
   "playful",
   "playing",
-  "relaxing",
+  "energetic",
+  "compilation",
   "shorts",
-  "silly",
   "viral",
-  "zoomies",
+  "relaxing",
 ];
 
 const YELLOW_ESCALATION_TERMS = [
   "chaotic",
-  "fails",
-  "hyper",
-  "loud",
-  "mild drama",
-  "prank",
   "screaming",
+  "prank",
+  "loud",
+  "fails",
+  "fail",
+  "mild drama",
+  "hyper",
 ];
 
 const RED_ESCALATION_TERMS = [
   "abuse",
-  "attack",
+  "injury",
+  "injured",
   "blood",
+  "death",
+  "emergency",
+  "terrifying",
+  "disturbing",
   "brutal",
   "crisis",
-  "death",
-  "disturbing",
-  "emergency",
-  "injured",
-  "injury",
-  "terrifying",
+  "attack",
 ];
 
 export function classifySemanticContent(content = {}) {
