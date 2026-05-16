@@ -275,7 +275,15 @@ test("trust-stress title pack stays calibrated around ambiguous framing", () => 
     ["Cette vidéo va changer ta vie", ["GREEN", "YELLOW"]],
     ["Ukraine War Explained: Timeline, Context, and Maps", ["YELLOW"]],
     ["The Dark Side of Minimalism", ["GREEN", "YELLOW"]],
-    ["You Won't Believe How Calm This Aquarium Is", ["YELLOW"]]
+    ["You Won't Believe How Calm This Aquarium Is", ["YELLOW"]],
+    ["Calm Explanation of Why Everything You Know Is a Lie", ["YELLOW"]],
+    ["Funny Puppy ATTACKS Toy During Playtime", ["YELLOW"]],
+    ["How Outrage Media Works: A Calm Analysis", ["YELLOW"]],
+    ["Emergency Safety Guide: What to Do During a Hurricane", ["YELLOW"]],
+    ["He DESTROYED the World Record in Mario Kart", ["YELLOW"]],
+    ["Satire: Fake Senator Meltdown Sketch", ["YELLOW"]],
+    ["This Natural Trick Cured My Anxiety", ["YELLOW"]],
+    ["Official Study: Shocking Results Explained", ["YELLOW"]]
   ];
 
   cases.forEach(([title, expectedLabels]) => {

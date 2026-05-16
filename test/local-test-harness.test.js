@@ -78,6 +78,7 @@ test("local harness renders compact trace hierarchy with raw JSON disclosure", (
       confidence: 96,
       matchedTerms: { positive: ["cute"], friction: [] },
       suppressedTerms: ["drama"],
+      reasoning: { reasons: ["Calm/pet content detected; no distress or escalation signals found."] },
       explanation: "Calm/pet content detected.",
       traceEvents: [{ stage: "final label selection" }]
     }
@@ -89,6 +90,7 @@ test("local harness renders compact trace hierarchy with raw JSON disclosure", (
   assert.match(html, /Matched signals/);
   assert.match(html, /Calm\/explanatory signals: cute/);
   assert.match(html, /Ignored \/ downweighted signals/);
+  assert.match(html, /Decision summary/);
   assert.match(html, /Final explanation/);
   assert.match(html, /Raw trace JSON/);
 });
@@ -109,9 +111,12 @@ test("local harness compacts and stores only latest evidence", () => {
   assert.equal(compact.pipelineVersion, "canonical-semantic-v1");
   assert.equal(compact.results.length, 1);
   assert.equal(compact.results[0].input.title, "Cute Bunny");
-  assert.equal(compact.results[0].confidenceBand, "high");
+  assert.equal(compact.results[0].framingLabel, "GREEN");
+  assert.equal(compact.results[0].matchStrength, 96);
+  assert.equal(compact.results[0].matchStrengthBand, "high");
   assert.deepEqual(compact.results[0].matchedSignals.positive, ["cute"]);
-  assert.deepEqual(compact.results[0].suppressedSignals, ["drama"]);
+  assert.deepEqual(compact.results[0].ignoredSignals, ["drama"]);
+  assert.equal(compact.results[0].decisionSummary, "Calm/pet content detected.");
   assert.equal(compact.traces.length, 1);
   assert.equal(compact.replayDriftResults, undefined);
   assert.equal(app.readLatestEvidence(storage).pipelineVersion, "canonical-semantic-v1");
@@ -140,7 +145,7 @@ test("local harness exposes no mutation methods in safe API surface", () => {
       "mvp-calm-animal",
       "mvp-political-outrage",
       "mvp-educational-tutorial",
-      "mvp-clickbait-manipulation",
+      "mvp-clickbait-style",
       "mvp-ambiguous-low-context"
     ]
   );
