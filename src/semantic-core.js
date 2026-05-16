@@ -1956,6 +1956,23 @@
     };
   }
 
+  function getPipelineHealth() {
+    return {
+      pipelineVersion: PIPELINE_VERSION,
+      canonicalScoringFunction: "scoreContent",
+      canonicalScenarioRunner: "runScenario",
+      canonicalScenarioPackRunner: "runScenarioPack",
+      activeScoringEntrypoints: ["scoreContent"],
+      governanceBypassAllowed: false,
+      scoringRuleMutationAllowed: false,
+      dictionaryMutationAllowed: false,
+      directLabelMutationAllowed: false,
+      runtimeStateMutationAllowed: ["test results", "test traces"],
+      evidenceExportsIncludeDomDump: false,
+      evidenceExportsIncludeCookiesTokensOrAccountData: false
+    };
+  }
+
   function runGoldenRegressionPack(pack) {
     const report = runScenarioPack(pack || defaultGoldenRegressionPack());
     const failedResults = report.results.filter((result) => !result.pass);
@@ -2103,6 +2120,7 @@
     CALM_NATURE_ANIMAL_SIGNALS,
     CALM_POSITIVE_TERMS,
     HARMLESS_ENERGETIC_TERMS,
+    PIPELINE_VERSION,
     SCENARIO_CATEGORIES,
     STYLE_TAXONOMY,
     EXPLORATION_STYLES,
@@ -2116,6 +2134,7 @@
     extractNamedEntities,
     extractSubjectAnchor,
     filterCandidatesByLens,
+    getPipelineHealth,
     isAllowedByLens,
     rankCandidates,
     removeSensationalTerms,
