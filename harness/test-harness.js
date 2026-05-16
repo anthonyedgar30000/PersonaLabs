@@ -194,6 +194,27 @@
     return "low";
   }
 
+  function confidenceLabel(confidence) {
+    const value = Number(confidence) || 0;
+    return `${value} (${confidenceBand(value)} confidence)`;
+  }
+
+  function signalValues(signals) {
+    const groups = signals || {};
+    return Object.keys(groups)
+      .sort()
+      .map((group) => {
+        const values = groups[group] || [];
+        return values.length ? `${group}: ${values.join(", ")}` : "";
+      })
+      .filter(Boolean);
+  }
+
+  function signalSummary(signals) {
+    const values = signalValues(signals);
+    return values.length ? values.join(" | ") : "none";
+  }
+
   function flattenResults(result) {
     if (!result) {
       return [];
@@ -212,7 +233,7 @@
         ? `<p>${escapeHtml(result.passed)}/${escapeHtml(result.total)} scenario checks passing.</p>`
         : "",
       "<table class='classification-table'>",
-      "<thead><tr><th>Title</th><th>Label</th><th>Confidence</th><th>Reason</th></tr></thead>",
+      "<thead><tr><th>Title</th><th>Label</th><th>Confidence</th><th>Signals</th><th>Reason</th></tr></thead>",
       "<tbody>",
       results.map((item, index) => {
         const score = item.score || {};
@@ -222,7 +243,8 @@
           `<tr data-result-index='${index}'>`,
           `<td>${escapeHtml(input.title || item.name || item.scenarioId || "untitled")}</td>`,
           `<td><span class='label-badge label-${escapeHtml(String(item.actualLabel || score.label || "unknown").toLowerCase())}'>${escapeHtml(item.actualLabel || score.label || "UNKNOWN")}</span></td>`,
-          `<td><span class='confidence-${confidenceBand(confidence)}'>${escapeHtml(confidence)}</span></td>`,
+          `<td><span class='confidence-${confidenceBand(confidence)}'>${escapeHtml(confidenceLabel(confidence))}</span></td>`,
+          `<td>${escapeHtml(signalSummary(score.matchedTerms))}</td>`,
           `<td>${escapeHtml(score.explanation || item.severity || "none")}</td>`,
           "</tr>"
         ].join("");
@@ -251,8 +273,8 @@
     const trace = compactTrace(result);
     return [
       `<p><strong>Final label:</strong> ${escapeHtml(trace.finalLabel)}</p>`,
-      `<p><strong>Confidence:</strong> ${escapeHtml(trace.confidence)}</p>`,
-      `<p><strong>Matched signals:</strong> ${escapeHtml(stringifyJson(trace.matchedSignals))}</p>`,
+      `<p><strong>Confidence:</strong> ${escapeHtml(confidenceLabel(trace.confidence))}</p>`,
+      `<p><strong>Matched signals:</strong> ${escapeHtml(signalSummary(trace.matchedSignals))}</p>`,
       `<p><strong>Suppressed signals:</strong> ${escapeHtml((trace.suppressedSignals || []).join(", ") || "none")}</p>`,
       `<p><strong>Final explanation:</strong> ${escapeHtml(trace.finalExplanation || "none")}</p>`,
       "<details><summary>Raw trace JSON</summary>",
@@ -263,12 +285,25 @@
 
   function compactEvidence(bundle) {
     const source = bundle || {};
+    const inputs = source.scenarioInputs || [];
+    const matchedSuppressed = source.matchedSuppressedSignals || [];
+    const governance = source.governanceDecisions || [];
+    const results = (source.actualOutputs || []).map((result, index) => ({
+      input: inputs[index] || {},
+      label: result.actualLabel || "",
+      confidence: result.confidence || 0,
+      confidenceBand: confidenceBand(result.confidence),
+      pass: Boolean(result.pass),
+      matchedSignals: matchedSuppressed[index] && matchedSuppressed[index].matchedSignals || {},
+      suppressedSignals: matchedSuppressed[index] && matchedSuppressed[index].suppressedSignals || [],
+      explanation: result.explanation || governance[index] && governance[index].governanceDecisions && governance[index].governanceDecisions.explanation || "",
+      traceId: result.traceId || ""
+    }));
     return {
       appVersion: source.appVersion,
       pipelineVersion: source.pipelineVersion,
       generatedAt: source.exportedAt || source.timestamps && source.timestamps.exportedAt,
-      inputs: source.scenarioInputs || [],
-      results: source.actualOutputs || [],
+      results,
       traces: source.traceEvents || []
     };
   }
@@ -439,6 +474,7 @@
     compactEvidence,
     compactTrace,
     confidenceBand,
+    confidenceLabel,
     copyJson,
     downloadJson,
     escapeHtml,
@@ -452,6 +488,7 @@
     renderEvidence,
     renderResultsTable,
     renderSelectedDetails,
+    signalSummary,
     storeLatestEvidence
   });
 });

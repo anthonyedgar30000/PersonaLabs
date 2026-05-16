@@ -43,6 +43,7 @@ test("local harness renders compact classification results", () => {
         score: {
           confidence: 96,
           explanation: "Calm/pet content detected.",
+          matchedTerms: { positive: ["cute"], friction: [] },
           input: { title: "Cute Bunny" }
         }
       },
@@ -52,6 +53,7 @@ test("local harness renders compact classification results", () => {
         score: {
           confidence: 45,
           explanation: "Not enough GREEN evidence.",
+          matchedTerms: { positive: [], friction: [] },
           input: { title: "Update from yesterday" }
         }
       }
@@ -62,6 +64,8 @@ test("local harness renders compact classification results", () => {
   assert.match(html, /Cute Bunny/);
   assert.match(html, /label-green/);
   assert.match(html, /confidence-high/);
+  assert.match(html, /96 \(high confidence\)/);
+  assert.match(html, /positive: cute/);
   assert.match(html, /Update from yesterday/);
   assert.match(html, /label-yellow/);
 });
@@ -81,7 +85,9 @@ test("local harness renders compact trace hierarchy with raw JSON disclosure", (
 
   assert.match(html, /Final label/);
   assert.match(html, /Confidence/);
+  assert.match(html, /96 \(high confidence\)/);
   assert.match(html, /Matched signals/);
+  assert.match(html, /positive: cute/);
   assert.match(html, /Suppressed signals/);
   assert.match(html, /Final explanation/);
   assert.match(html, /Raw trace JSON/);
@@ -94,14 +100,18 @@ test("local harness compacts and stores only latest evidence", () => {
     pipelineVersion: "canonical-semantic-v1",
     exportedAt: "2026-01-01T00:00:00.000Z",
     scenarioInputs: [{ title: "Cute Bunny" }],
-    actualOutputs: [{ actualLabel: "GREEN" }],
+    actualOutputs: [{ actualLabel: "GREEN", confidence: 96, pass: true, explanation: "Calm/pet content detected.", traceId: "trace-1" }],
+    matchedSuppressedSignals: [{ matchedSignals: { positive: ["cute"], friction: [] }, suppressedSignals: ["drama"] }],
     traceEvents: [{ stage: "final label selection" }],
     replayDriftResults: [{ replayAgreementState: "drift" }]
   });
 
   assert.equal(compact.pipelineVersion, "canonical-semantic-v1");
-  assert.equal(compact.inputs.length, 1);
   assert.equal(compact.results.length, 1);
+  assert.equal(compact.results[0].input.title, "Cute Bunny");
+  assert.equal(compact.results[0].confidenceBand, "high");
+  assert.deepEqual(compact.results[0].matchedSignals.positive, ["cute"]);
+  assert.deepEqual(compact.results[0].suppressedSignals, ["drama"]);
   assert.equal(compact.traces.length, 1);
   assert.equal(compact.replayDriftResults, undefined);
   assert.equal(app.readLatestEvidence(storage).pipelineVersion, "canonical-semantic-v1");
