@@ -1149,6 +1149,79 @@
     return contradictions;
   }
 
+  function semanticTraceEventsForResult(result) {
+    return [
+      {
+        order: 1,
+        stage: "metadata normalization",
+        timestamp: result.timestamp,
+        details: {
+          title: result.title,
+          channel: result.channel,
+          videoId: result.videoId,
+          lens: result.lens,
+          scoringPath: result.scoringPath
+        }
+      },
+      {
+        order: 2,
+        stage: "domain detection",
+        timestamp: result.timestamp,
+        details: {
+          domain: result.domain,
+          domainContext: result.domainContext
+        }
+      },
+      {
+        order: 3,
+        stage: "signal matching",
+        timestamp: result.timestamp,
+        details: {
+          matchedTerms: result.matchedTerms,
+          observabilitySignals: result.observabilitySignals
+        }
+      },
+      {
+        order: 4,
+        stage: "semantic scoring",
+        timestamp: result.timestamp,
+        details: {
+          scores: result.scores,
+          confidenceDeltas: result.semanticSignals.confidenceDeltas
+        }
+      },
+      {
+        order: 5,
+        stage: "suppression/override evaluation",
+        timestamp: result.timestamp,
+        details: {
+          suppressedTerms: result.suppressedTerms,
+          overrides: result.semanticSignals.semanticOverrides,
+          downgradeReasons: result.reasoning.downgradeReasons
+        }
+      },
+      {
+        order: 6,
+        stage: "contradiction detection",
+        timestamp: result.timestamp,
+        details: {
+          contradictions: result.contradictions
+        }
+      },
+      {
+        order: 7,
+        stage: "final label selection",
+        timestamp: result.timestamp,
+        details: {
+          label: result.label,
+          confidence: result.confidence,
+          explanation: result.explanation,
+          finalDecisionSource: result.semanticSignals.finalDecisionSource
+        }
+      }
+    ];
+  }
+
   function scoreContent(input, anchorOrTitle, explorationPath) {
     const normalizedInput = normalizeScoreContentInput(input, anchorOrTitle, explorationPath);
     const candidate = normalizedInput.candidate || {};
@@ -1324,6 +1397,7 @@
       domainContext,
       contradictions: [],
       expectedLabel: normalizedInput.expectedLabel || "",
+      traceEvents: [],
       pipelineStages: [
         "metadata normalization",
         "domain detection",
@@ -1372,6 +1446,7 @@
     };
 
     result.contradictions = detectContradictions(result);
+    result.traceEvents = semanticTraceEventsForResult(result);
     return result;
   }
 

@@ -41,6 +41,7 @@ Each trace mirrors the canonical semantic result and adds rendering/pipeline eve
   scoringPath,
   contradictions,
   domainContext,
+  traceEvents,
   downgradeReasons,
   explanation,
   renderingTarget,
@@ -75,7 +76,21 @@ Runtime rendering stages:
 
 ## Trace events
 
-Each `stages[]` entry has:
+Canonical `scoreContent(...)` results expose `traceEvents[]`. Runtime debug
+traces also expose UI/persistence `stages[]`.
+
+Each `traceEvents[]` entry has:
+
+```js
+{
+  order: number,
+  stage: string,
+  timestamp: string,
+  details: object
+}
+```
+
+Each runtime `stages[]` entry has:
 
 ```js
 {

@@ -24,6 +24,7 @@ PersonaLabs classifications must be represented as one canonical semantic result
   scoringPath,
   contradictions,
   domainContext,
+  traceEvents,
   downgradeReasons,
   explanation,
   timestamp
@@ -56,6 +57,7 @@ sources.
 - `scoringPath`: Runtime path consuming the canonical score, such as `overlay`, `retrieval-panel`, or `retrieval-ranking`.
 - `contradictions`: Explicit contradictions detected between label, explanation, and matched terms.
 - `domainContext`: Domain classification context, boosts, and confidence source.
+- `traceEvents`: Ordered semantic telemetry events emitted by the canonical scoring pipeline.
 - `downgradeReasons`: Human-readable reasons a candidate was downgraded, capped, or kept from a stronger positive label.
 - `explanation`: Final user-facing or debug-facing classification reason.
 - `timestamp`: ISO timestamp for the classification event.

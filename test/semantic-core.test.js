@@ -509,3 +509,40 @@ test("canonical score detects duplicate path disagreement and empty matched-term
   assert.deepEqual(neutral.contradictions, []);
   assert(disagreement.contradictions.some((item) => /expected label RED disagrees/.test(item)));
 });
+
+test("canonical score exposes structured semantic trace events", () => {
+  const candidate = {
+    title: "Cute Baby Bunny Compilation",
+    channel: "Wholesome Pets",
+    duration: "12:00"
+  };
+  const anchor = semantic.analyzeAnchor(candidate.title);
+  const lens = semantic.buildExplorationPaths(anchor).find((item) => item.id === "calmer");
+  const score = semantic.scoreContent({
+    candidate,
+    anchor,
+    lens,
+    scoringPath: "test-telemetry"
+  });
+
+  assert.deepEqual(
+    score.traceEvents.map((event) => event.stage),
+    [
+      "metadata normalization",
+      "domain detection",
+      "signal matching",
+      "semantic scoring",
+      "suppression/override evaluation",
+      "contradiction detection",
+      "final label selection"
+    ]
+  );
+  assert.deepEqual(score.traceEvents.map((event) => event.order), [1, 2, 3, 4, 5, 6, 7]);
+  assert.equal(score.traceEvents[0].details.title, candidate.title);
+  assert.equal(score.traceEvents[1].details.domain, score.domain);
+  assert.deepEqual(score.traceEvents[2].details.matchedTerms, score.matchedTerms);
+  assert.deepEqual(score.traceEvents[3].details.confidenceDeltas, score.semanticSignals.confidenceDeltas);
+  assert.deepEqual(score.traceEvents[4].details.suppressedTerms, score.suppressedTerms);
+  assert.deepEqual(score.traceEvents[5].details.contradictions, score.contradictions);
+  assert.equal(score.traceEvents[6].details.label, score.label);
+});

@@ -27,6 +27,7 @@ The canonical semantic contract is the shape returned by `semantic.scoreContent(
   scoringPath: string,
   contradictions: string[],
   domainContext: object,
+  traceEvents: object[],
   explanation: string,
   timestamp: string
 }
@@ -51,6 +52,7 @@ The canonical semantic contract is the shape returned by `semantic.scoreContent(
 - `scoringPath`
 - `contradictions`
 - `domainContext`
+- `traceEvents`
 - `explanation`
 - `timestamp`
 
@@ -82,6 +84,7 @@ Compatibility fields must mirror canonical values and must not become alternate 
 - `contradictions`: detected internal inconsistency warnings.
 - `domainContext`: detected domain, boosts, and confidence source.
 - `scoringPath`: consumer path, such as `overlay`, `retrieval-panel`, `retrieval-ranking`, or `legacy-scoreCandidate`.
+- `traceEvents`: ordered semantic telemetry events emitted by the canonical scoring pipeline.
 
 ## Invariants
 
@@ -90,6 +93,7 @@ Compatibility fields must mirror canonical values and must not become alternate 
 - `matchedTerms.positive` and `matchedTerms.friction` must always be arrays.
 - `suppressedTerms` must always be an array.
 - `contradictions` must always be an array.
+- `traceEvents` must be ordered and must include metadata normalization, domain detection, signal matching, semantic scoring, suppression/override evaluation, contradiction detection, and final label selection.
 - If `matchedTerms` is empty, explanations must not claim matched title terms.
 - If `label` is `GREEN`, explanation text must not claim a red/yellow final state.
 - UI must render from `label`, not from compatibility fields.

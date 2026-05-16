@@ -14,3 +14,12 @@ test("runtime UI does not load or call the legacy headline analyzer", () => {
   assert(!/headlineAnalyzer|analyzeHeadline/.test(contentRuntime));
 });
 
+test("debug trace collection is gated by PERSONALABS_DEBUG", () => {
+  const contentRuntime = fs.readFileSync(path.join(root, "src", "content.js"), "utf8");
+
+  assert.match(contentRuntime, /window\.PERSONALABS_DEBUG = false/);
+  assert.match(contentRuntime, /function personaLabsDebugEnabled\(\)/);
+  assert.match(contentRuntime, /if \(!personaLabsDebugEnabled\(\)\) \{\s*return null;\s*\}/);
+  assert.match(contentRuntime, /window\.PersonaLabsDebugTraces = state\.traces/);
+});
+

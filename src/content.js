@@ -422,6 +422,7 @@
       scoringPath: "",
       contradictions: [],
       domainContext: {},
+      traceEvents: [],
       explanation: "",
       timestamp: new Date().toISOString(),
       renderingTarget: renderingTarget || "unknown",
@@ -467,6 +468,7 @@
     trace.observabilitySignals = scoring && scoring.observabilitySignals ? scoring.observabilitySignals : {};
     trace.reasoning = scoring && scoring.reasoning ? scoring.reasoning : {};
     trace.domainContext = scoring && scoring.domainContext ? scoring.domainContext : {};
+    trace.traceEvents = scoring && scoring.traceEvents ? scoring.traceEvents : [];
     trace.renderingTarget = renderingTarget || trace.renderingTarget;
     trace.timestamp = new Date().toISOString();
     return trace;
