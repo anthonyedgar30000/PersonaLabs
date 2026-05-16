@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PersonaLabs Semantic Operations Console</title>
+    <link rel="stylesheet" href="./ops-console.css">
+  </head>
+  <body>
+    <main class="ops-shell">
+      <header class="ops-header">
+        <div>
+          <p class="eyebrow">Internal Semantic Operations</p>
+          <h1>PersonaLabs Semantic Operations Console</h1>
+          <p>Live ingestion, deterministic classification inspection, human review, replay, and regression scaffolding.</p>
+        </div>
+        <div id="api-status" class="status-card">API pending</div>
+      </header>
+
+      <section class="ops-panel ingestion-panel">
+        <div class="panel-heading">
+          <h2>Live Query Ingestion</h2>
+          <p>Paste YouTube titles as one per line. Optional format: <code>title | channel</code>.</p>
+        </div>
+        <div class="ingestion-grid">
+          <label>Query <input id="query-input" type="text" value="calm animal videos"></label>
+          <label>Source <select id="source-type"><option value="youtube-search">YouTube search</option><option value="manual-batch">Manual batch</option></select></label>
+          <label class="wide">Batch Titles <textarea id="batch-input">Cute Baby Bunny Compilation | Wholesome Pets
+SHOCKING political meltdown: senator DESTROYS rivals in furious hearing | Outrage Daily
+Beginner JavaScript async await tutorial explained step by step | Code Classroom
+You won't believe this secret that changes everything | Viral Secrets
+Update from yesterday | Unknown Channel</textarea></label>
+        </div>
+        <div class="action-row">
+          <button type="button" id="ingest-classify">Ingest + Classify</button>
+          <button type="button" id="refresh-console">Refresh Console</button>
+          <button type="button" id="create-replay-pack">Create Replay Pack</button>
+          <button type="button" id="run-replay">Replay Latest Pack</button>
+        </div>
+      </section>
+
+      <section class="ops-panel controls-panel">
+        <div class="filter-row">
+          <label>Search <input id="search-input" type="search" placeholder="title, query, signal, reason"></label>
+          <label>Category <select id="category-filter"><option value="">All</option><option>GREEN</option><option>YELLOW</option><option>RED</option></select></label>
+          <label>Sort <select id="sort-select"><option value="classifiedAt:desc">Newest</option><option value="confidence:desc">Confidence high-low</option><option value="confidence:asc">Confidence low-high</option><option value="actualCategory:asc">Category</option><option value="query:asc">Query</option></select></label>
+        </div>
+      </section>
+
+      <section class="ops-grid">
+        <section class="ops-panel table-panel">
+          <div class="panel-heading">
+            <h2>Real-Time Classification Table</h2>
+            <p id="table-summary">No classifications loaded.</p>
+          </div>
+          <div id="classification-table"></div>
+        </section>
+
+        <aside class="ops-panel trace-panel">
+          <h2>Trace Inspection Panel</h2>
+          <div id="trace-inspector"></div>
+        </aside>
+      </section>
+
+      <section class="ops-grid lower-grid">
+        <section class="ops-panel">
+          <h2>Human Review + Feedback</h2>
+          <div id="review-panel"></div>
+        </section>
+
+        <section class="ops-panel">
+          <h2>Replay + Regression Summary</h2>
+          <div id="regression-summary"></div>
+        </section>
+      </section>
+    </main>
+
+    <script>window.PERSONALABS_DEBUG = true;</script>
+    <script src="../src/semantic-core.js"></script>
+    <script src="../src/test-harness-api.js"></script>
+    <script src="./storage.js"></script>
+    <script src="./ingestion.js"></script>
+    <script src="./classification.js"></script>
+    <script src="./regression.js"></script>
+    <script src="./replay.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
