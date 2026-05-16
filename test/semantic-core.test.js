@@ -214,3 +214,100 @@ test("RED: Injured Dog Emergency Rescue overrides safe baseline", () => {
   assert.equal(result.label, LABELS.RED);
   assert.deepEqual(result.escalationSignals.red, ["injured", "emergency"]);
 });
+
+
+test("semantic ontology exposes animal taxonomies, relationships, and weights", () => {
+  const result = classifySemanticContent({
+    title: "Funny Rabbit Compilation",
+    channel: "Bunny Clips",
+    lens: "calmer",
+  });
+
+  assert.equal(result.label, LABELS.GREEN);
+  assert.equal(result.debug.domain.detected, DOMAINS.ANIMAL_PET_NATURE);
+  assert.ok(result.debug.semanticTaxonomies.some((taxonomy) => (
+    taxonomy.family === "domain" && taxonomy.name === DOMAINS.ANIMAL_PET_NATURE
+  )));
+  assert.ok(result.debug.semanticTaxonomies.some((taxonomy) => (
+    taxonomy.family === "tone" && taxonomy.name === "PLAYFUL_ENERGY"
+  )));
+  assert.ok(result.debug.semanticRelationships.some((relationship) => (
+    relationship.source === "rabbit"
+      && relationship.type === "belongs_to"
+      && relationship.target === DOMAINS.ANIMAL_PET_NATURE
+  )));
+  assert.ok(result.debug.semanticWeights.weightedBoosts.some((boost) => (
+    boost.taxonomy === DOMAINS.ANIMAL_PET_NATURE
+  )));
+});
+
+test("educational long-form content uses safe educational taxonomy", () => {
+  const result = classifySemanticContent({
+    title: "Lecture Explained With Context",
+    channel: "University Course",
+    lens: "educational",
+  });
+
+  assert.equal(result.label, LABELS.GREEN);
+  assert.equal(result.domain, DOMAINS.EDUCATIONAL);
+  assert.ok(result.baselineSafe);
+  assert.ok(result.debug.semanticTaxonomies.some((taxonomy) => taxonomy.name === "EDUCATIONAL_TONE"));
+  assert.match(result.explanation, /EDUCATIONAL safe semantic baseline/);
+});
+
+test("public radio political interview remains explainable as politics/news", () => {
+  const result = classifySemanticContent({
+    title: "Public Radio Political Interview",
+    channel: "NPR News",
+    lens: "calmer",
+  });
+
+  assert.equal(result.label, LABELS.GREEN);
+  assert.equal(result.domain, DOMAINS.POLITICS_NEWS);
+  assert.deepEqual(result.debug.sourceChannelSignals.channelDomainMatches, ["news"]);
+  assert.ok(result.debug.semanticTaxonomies.some((taxonomy) => taxonomy.name === "CONSTRUCTIVE"));
+});
+
+test("outrage clickbait uses escalation taxonomy", () => {
+  const result = classifySemanticContent({
+    title: "Funny Political Meltdown Exposed",
+    channel: "Drama News",
+    lens: "calmer",
+  });
+
+  assert.equal(result.label, LABELS.YELLOW);
+  assert.equal(result.domain, DOMAINS.DRAMA_REACTION);
+  assert.deepEqual(result.escalationSignals.yellow, ["meltdown", "exposed"]);
+  assert.ok(result.debug.semanticTaxonomies.some((taxonomy) => taxonomy.name === "ESCALATION"));
+  assert.ok(result.debug.semanticRelationships.some((relationship) => (
+    relationship.source === "meltdown" && relationship.target === "ESCALATION"
+  )));
+});
+
+test("documentaries, tutorials, and ambient videos default GREEN as safe domains", () => {
+  const documentary = classifySemanticContent({
+    title: "Documentary Interview With Local Farmers",
+    channel: "Longform Stories",
+    lens: "calmer",
+  });
+  const tutorial = classifySemanticContent({
+    title: "Beginner Drawing Tutorial",
+    channel: "Art Guide",
+    lens: "educational",
+  });
+  const ambient = classifySemanticContent({
+    title: "Rain Sounds Ambient Nature Sounds",
+    channel: "Sleep Music",
+    lens: "calmer",
+  });
+
+  assert.equal(documentary.label, LABELS.GREEN);
+  assert.equal(documentary.domain, DOMAINS.DOCUMENTARY);
+  assert.ok(documentary.baselineSafe);
+  assert.equal(tutorial.label, LABELS.GREEN);
+  assert.equal(tutorial.domain, DOMAINS.TUTORIAL);
+  assert.ok(tutorial.baselineSafe);
+  assert.equal(ambient.label, LABELS.GREEN);
+  assert.equal(ambient.domain, DOMAINS.MUSIC_AMBIENT);
+  assert.ok(ambient.baselineSafe);
+});
