@@ -216,6 +216,7 @@ export class PersonaLabsDatabase {
   }
 
   clearLocalHistory() {
+    this.db.prepare("DELETE FROM user_feedback").run();
     const result = this.db.prepare("DELETE FROM videos").run();
     this.db.prepare("DELETE FROM search_sessions").run();
 
