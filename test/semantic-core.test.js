@@ -66,6 +66,39 @@ test("GREEN: Relaxing Aquarium Fish inherits animal/nature baseline", () => {
   assert.equal(result.domain, DOMAINS.ANIMAL_PET_NATURE);
 });
 
+test("GREEN: How I Care for My Senior Hamster detects animal safe baseline", () => {
+  const result = classifySemanticContent({
+    title: "How I Care for My Senior Hamster",
+    lens: "calmer",
+  });
+
+  assert.equal(result.label, LABELS.GREEN);
+  assert.equal(result.domain, DOMAINS.ANIMAL_PET_NATURE);
+  assert.equal(result.baselineSafe, true);
+});
+
+test("GREEN: Bunny Room Makeover remains safe animal content", () => {
+  const result = classifySemanticContent({
+    title: "Bunny Room Makeover",
+    lens: "calmer",
+  });
+
+  assert.equal(result.label, LABELS.GREEN);
+  assert.equal(result.domain, DOMAINS.ANIMAL_PET_NATURE);
+  assert.deepEqual(result.escalationSignals.yellow, []);
+});
+
+test("GREEN: How Much I Spend on My Pets Yearly detects plural pets", () => {
+  const result = classifySemanticContent({
+    title: "How Much I Spend on My Pets Yearly",
+    lens: "calmer",
+  });
+
+  assert.equal(result.label, LABELS.GREEN);
+  assert.equal(result.domain, DOMAINS.ANIMAL_PET_NATURE);
+  assert.equal(result.baselineSafe, true);
+});
+
 test("YELLOW: Loud Cat Screaming Meme has meaningful animal escalation", () => {
   const result = classifySemanticContent({
     title: "Loud Cat Screaming Meme",
@@ -77,16 +110,16 @@ test("YELLOW: Loud Cat Screaming Meme has meaningful animal escalation", () => {
   assert.deepEqual(result.escalationSignals.yellow, ["screaming", "loud"]);
 });
 
-test("YELLOW: Hyper Dog Zoomies Compilation keeps hyper as meaningful stimulation", () => {
+test("GREEN: Hyper Dog Zoomies Compilation suppresses harmless animal stimulation", () => {
   const result = classifySemanticContent({
     title: "Hyper Dog Zoomies Compilation",
     channel: "Dog Clips",
     lens: "calmer",
   });
 
-  assert.equal(result.label, LABELS.YELLOW);
-  assert.deepEqual(result.escalationSignals.yellow, ["hyper"]);
-  assert.deepEqual(result.suppressedSignals, ["zoomies", "compilation"]);
+  assert.equal(result.label, LABELS.GREEN);
+  assert.deepEqual(result.escalationSignals.yellow, []);
+  assert.deepEqual(result.suppressedSignals, ["zoomies", "compilation", "hyper"]);
 });
 
 test("RED: Shocking Animal Attack overrides safe baseline", () => {
