@@ -555,13 +555,16 @@
       card.dataset.personaLabsTitle = titleKey;
       const scoring = state.anchor ? semantic.scoreCandidate(candidate, state.anchor, activePath()) : null;
       const headline = headlineAnalyzer.analyzeHeadline(candidate.title, candidate.channel, "chill");
+      const visibleOverlay = resolveVisibleOverlay(headline, scoring);
       const styleSignals = semantic.classifyStyleTerms(candidate.title);
-      const label = `PL ${headline.label}`;
-      const category = headline.color;
+      const label = `PL ${visibleOverlay.label}`;
+      const category = visibleOverlay.color;
       const details = {
         ...describeCard(card, candidate),
         headlineScores: headline.scores,
         headlineExplanation: headline.explanation,
+        visibleOverlay,
+        headlineGovernance: headline.governance,
         matchedTerms: summarizeHeadlineTerms(headline),
         semanticScore: scoring && scoring.score,
         semanticColor: scoring && scoring.classification.color,
@@ -571,8 +574,8 @@
 
       debugLog("assigned deterministic classification", details);
 
-      const titleBadgeCreated = upsertTitleBadge(card, label, category, scoring, headline);
-      const overlayCreated = upsertThumbnailOverlay(card, label, category, scoring, headline);
+      const titleBadgeCreated = upsertTitleBadge(card, label, category, scoring, headline, visibleOverlay);
+      const overlayCreated = upsertThumbnailOverlay(card, label, category, scoring, headline, visibleOverlay);
 
       if (titleBadgeCreated || overlayCreated) {
         renderedCount += 1;
@@ -596,6 +599,40 @@
     });
   }
 
+  function resolveVisibleOverlay(headline, scoring) {
+    const baseOverlay = headline.visibleOverlay || {
+      label: headline.label,
+      color: headline.color,
+      confidence: headline.confidence || "medium",
+      reason: headline.explanation
+    };
+    const semanticColor = scoring && scoring.classification && scoring.classification.color;
+    const calmAnimalScore = scoring && scoring.breakdown && scoring.breakdown.calmAnimalScore;
+    const animalDistressScore = scoring && scoring.breakdown && scoring.breakdown.animalDistressScore;
+    const headlineHasRed = headline.scores && headline.scores.red_score > 0;
+
+    if (
+      semanticColor === "GREEN" &&
+      baseOverlay.label === "YELLOW" &&
+      calmAnimalScore > 0 &&
+      animalDistressScore === 0 &&
+      !headlineHasRed
+    ) {
+      return {
+        label: "GREEN",
+        color: "green",
+        confidence: "medium",
+        reason: "Visible overlay kept GREEN because semantic scoring detected harmless animal/pet content and headline YELLOW was only uncertainty.",
+        code: "visible.safe_domain_semantic_green_override"
+      };
+    }
+
+    return {
+      ...baseOverlay,
+      code: baseOverlay.code || "visible.headline_governance"
+    };
+  }
+
   function summarizeHeadlineTerms(headline) {
     return {
       green: headline.matchedTerms.green.map((match) => match.term),
@@ -604,7 +641,7 @@
     };
   }
 
-  function formatHeadlineTooltip(headline, scoring) {
+  function formatHeadlineTooltip(headline, scoring, visibleOverlay) {
     const terms = summarizeHeadlineTerms(headline);
     const matched = [
       terms.green.length ? `green: ${terms.green.join(", ")}` : "",
@@ -615,8 +652,13 @@
       .join(" | ");
 
     return [
+      `Visible overlay: ${visibleOverlay.label} (${visibleOverlay.confidence}).`,
+      visibleOverlay.reason,
       headline.explanation,
       `Headline scores: green ${headline.scores.green_score}, yellow ${headline.scores.yellow_score}, red ${headline.scores.red_score}.`,
+      headline.governance && headline.governance.suppressedWeakTerms.length
+        ? `Suppressed weak safe-domain terms: ${headline.governance.suppressedWeakTerms.join(", ")}.`
+        : "",
       matched ? `Matched terms: ${matched}.` : "Matched terms: none.",
       scoring ? `Semantic score: ${scoring.score} (${scoring.classification.color}).` : ""
     ]
@@ -624,19 +666,19 @@
       .join("\n");
   }
 
-  function renderHeadlineOverlay(label, headline) {
+  function renderHeadlineOverlay(label, headline, visibleOverlay) {
     const terms = summarizeHeadlineTerms(headline);
     const matched = [...terms.green, ...terms.yellow, ...terms.red].slice(0, 4).join(", ") || "no matched terms";
 
     return [
       `<span class="personalabs-overlay-label">${escapeHtml(label)}</span>`,
       `<span class="personalabs-overlay-breakdown">G ${headline.scores.green_score} / Y ${headline.scores.yellow_score} / R ${headline.scores.red_score}</span>`,
-      `<span class="personalabs-overlay-reason">${escapeHtml(headline.explanation)}</span>`,
+      `<span class="personalabs-overlay-reason">${escapeHtml(visibleOverlay.reason || headline.explanation)}</span>`,
       `<span class="personalabs-overlay-terms">${escapeHtml(matched)}</span>`
     ].join("");
   }
 
-  function upsertTitleBadge(card, label, category, scoring, headline) {
+  function upsertTitleBadge(card, label, category, scoring, headline, visibleOverlay) {
     const titleElement = findTitleElement(card);
     if (!titleElement) {
       warnLog("title badge skipped; no title element found", { tag: card && card.tagName });
@@ -652,7 +694,7 @@
 
     badge.textContent = label;
     badge.dataset.signal = category;
-    badge.title = formatHeadlineTooltip(headline, scoring);
+    badge.title = formatHeadlineTooltip(headline, scoring, visibleOverlay);
 
     return badge.isConnected;
   }
@@ -673,7 +715,7 @@
     );
   }
 
-  function upsertThumbnailOverlay(card, label, category, scoring, headline) {
+  function upsertThumbnailOverlay(card, label, category, scoring, headline, visibleOverlay) {
     const host = findThumbnailHost(card);
     if (!host) {
       warnLog("thumbnail overlay skipped; no host found", { tag: card && card.tagName });
@@ -691,9 +733,9 @@
       host.appendChild(overlay);
     }
 
-    overlay.innerHTML = renderHeadlineOverlay(label, headline);
+    overlay.innerHTML = renderHeadlineOverlay(label, headline, visibleOverlay);
     overlay.dataset.signal = category;
-    overlay.title = formatHeadlineTooltip(headline, scoring);
+    overlay.title = formatHeadlineTooltip(headline, scoring, visibleOverlay);
 
     return overlay.isConnected;
   }
