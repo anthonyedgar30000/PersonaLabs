@@ -23,6 +23,7 @@ PersonaLabs classifications must be represented as one canonical semantic result
   pipelineVersion,
   scoringPath,
   contradictions,
+  confidenceValidation,
   domainContext,
   traceEvents,
   downgradeReasons,
@@ -56,6 +57,7 @@ sources.
 - `pipelineVersion`: Version string for the canonical semantic pipeline.
 - `scoringPath`: Runtime path consuming the canonical score, such as `overlay`, `retrieval-panel`, or `retrieval-ranking`.
 - `contradictions`: Explicit contradictions detected between label, explanation, and matched terms.
+- `confidenceValidation`: Validation result proving final and component confidence fields are in range and synchronized.
 - `domainContext`: Domain classification context, boosts, and confidence source.
 - `traceEvents`: Ordered semantic telemetry events emitted by the canonical scoring pipeline.
 - `downgradeReasons`: Human-readable reasons a candidate was downgraded, capped, or kept from a stronger positive label.

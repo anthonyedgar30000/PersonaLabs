@@ -532,17 +532,45 @@ test("canonical score exposes structured semantic trace events", () => {
       "domain detection",
       "signal matching",
       "semantic scoring",
+      "confidence consistency validation",
       "suppression/override evaluation",
       "contradiction detection",
       "final label selection"
     ]
   );
-  assert.deepEqual(score.traceEvents.map((event) => event.order), [1, 2, 3, 4, 5, 6, 7]);
+  assert.deepEqual(score.traceEvents.map((event) => event.order), [1, 2, 3, 4, 5, 6, 7, 8]);
   assert.equal(score.traceEvents[0].details.title, candidate.title);
   assert.equal(score.traceEvents[1].details.domain, score.domain);
   assert.deepEqual(score.traceEvents[2].details.matchedTerms, score.matchedTerms);
   assert.deepEqual(score.traceEvents[3].details.confidenceDeltas, score.semanticSignals.confidenceDeltas);
-  assert.deepEqual(score.traceEvents[4].details.suppressedTerms, score.suppressedTerms);
-  assert.deepEqual(score.traceEvents[5].details.contradictions, score.contradictions);
-  assert.equal(score.traceEvents[6].details.label, score.label);
+  assert.equal(score.traceEvents[4].details.confidenceValidation.valid, true);
+  assert.deepEqual(score.traceEvents[5].details.suppressedTerms, score.suppressedTerms);
+  assert.deepEqual(score.traceEvents[6].details.contradictions, score.contradictions);
+  assert.equal(score.traceEvents[7].details.label, score.label);
+});
+
+test("canonical score validates confidence consistency", () => {
+  const candidate = {
+    title: "Thomas Massie Iran vote explained: calm context and analysis",
+    channel: "Policy Classroom",
+    duration: "18:24"
+  };
+  const anchor = semantic.analyzeAnchor("Thomas Massie Iran vote");
+  const lens = semantic.buildExplorationPaths(anchor).find((item) => item.id === "educational");
+  const score = semantic.scoreContent({
+    candidate,
+    anchor,
+    lens,
+    scoringPath: "test-confidence"
+  });
+
+  assert.equal(score.confidenceValidation.valid, true);
+  assert.deepEqual(score.confidenceValidation.failures, []);
+  assert.equal(score.scores.confidence, score.confidence);
+  assert.equal(score.scores.domainConfidence, score.domainConfidence);
+  assert.equal(score.scores.frictionConfidence, score.frictionConfidence);
+  assert.equal(score.scores.positiveSignalConfidence, score.positiveSignalConfidence);
+  assert.equal(score.semanticSignals.confidenceDeltas.domain, score.domainConfidence);
+  assert.equal(score.semanticSignals.confidenceDeltas.friction, score.frictionConfidence);
+  assert.equal(score.semanticSignals.confidenceDeltas.positiveSignal, score.positiveSignalConfidence);
 });

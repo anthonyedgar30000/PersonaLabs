@@ -1149,6 +1149,54 @@
     return contradictions;
   }
 
+  function validateConfidenceConsistency(result) {
+    const checks = [];
+    const failures = [];
+    const confidenceFields = [
+      ["confidence", result.confidence],
+      ["scores.confidence", result.scores && result.scores.confidence],
+      ["domainConfidence", result.domainConfidence],
+      ["scores.domainConfidence", result.scores && result.scores.domainConfidence],
+      ["semanticSignals.confidenceDeltas.domain", result.semanticSignals && result.semanticSignals.confidenceDeltas && result.semanticSignals.confidenceDeltas.domain],
+      ["frictionConfidence", result.frictionConfidence],
+      ["scores.frictionConfidence", result.scores && result.scores.frictionConfidence],
+      ["semanticSignals.confidenceDeltas.friction", result.semanticSignals && result.semanticSignals.confidenceDeltas && result.semanticSignals.confidenceDeltas.friction],
+      ["positiveSignalConfidence", result.positiveSignalConfidence],
+      ["scores.positiveSignalConfidence", result.scores && result.scores.positiveSignalConfidence],
+      ["semanticSignals.confidenceDeltas.positiveSignal", result.semanticSignals && result.semanticSignals.confidenceDeltas && result.semanticSignals.confidenceDeltas.positiveSignal]
+    ];
+
+    confidenceFields.forEach(([field, value]) => {
+      const valid = Number.isInteger(value) && value >= 0 && value <= 100;
+      checks.push({ field, valid, value });
+      if (!valid) {
+        failures.push(`${field} must be an integer from 0 to 100`);
+      }
+    });
+
+    [
+      ["confidence", result.confidence, result.scores && result.scores.confidence],
+      ["domainConfidence", result.domainConfidence, result.scores && result.scores.domainConfidence],
+      ["frictionConfidence", result.frictionConfidence, result.scores && result.scores.frictionConfidence],
+      ["positiveSignalConfidence", result.positiveSignalConfidence, result.scores && result.scores.positiveSignalConfidence],
+      ["domainConfidence delta", result.domainConfidence, result.semanticSignals && result.semanticSignals.confidenceDeltas && result.semanticSignals.confidenceDeltas.domain],
+      ["frictionConfidence delta", result.frictionConfidence, result.semanticSignals && result.semanticSignals.confidenceDeltas && result.semanticSignals.confidenceDeltas.friction],
+      ["positiveSignalConfidence delta", result.positiveSignalConfidence, result.semanticSignals && result.semanticSignals.confidenceDeltas && result.semanticSignals.confidenceDeltas.positiveSignal]
+    ].forEach(([field, left, right]) => {
+      const valid = left === right;
+      checks.push({ field, valid, value: left, expected: right });
+      if (!valid) {
+        failures.push(`${field} is inconsistent across canonical confidence fields`);
+      }
+    });
+
+    return {
+      valid: failures.length === 0,
+      checks,
+      failures
+    };
+  }
+
   function semanticTraceEventsForResult(result) {
     return [
       {
@@ -1192,6 +1240,14 @@
       },
       {
         order: 5,
+        stage: "confidence consistency validation",
+        timestamp: result.timestamp,
+        details: {
+          confidenceValidation: result.confidenceValidation
+        }
+      },
+      {
+        order: 6,
         stage: "suppression/override evaluation",
         timestamp: result.timestamp,
         details: {
@@ -1201,7 +1257,7 @@
         }
       },
       {
-        order: 6,
+        order: 7,
         stage: "contradiction detection",
         timestamp: result.timestamp,
         details: {
@@ -1209,7 +1265,7 @@
         }
       },
       {
-        order: 7,
+        order: 8,
         stage: "final label selection",
         timestamp: result.timestamp,
         details: {
@@ -1397,12 +1453,14 @@
       domainContext,
       contradictions: [],
       expectedLabel: normalizedInput.expectedLabel || "",
+      confidenceValidation: null,
       traceEvents: [],
       pipelineStages: [
         "metadata normalization",
         "domain detection",
         "signal matching",
         "semantic scoring",
+        "confidence consistency validation",
         "suppression/override evaluation",
         "final label selection"
       ],
@@ -1445,7 +1503,11 @@
       timestamp: new Date().toISOString()
     };
 
-    result.contradictions = detectContradictions(result);
+    result.confidenceValidation = validateConfidenceConsistency(result);
+    result.contradictions = [
+      ...detectContradictions(result),
+      ...result.confidenceValidation.failures.map((failure) => `confidence inconsistency: ${failure}`)
+    ];
     result.traceEvents = semanticTraceEventsForResult(result);
     return result;
   }

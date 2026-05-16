@@ -40,6 +40,7 @@ Each trace mirrors the canonical semantic result and adds rendering/pipeline eve
   pipelineVersion,
   scoringPath,
   contradictions,
+  confidenceValidation,
   domainContext,
   traceEvents,
   downgradeReasons,
@@ -58,8 +59,10 @@ Canonical scoring stages:
 2. domain detection
 3. signal matching
 4. semantic scoring
-5. suppression/override evaluation
-6. final label selection
+5. confidence consistency validation
+6. suppression/override evaluation
+7. contradiction detection
+8. final label selection
 
 Runtime rendering stages:
 

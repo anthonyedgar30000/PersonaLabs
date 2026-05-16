@@ -26,6 +26,7 @@ The canonical semantic contract is the shape returned by `semantic.scoreContent(
   pipelineVersion: string,
   scoringPath: string,
   contradictions: string[],
+  confidenceValidation: object,
   domainContext: object,
   traceEvents: object[],
   explanation: string,
@@ -51,6 +52,7 @@ The canonical semantic contract is the shape returned by `semantic.scoreContent(
 - `pipelineVersion`
 - `scoringPath`
 - `contradictions`
+- `confidenceValidation`
 - `domainContext`
 - `traceEvents`
 - `explanation`
@@ -82,6 +84,7 @@ Compatibility fields must mirror canonical values and must not become alternate 
 - `observabilitySignals`: raw observability signal groups detected from title/channel metadata.
 - `reasoning`: human-readable reasons, final reason, and downgrade reasons.
 - `contradictions`: detected internal inconsistency warnings.
+- `confidenceValidation`: validation result proving confidence mirrors are in range and consistent.
 - `domainContext`: detected domain, boosts, and confidence source.
 - `scoringPath`: consumer path, such as `overlay`, `retrieval-panel`, `retrieval-ranking`, or `legacy-scoreCandidate`.
 - `traceEvents`: ordered semantic telemetry events emitted by the canonical scoring pipeline.
@@ -93,6 +96,7 @@ Compatibility fields must mirror canonical values and must not become alternate 
 - `matchedTerms.positive` and `matchedTerms.friction` must always be arrays.
 - `suppressedTerms` must always be an array.
 - `contradictions` must always be an array.
+- `confidenceValidation.valid` must be true unless confidence inconsistency contradictions are present.
 - `traceEvents` must be ordered and must include metadata normalization, domain detection, signal matching, semantic scoring, suppression/override evaluation, contradiction detection, and final label selection.
 - If `matchedTerms` is empty, explanations must not claim matched title terms.
 - If `label` is `GREEN`, explanation text must not claim a red/yellow final state.

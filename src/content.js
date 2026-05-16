@@ -421,6 +421,7 @@
       pipelineVersion: "",
       scoringPath: "",
       contradictions: [],
+      confidenceValidation: null,
       domainContext: {},
       traceEvents: [],
       explanation: "",
@@ -462,6 +463,7 @@
     trace.downgradeReasons = downgradeReasonsForTrace(scoring, headline, visibleOverlay);
     trace.explanation = (scoring && scoring.explanation) || (scoring && scoring.finalReason) || (visibleOverlay && visibleOverlay.reason) || (headline && headline.explanation) || "";
     trace.contradictions = scoring && scoring.contradictions ? scoring.contradictions : [];
+    trace.confidenceValidation = scoring && scoring.confidenceValidation ? scoring.confidenceValidation : null;
     trace.pipelineVersion = scoring && scoring.pipelineVersion;
     trace.scoringPath = scoring && scoring.scoringPath;
     trace.semanticSignals = scoring && scoring.semanticSignals ? scoring.semanticSignals : {};
