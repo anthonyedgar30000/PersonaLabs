@@ -1354,7 +1354,7 @@
       contradictions.push("explanation claims matched terms while matchedTerms is empty");
     }
 
-    if (result.label === "GREEN" && /(marked yellow|marked red|explicit escalation|high-friction|controversy terms)/i.test(explanation)) {
+    if (result.label === "GREEN" && /(marked yellow|marked red|explicit escalation|high-friction|mixed\/context title terms)/i.test(explanation)) {
       contradictions.push("GREEN label conflicts with escalation/yellow/red explanation language");
     }
 
