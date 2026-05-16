@@ -61,6 +61,8 @@
       "humiliated",
       "crushes",
       "crushed",
+      "roasts",
+      "cooks",
       "slams",
       "eviscerates",
       "wrecks",

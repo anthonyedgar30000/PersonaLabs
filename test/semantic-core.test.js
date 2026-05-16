@@ -13,6 +13,31 @@ test("extracts subject-preserving anchors while removing escalation style terms"
   assert(anchor.removedEscalationTerms.some((item) => item.normalizedTerm === "shocking"));
 });
 
+test("flags roast cook and slam slang as escalatory style terms", () => {
+  const title = "Panel ROASTS COOKS and SLAMS the proposal";
+  const styleTerms = semantic.classifyStyleTerms(title);
+  const normalizedTerms = styleTerms.map((item) => item.normalizedTerm);
+
+  assert.deepEqual(normalizedTerms, ["roasts", "cooks", "slams"]);
+  assert(styleTerms.every((item) => item.category === "domination"));
+
+  const anchor = semantic.analyzeAnchor("The proposal");
+  const path = semantic.buildExplorationPaths(anchor).find((lens) => lens.id === "educational");
+  const score = semantic.scoreCandidate(
+    {
+      title,
+      channel: "Reaction Clips",
+      duration: "7:00"
+    },
+    anchor,
+    path
+  );
+
+  assert.equal(score.label, "RED");
+  assert(normalizedTerms.every((term) => score.matchedTerms.friction.includes(term)));
+  assert(score.debug.escalation_score >= normalizedTerms.length);
+});
+
 test("builds transformed exploration paths that preserve the contextual subject", () => {
   const anchor = semantic.analyzeAnchor("Thomas Massie DESTROYS Iran vote");
   const paths = semantic.buildExplorationPaths(anchor);
