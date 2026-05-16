@@ -86,7 +86,7 @@ test("debug panel renders collapsible why section and export JSON", () => {
   const html = renderClassificationDebugPanel(result.debug);
 
   assert.match(html, /^<details class="personalabs-debug-panel">/);
-  assert.match(html, /<summary>Why was this classified this way\\?<\/summary>/);
+  assert.match(html, /<summary>Why was this classified this way\?<\/summary>/);
   assert.match(html, /Final weighted score/);
   assert.match(html, /Contextual suppressions/);
   assert.match(html, /Export debug JSON/);
