@@ -1,6 +1,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
+const headlineAnalyzer = require("../lib/headlineAnalyzer");
 const semantic = require("../src/semantic-core");
 
 test("extracts subject-preserving anchors while removing escalation style terms", () => {
@@ -400,4 +401,80 @@ test("unknown low-friction content defaults to YELLOW-neutral, not RED", () => {
 
   assert.equal(score.classification.color, "YELLOW");
   assert.equal(score.detectedStyleTerms.length, 0);
+});
+
+test("governance regressions keep mature scoring expectations stable", () => {
+  const animalAnchor = semantic.analyzeAnchor("Cute Baby Bunny Compilation");
+  const calmer = semantic.buildExplorationPaths(animalAnchor).find((lens) => lens.id === "calmer");
+  const calmAnimal = semantic.scoreCandidate(
+    {
+      title: "Cute Baby Bunny Compilation",
+      channel: "Wholesome Pets",
+      duration: "12:00"
+    },
+    animalAnchor,
+    calmer
+  );
+  const harmlessAnimal = semantic.scoreCandidate(
+    {
+      title: "Funny Baby Bunny Compilation",
+      channel: "Pet Videos",
+      duration: "0:45"
+    },
+    animalAnchor,
+    calmer
+  );
+  const animalDistress = semantic.scoreCandidate(
+    {
+      title: "Terrifying Pet Emergency Breakdown",
+      channel: "Breaking Clips",
+      duration: "8:00"
+    },
+    animalAnchor,
+    calmer
+  );
+
+  assert.equal(calmAnimal.classification.color, "GREEN");
+  assert.equal(harmlessAnimal.classification.color, "GREEN");
+  assert.notEqual(harmlessAnimal.classification.color, "YELLOW");
+  assert.equal(animalDistress.classification.color, "RED");
+
+  const civicAnchor = semantic.analyzeAnchor("Thomas Massie Iran vote");
+  const educational = semantic.buildExplorationPaths(civicAnchor).find((lens) => lens.id === "educational");
+  const publicRadioInterview = semantic.scoreCandidate(
+    {
+      title: "Thomas Massie discusses Iran vote on public radio",
+      channel: "Public Radio Forum",
+      duration: "24:00"
+    },
+    civicAnchor,
+    educational
+  );
+  const outrageTitle = semantic.scoreCandidate(
+    {
+      title: "OUTRAGE: Thomas Massie meltdown after Iran vote",
+      channel: "Outrage Daily",
+      duration: "4:10"
+    },
+    civicAnchor,
+    educational
+  );
+
+  assert(["GREEN", "YELLOW"].includes(publicRadioInterview.classification.color));
+  assert.equal(outrageTitle.classification.color, "RED");
+});
+
+test("overlay headline and panel semantic paths agree for canonical calm animal label", () => {
+  const candidate = {
+    title: "Cute Baby Bunny Compilation",
+    channel: "Wholesome Pets",
+    duration: "12:00"
+  };
+  const anchor = semantic.analyzeAnchor(candidate.title);
+  const path = semantic.buildExplorationPaths(anchor).find((lens) => lens.id === "calmer");
+  const panelScore = semantic.scoreCandidate(candidate, anchor, path);
+  const overlayHeadline = headlineAnalyzer.analyzeHeadline(candidate.title, candidate.channel, "chill");
+
+  assert.equal(panelScore.classification.color, "GREEN");
+  assert.equal(overlayHeadline.visibleOverlay.label, panelScore.classification.color);
 });

@@ -365,6 +365,16 @@
     return uniqueStrings(suppressed);
   }
 
+  function downgradeReasonsForTrace(scoring, headline, visibleOverlay) {
+    const reasons = [
+      ...((scoring && scoring.reasons) || []).filter((reason) => /downgrade|ranked lower|neutral default|chaotic|friction|escalation|suppression|cap/i.test(reason)),
+      ...((headline && headline.reasons) || []).filter((reason) => /yellow|red|suppressed|uncertain|risk/i.test(reason)),
+      visibleOverlay && visibleOverlay.code && visibleOverlay.reason ? visibleOverlay.reason : ""
+    ];
+
+    return uniqueStrings(reasons);
+  }
+
   function scoreComponentsForTrace(scoring, headline) {
     return {
       semanticScore: scoring ? scoring.score : null,
@@ -387,17 +397,20 @@
       videoId: (candidate && candidate.videoId) || videoIdFromUrl(candidate && candidate.url),
       title: (candidate && candidate.title) || "",
       channel: (candidate && candidate.channel) || "",
-      selectedLens: selectedLensLabel(lens),
-      detectedDomain: "unknown",
-      matchedPositiveSignals: [],
-      matchedFrictionSignals: [],
-      suppressedSignals: [],
-      scoreComponents: {},
-      finalLabel: "",
+      lens: selectedLensLabel(lens),
+      domain: "unknown",
+      label: "",
       confidence: null,
+      scores: {},
+      matchedSignals: {
+        positive: [],
+        friction: []
+      },
+      suppressedSignals: [],
+      downgradeReasons: [],
       explanation: "",
-      renderingTarget: renderingTarget || "unknown",
       timestamp: new Date().toISOString(),
+      renderingTarget: renderingTarget || "unknown",
       stages: []
     };
 
@@ -412,13 +425,16 @@
       return null;
     }
 
-    trace.detectedDomain = detectDomainForTrace(scoring, headline);
-    trace.matchedPositiveSignals = matchedPositiveSignalsForTrace(scoring, headline);
-    trace.matchedFrictionSignals = matchedFrictionSignalsForTrace(scoring, headline);
+    trace.domain = detectDomainForTrace(scoring, headline);
+    trace.matchedSignals = {
+      positive: matchedPositiveSignalsForTrace(scoring, headline),
+      friction: matchedFrictionSignalsForTrace(scoring, headline)
+    };
     trace.suppressedSignals = suppressedSignalsForTrace(headline, state.anchor);
-    trace.scoreComponents = scoreComponentsForTrace(scoring, headline);
-    trace.finalLabel = (visibleOverlay && visibleOverlay.label) || (scoring && scoring.classification && scoring.classification.color) || (headline && headline.label) || "";
+    trace.scores = scoreComponentsForTrace(scoring, headline);
+    trace.label = (visibleOverlay && visibleOverlay.label) || (scoring && scoring.classification && scoring.classification.color) || (headline && headline.label) || "";
     trace.confidence = scoring ? scoring.confidence : confidenceNumber(visibleOverlay && visibleOverlay.confidence);
+    trace.downgradeReasons = downgradeReasonsForTrace(scoring, headline, visibleOverlay);
     trace.explanation = (scoring && scoring.finalReason) || (visibleOverlay && visibleOverlay.reason) || (headline && headline.explanation) || "";
     trace.renderingTarget = renderingTarget || trace.renderingTarget;
     trace.timestamp = new Date().toISOString();
@@ -782,21 +798,20 @@
         source: item.source || explorationSet.retrieval.source
       }, { once: true });
       recordTraceStage(trace, "semantic scoring started", {
-        selectedLens: selectedLensLabel(explorationSet.lens),
+        lens: selectedLensLabel(explorationSet.lens),
         pipeline: explorationSet.pipeline
       }, { once: true });
       updateTraceFromScoring(trace, item.scoring, null, null, "panel");
       recordTraceStage(trace, "domain/tone/friction signals matched", {
-        detectedDomain: trace && trace.detectedDomain,
-        matchedPositiveSignals: trace && trace.matchedPositiveSignals,
-        matchedFrictionSignals: trace && trace.matchedFrictionSignals
+        domain: trace && trace.domain,
+        matchedSignals: trace && trace.matchedSignals
       }, { once: true });
       recordTraceStage(trace, "suppression/override rules applied", {
         suppressedSignals: trace && trace.suppressedSignals,
         finalReason: item.scoring && item.scoring.finalReason
       }, { once: true });
       recordTraceStage(trace, "final classification selected", {
-        finalLabel: trace && trace.finalLabel,
+        label: trace && trace.label,
         confidence: trace && trace.confidence,
         explanation: trace && trace.explanation
       }, { once: true });
@@ -859,7 +874,7 @@
 
       card.dataset.personaLabsTitle = titleKey;
       recordTraceStage(trace, "semantic scoring started", {
-        selectedLens: selectedLensLabel(activePath()),
+        lens: selectedLensLabel(activePath()),
         hasAnchor: Boolean(state.anchor)
       }, { once: true });
       const scoring = state.anchor ? semantic.scoreCandidate(candidate, state.anchor, activePath()) : null;
@@ -868,9 +883,8 @@
       const styleSignals = semantic.classifyStyleTerms(candidate.title);
       updateTraceFromScoring(trace, scoring, headline, visibleOverlay, "overlay");
       recordTraceStage(trace, "domain/tone/friction signals matched", {
-        detectedDomain: trace && trace.detectedDomain,
-        matchedPositiveSignals: trace && trace.matchedPositiveSignals,
-        matchedFrictionSignals: trace && trace.matchedFrictionSignals,
+        domain: trace && trace.domain,
+        matchedSignals: trace && trace.matchedSignals,
         styleSignals
       }, { once: true });
       recordTraceStage(trace, "suppression/override rules applied", {
@@ -879,7 +893,7 @@
         headlineSuppressedWeakTerms: headline.governance && headline.governance.suppressedWeakTerms
       }, { once: true });
       recordTraceStage(trace, "final classification selected", {
-        finalLabel: trace && trace.finalLabel,
+        label: trace && trace.label,
         confidence: trace && trace.confidence,
         explanation: trace && trace.explanation
       }, { once: true });
@@ -931,6 +945,10 @@
       renderedCount,
       skippedCount
     });
+
+    if (personaLabsDebugEnabled() && renderedCount > 0) {
+      scheduleRender();
+    }
   }
 
   function resolveVisibleOverlay(headline, scoring) {
@@ -1349,7 +1367,7 @@
     const json = JSON.stringify(state.traces, null, 2);
     const latest = state.traces[0];
     const summary = latest
-      ? `${state.traces.length} traces captured. Latest: ${latest.finalLabel || "pending"} ${latest.title || "untitled"}`
+      ? `${state.traces.length} traces captured. Latest: ${latest.label || "pending"} ${latest.title || "untitled"}`
       : "No traces captured yet.";
 
     section.innerHTML = [
