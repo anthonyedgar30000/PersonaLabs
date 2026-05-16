@@ -22,60 +22,89 @@ test("local harness renders API missing state", () => {
   assert.match(html, /PERSONALABS_DEBUG=true/);
 });
 
-test("local harness renders evidence bundle details", () => {
-  const html = app.renderEvidenceBundle({
+test("local harness parses pasted titles into permissive classification scenarios", () => {
+  const scenarios = app.parseTitleLines("Cute Bunny | Pet Channel\nUpdate from yesterday", "pets");
+
+  assert.equal(scenarios.length, 2);
+  assert.equal(scenarios[0].input.title, "Cute Bunny");
+  assert.equal(scenarios[0].input.channel, "Pet Channel");
+  assert.deepEqual(scenarios[0].expectedLabel, ["GREEN", "YELLOW", "RED"]);
+  assert.equal(scenarios[1].description, "Pasted title for query: pets");
+});
+
+test("local harness renders compact classification results", () => {
+  const html = app.renderResultsTable({
+    total: 2,
+    passed: 2,
+    results: [
+      {
+        scenarioId: "calm",
+        actualLabel: "GREEN",
+        score: {
+          confidence: 96,
+          explanation: "Calm/pet content detected.",
+          input: { title: "Cute Bunny" }
+        }
+      },
+      {
+        scenarioId: "ambiguous",
+        actualLabel: "YELLOW",
+        score: {
+          confidence: 45,
+          explanation: "Not enough GREEN evidence.",
+          input: { title: "Update from yesterday" }
+        }
+      }
+    ]
+  });
+
+  assert.match(html, /2\/2 scenario checks passing/);
+  assert.match(html, /Cute Bunny/);
+  assert.match(html, /label-green/);
+  assert.match(html, /confidence-high/);
+  assert.match(html, /Update from yesterday/);
+  assert.match(html, /label-yellow/);
+});
+
+test("local harness renders compact trace hierarchy with raw JSON disclosure", () => {
+  const html = app.renderSelectedDetails({
+    actualLabel: "GREEN",
+    score: {
+      label: "GREEN",
+      confidence: 96,
+      matchedTerms: { positive: ["cute"], friction: [] },
+      suppressedTerms: ["drama"],
+      explanation: "Calm/pet content detected.",
+      traceEvents: [{ stage: "final label selection" }]
+    }
+  });
+
+  assert.match(html, /Final label/);
+  assert.match(html, /Confidence/);
+  assert.match(html, /Matched signals/);
+  assert.match(html, /Suppressed signals/);
+  assert.match(html, /Final explanation/);
+  assert.match(html, /Raw trace JSON/);
+});
+
+test("local harness compacts and stores only latest evidence", () => {
+  const storage = fakeStorage();
+  const compact = app.storeLatestEvidence(storage, {
     appVersion: "0.1.0",
     pipelineVersion: "canonical-semantic-v1",
-    scenarioInputs: [{ title: "Cute Baby Bunny Compilation" }],
-    expectedOutputs: [{ expectedLabel: "GREEN" }],
-    actualOutputs: [{ actualLabel: "GREEN", pass: true }],
+    exportedAt: "2026-01-01T00:00:00.000Z",
+    scenarioInputs: [{ title: "Cute Bunny" }],
+    actualOutputs: [{ actualLabel: "GREEN" }],
     traceEvents: [{ stage: "final label selection" }],
-    governanceDecisions: [{ scenarioId: "one" }],
-    replayDriftResults: []
-  }, []);
-
-  assert.match(html, /App version/);
-  assert.match(html, /canonical-semantic-v1/);
-  assert.match(html, /Scenario inputs/);
-  assert.match(html, /Trace events/);
-  assert.match(html, /Cute Baby Bunny Compilation/);
-});
-
-test("local harness renders scenario results", () => {
-  const html = app.renderScenarioResults({
-    total: 2,
-    passed: 1,
-    driftDetected: true,
-    results: [
-      { scenarioId: "calm", actualLabel: "GREEN", expectedLabel: "GREEN", pass: true, severity: "none", driftDetected: false },
-      { scenarioId: "outrage", actualLabel: "YELLOW", expectedLabel: "RED", pass: false, severity: "high", driftDetected: true }
-    ]
+    replayDriftResults: [{ replayAgreementState: "drift" }]
   });
 
-  assert.match(html, /1\/2 passing/);
-  assert.match(html, /calm/);
-  assert.match(html, /outrage/);
-  assert.match(html, /result-pass/);
-  assert.match(html, /result-fail/);
-  assert.match(html, /Severity: high/);
-});
-
-test("local harness renders drift summary", () => {
-  const html = app.renderDriftSummary({
-    actualOutputs: [
-      { scenarioId: "pass", pass: true },
-      { scenarioId: "fail", pass: false }
-    ],
-    replayDriftResults: [{ replayAgreementState: "drift" }],
-    contradictionState: [
-      { scenarioId: "contradiction", contradictionState: { hasContradictions: true, contradictions: ["warning"] } }
-    ]
-  });
-
-  assert.match(html, /Scenario failures:<\/strong> 1/);
-  assert.match(html, /Replay drifts:<\/strong> 1/);
-  assert.match(html, /Contradiction states:<\/strong> 1/);
-  assert.match(html, /Overall drift:<\/strong> attention/);
+  assert.equal(compact.pipelineVersion, "canonical-semantic-v1");
+  assert.equal(compact.inputs.length, 1);
+  assert.equal(compact.results.length, 1);
+  assert.equal(compact.traces.length, 1);
+  assert.equal(compact.replayDriftResults, undefined);
+  assert.equal(app.readLatestEvidence(storage).pipelineVersion, "canonical-semantic-v1");
 });
 
 test("local harness exposes no mutation methods in safe API surface", () => {
@@ -98,24 +127,11 @@ test("local harness exposes no mutation methods in safe API surface", () => {
   assert.deepEqual(
     app.DEFAULT_SCENARIO_PACK.scenarios.map((scenario) => scenario.id),
     [
-      "harness-calm-animal",
-      "harness-political-outrage",
-      "harness-educational-tutorial",
-      "harness-clickbait-manipulation",
-      "harness-ambiguous-low-context"
+      "mvp-calm-animal",
+      "mvp-political-outrage",
+      "mvp-educational-tutorial",
+      "mvp-clickbait-manipulation",
+      "mvp-ambiguous-low-context"
     ]
   );
-});
-
-test("local harness stores evidence bundles in localStorage-compatible storage", () => {
-  const storage = fakeStorage();
-  const stored = app.storeEvidenceBundle(storage, {
-    appVersion: "0.1.0",
-    pipelineVersion: "canonical-semantic-v1",
-    actualOutputs: []
-  });
-
-  assert.equal(stored.length, 1);
-  assert.equal(app.readStoredBundles(storage).length, 1);
-  assert.equal(app.readStoredBundles(storage)[0].bundle.pipelineVersion, "canonical-semantic-v1");
 });

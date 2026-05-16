@@ -47,6 +47,20 @@ textarea {
   width: 100%;
 }
 
+input {
+  border: 1px solid #c9d3e4;
+  border-radius: 8px;
+  box-sizing: border-box;
+  padding: 0.65rem;
+  width: 100%;
+}
+
+label {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0.75rem 0;
+}
+
 .personalabs-harness {
   margin: 0 auto;
   max-width: 1100px;
@@ -92,29 +106,60 @@ textarea {
   font-weight: 700;
 }
 
-.result-list,
-.health-list,
-.drift-list {
-  display: grid;
-  gap: 0.6rem;
-  list-style: none;
-  margin: 0.75rem 0 0;
-  padding: 0;
+.classification-table {
+  border-collapse: collapse;
+  width: 100%;
 }
 
-.result-list li,
-.health-list li,
-.drift-list li {
+.classification-table th,
+.classification-table td {
+  border-bottom: 1px solid #e4ebf5;
+  padding: 0.65rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.classification-table tbody tr {
+  cursor: pointer;
+}
+
+.classification-table tbody tr:hover {
   background: #f8fafc;
-  border: 1px solid #e4ebf5;
-  border-radius: 10px;
-  padding: 0.75rem;
 }
 
-.result-pass {
-  border-left: 5px solid #2f855a;
+.label-badge {
+  border-radius: 999px;
+  display: inline-block;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
 }
 
-.result-fail {
-  border-left: 5px solid #c2410c;
+.label-green {
+  background: #def7ec;
+  color: #03543f;
+}
+
+.label-yellow {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.label-red {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.confidence-high {
+  color: #047857;
+  font-weight: 700;
+}
+
+.confidence-medium {
+  color: #b45309;
+  font-weight: 700;
+}
+
+.confidence-low {
+  color: #b91c1c;
+  font-weight: 700;
 }
