@@ -64,6 +64,26 @@ test("overlays stay compact while detailed debugging stays in the inspector", ()
   assert.match(contentRuntime, /Canonical Trace JSON/);
 });
 
+test("overlay candidates are scoped to video surfaces only", () => {
+  const contentRuntime = fs.readFileSync(path.join(root, "src", "content.js"), "utf8");
+  const getCandidateCardsFunction = contentRuntime.match(/function getCandidateCards[\s\S]*?function findTitleElement/)[0];
+  const clickFunction = contentRuntime.match(/function handleDocumentClick[\s\S]*?function handleExplore/)[0];
+  const titleBadgeFunction = contentRuntime.match(/function upsertTitleBadge[\s\S]*?function findThumbnailHost/)[0];
+  const thumbnailOverlayFunction = contentRuntime.match(/function upsertThumbnailOverlay[\s\S]*?function createPanel/)[0];
+
+  assert.match(contentRuntime, /NON_VIDEO_TEXT_SURFACE_SELECTOR/);
+  assert.match(contentRuntime, /ytd-comments/);
+  assert.match(contentRuntime, /ytd-comment-replies-renderer/);
+  assert.match(contentRuntime, /yt-live-chat-text-message-renderer/);
+  assert.match(contentRuntime, /#description-inline-expander/);
+  assert.match(getCandidateCardsFunction, /TITLE_LINK_FALLBACK_SELECTOR/);
+  assert.match(getCandidateCardsFunction, /\.filter\(isEligibleVideoAnnotationTarget\)/);
+  assert(!/querySelectorAll\("a\[href\*='watch'\], a\[href\*='\/shorts\/'\]"\)/.test(getCandidateCardsFunction));
+  assert.match(clickFunction, /resolveVideoAnnotationTarget\(target\)/);
+  assert.match(titleBadgeFunction, /isEligibleVideoAnnotationTarget\(card\)/);
+  assert.match(thumbnailOverlayFunction, /isEligibleVideoAnnotationTarget\(card\)/);
+});
+
 test("inspector observes traces without participating in scoring", () => {
   const contentRuntime = fs.readFileSync(path.join(root, "src", "content.js"), "utf8");
   const inspectorFunction = contentRuntime.match(/function renderDebugTraces[\s\S]*?function filteredDebugTraces/)[0];

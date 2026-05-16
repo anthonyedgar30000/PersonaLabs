@@ -59,6 +59,52 @@
     "a.yt-lockup-metadata-view-model-wiz__title",
     ".yt-lockup-metadata-view-model-wiz__title"
   ].join(",");
+  const TITLE_LINK_FALLBACK_SELECTOR = [
+    "#video-title[href*='watch']",
+    "#video-title[href*='/shorts/']",
+    "#video-title-link[href*='watch']",
+    "#video-title-link[href*='/shorts/']",
+    "a#video-title[href*='watch']",
+    "a#video-title[href*='/shorts/']",
+    "h3 a[href*='watch']",
+    "h3 a[href*='/shorts/']",
+    "a.yt-lockup-metadata-view-model-wiz__title[href*='watch']",
+    "a.yt-lockup-metadata-view-model-wiz__title[href*='/shorts/']"
+  ].join(",");
+  const VIDEO_SURFACE_REGION_SELECTOR = [
+    "ytd-search",
+    "ytd-two-column-search-results-renderer",
+    "ytd-watch-next-secondary-results-renderer",
+    "ytd-rich-grid-renderer",
+    "ytd-rich-section-renderer",
+    "ytd-browse",
+    "ytd-playlist-panel-renderer",
+    "ytd-playlist-video-list-renderer",
+    "yt-lockup-view-model"
+  ].join(",");
+  const NON_VIDEO_TEXT_SURFACE_SELECTOR = [
+    "ytd-comments",
+    "ytd-comment-thread-renderer",
+    "ytd-comment-view-model",
+    "ytd-comment-renderer",
+    "ytd-comment-replies-renderer",
+    "ytd-comment-reply-dialog-renderer",
+    "ytm-comment-thread-renderer",
+    "ytm-comment-renderer",
+    "ytd-live-chat-frame",
+    "yt-live-chat-app",
+    "yt-live-chat-renderer",
+    "yt-live-chat-text-message-renderer",
+    "yt-live-chat-paid-message-renderer",
+    "#chat",
+    "#chatframe",
+    "ytd-watch-metadata #description",
+    "ytd-watch-metadata ytd-text-inline-expander",
+    "ytd-video-secondary-info-renderer",
+    "ytd-expander#description",
+    "ytd-structured-description-content-renderer",
+    "#description-inline-expander"
+  ].join(",");
   const THUMBNAIL_HOST_SELECTOR = [
     "ytd-thumbnail",
     "a#thumbnail",
@@ -562,11 +608,81 @@
     return output;
   }
 
+  function isInsideNonVideoTextSurface(element) {
+    return Boolean(element && element.closest(NON_VIDEO_TEXT_SURFACE_SELECTOR));
+  }
+
+  function titleLinkHref(element) {
+    if (!element || !(element instanceof Element)) {
+      return "";
+    }
+
+    const link = element.matches("a[href]")
+      ? element
+      : element.closest("a[href]") || element.querySelector("a[href]");
+    return link ? link.getAttribute("href") || "" : "";
+  }
+
+  function isTitleBearingVideoElement(element) {
+    if (!element || !(element instanceof Element)) {
+      return false;
+    }
+
+    if (!element.matches(TITLE_LINK_FALLBACK_SELECTOR) || isInsideNonVideoTextSurface(element)) {
+      return false;
+    }
+
+    const href = titleLinkHref(element);
+    if (!videoIdFromUrl(absoluteUrl(href))) {
+      return false;
+    }
+
+    return Boolean(element.closest(VIDEO_SURFACE_REGION_SELECTOR));
+  }
+
+  function isEligibleVideoAnnotationTarget(element) {
+    if (!element || !(element instanceof Element)) {
+      return false;
+    }
+
+    if (element.closest("#personalabs-panel") || isInsideNonVideoTextSurface(element)) {
+      return false;
+    }
+
+    return element.matches(CARD_SELECTOR) || isTitleBearingVideoElement(element);
+  }
+
+  function resolveVideoAnnotationTarget(element) {
+    if (!element || !(element instanceof Element)) {
+      return null;
+    }
+
+    const card = element.closest(CARD_SELECTOR);
+    if (isEligibleVideoAnnotationTarget(card)) {
+      return card;
+    }
+
+    const titleLink = element.closest(TITLE_LINK_FALLBACK_SELECTOR);
+    if (isEligibleVideoAnnotationTarget(titleLink)) {
+      return titleLink;
+    }
+
+    return null;
+  }
+
+  function removeBlockedSurfaceAnnotations() {
+    document.querySelectorAll(".personalabs-classification-overlay, .personalabs-observability-badge").forEach((annotation) => {
+      if (isInsideNonVideoTextSurface(annotation)) {
+        annotation.remove();
+      }
+    });
+  }
+
   function getCandidateCards() {
     const cards = uniqueElements([
       ...document.querySelectorAll(CARD_SELECTOR),
-      ...Array.from(document.querySelectorAll("a[href*='watch'], a[href*='/shorts/']")).map((link) => link.closest(CARD_SELECTOR) || link)
-    ]).filter((element) => !element.closest("#personalabs-panel"));
+      ...Array.from(document.querySelectorAll(TITLE_LINK_FALLBACK_SELECTOR)).map((link) => link.closest(CARD_SELECTOR) || link)
+    ]).filter(isEligibleVideoAnnotationTarget);
 
     debugLog("detected candidate card elements", {
       count: cards.length,
@@ -764,7 +880,7 @@
       return;
     }
 
-    const card = target.closest(CARD_SELECTOR) || target.closest("a[href*='watch'], a[href*='/shorts/']");
+    const card = resolveVideoAnnotationTarget(target);
     const candidate = extractCandidateFromCard(card);
     if (candidate) {
       debugLog("youtube click captured as contextual anchor", describeCard(card, candidate));
@@ -893,6 +1009,8 @@
   }
 
   function annotateVisibleCards(reason) {
+    removeBlockedSurfaceAnnotations();
+
     const cards = getCandidateCards();
     let renderedCount = 0;
     let skippedCount = 0;
@@ -1071,6 +1189,11 @@
   }
 
   function upsertTitleBadge(card, label, category, scoring) {
+    if (!isEligibleVideoAnnotationTarget(card)) {
+      warnLog("title badge skipped; target is outside video surfaces", { tag: card && card.tagName });
+      return false;
+    }
+
     const titleElement = findTitleElement(card);
     if (!titleElement) {
       warnLog("title badge skipped; no title element found", { tag: card && card.tagName });
@@ -1108,6 +1231,11 @@
   }
 
   function upsertThumbnailOverlay(card, label, category, scoring) {
+    if (!isEligibleVideoAnnotationTarget(card)) {
+      warnLog("thumbnail overlay skipped; target is outside video surfaces", { tag: card && card.tagName });
+      return false;
+    }
+
     const host = findThumbnailHost(card);
     if (!host) {
       warnLog("thumbnail overlay skipped; no host found", { tag: card && card.tagName });
