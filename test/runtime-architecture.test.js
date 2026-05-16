@@ -36,8 +36,10 @@ test("semantic trace inspector exposes debug-only inspection utilities", () => {
   assert.match(contentRuntime, /data-action='replay-visible-traces'/);
   assert.match(contentRuntime, /data-action='load-replay-json'/);
   assert.match(contentRuntime, /data-action='run-scenarios'/);
+  assert.match(contentRuntime, /data-action='run-golden-pack'/);
   assert.match(contentRuntime, /Replay Analysis/);
   assert.match(contentRuntime, /Scenario Validation/);
+  assert.match(contentRuntime, /Golden Regression Pack/);
   assert.match(contentRuntime, /value='retrieval'/);
   assert.match(contentRuntime, /value='governance'/);
   assert.match(contentRuntime, /renderInspectorSection\("Input"/);
@@ -88,6 +90,15 @@ test("scenario validation delegates to canonical scenario runner", () => {
 
   assert.match(inspectorFunction, /semantic\.runScenarioPack/);
   assert.match(inspectorFunction, /semantic\.defaultScenarioPack/);
+  assert(!/scoreContent|scoreCandidate|scoreCandidates/.test(inspectorFunction));
+});
+
+test("golden validation delegates to canonical golden runner", () => {
+  const contentRuntime = fs.readFileSync(path.join(root, "src", "content.js"), "utf8");
+  const inspectorFunction = contentRuntime.match(/function renderDebugTraces[\s\S]*?function renderReplayAnalysis/)[0];
+
+  assert.match(inspectorFunction, /semantic\.runGoldenRegressionPack/);
+  assert.match(inspectorFunction, /semantic\.defaultGoldenRegressionPack/);
   assert(!/scoreContent|scoreCandidate|scoreCandidates/.test(inspectorFunction));
 });
 

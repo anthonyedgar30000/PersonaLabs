@@ -1666,6 +1666,186 @@
     };
   }
 
+  function goldenScenario(scenario) {
+    return {
+      pipelineVersion: PIPELINE_VERSION,
+      expectedMatchedSignalCategories: { positive: [], friction: [] },
+      expectedSuppressedSignalCategories: [],
+      ...scenario
+    };
+  }
+
+  function defaultGoldenRegressionPack() {
+    return {
+      name: "PersonaLabs Golden Regression Pack",
+      category: "golden-regression",
+      description: "Frozen deterministic semantic governance scenarios.",
+      pipelineVersion: PIPELINE_VERSION,
+      scenarios: [
+        goldenScenario({
+          id: "golden-calm-animal",
+          scenarioId: "golden-calm-animal",
+          name: "Calm animal content",
+          category: "benign",
+          description: "Calm bunny content remains GREEN.",
+          expectedLabel: "GREEN",
+          expectedConfidenceRange: [70, 100],
+          expectedGovernanceOutcomes: ["Calm/pet content detected"],
+          expectedContradictionState: false,
+          expectedMatchedSignalCategories: { positive: ["cute", "bunny"], friction: [] },
+          input: { title: "Cute Baby Bunny Compilation", channel: "Wholesome Pets", duration: "12:00" }
+        }),
+        goldenScenario({
+          id: "golden-harmless-pet-friction",
+          scenarioId: "golden-harmless-pet-friction",
+          name: "Harmless pet friction",
+          category: "benign",
+          description: "Harmless pet wording does not become YELLOW.",
+          expectedLabel: "GREEN",
+          expectedConfidenceRange: [70, 100],
+          expectedGovernanceOutcomes: ["Calm/pet content detected"],
+          expectedContradictionState: false,
+          expectedMatchedSignalCategories: { positive: ["bunny"], friction: [] },
+          input: { title: "Funny Baby Bunny Compilation", channel: "Pet Videos", duration: "0:45" }
+        }),
+        goldenScenario({
+          id: "golden-animal-distress",
+          scenarioId: "golden-animal-distress",
+          name: "Animal distress",
+          category: "inflammatory",
+          description: "Explicit animal distress remains RED.",
+          expectedLabel: "RED",
+          expectedConfidenceRange: [70, 100],
+          expectedGovernanceOutcomes: ["explicit animal distress or danger framing detected"],
+          expectedContradictionState: false,
+          expectedMatchedSignalCategories: { positive: ["pet"], friction: ["terrifying", "emergency"] },
+          expectedSuppressedSignalCategories: ["terrifying", "emergency"],
+          input: { title: "Terrifying Pet Emergency Breakdown", channel: "Breaking Clips", duration: "8:00" }
+        }),
+        goldenScenario({
+          id: "golden-educational-tutorial",
+          scenarioId: "golden-educational-tutorial",
+          name: "Educational tutorial",
+          category: "educational",
+          description: "Explanatory tutorial remains GREEN.",
+          expectedLabel: "GREEN",
+          expectedConfidenceRange: [70, 100],
+          expectedGovernanceOutcomes: ["low-friction candidate"],
+          expectedContradictionState: false,
+          expectedMatchedSignalCategories: { positive: ["explained"], friction: [] },
+          input: { title: "Kubernetes YAML tutorial explained", channel: "Cloud Academy", duration: "18:24" }
+        }),
+        goldenScenario({
+          id: "golden-documentary",
+          scenarioId: "golden-documentary",
+          name: "Documentary",
+          category: "educational",
+          description: "Documentary/source-format signals remain GREEN.",
+          expectedLabel: "GREEN",
+          expectedConfidenceRange: [70, 100],
+          expectedGovernanceOutcomes: ["lower-friction source format"],
+          expectedContradictionState: false,
+          expectedMatchedSignalCategories: { positive: ["documentary", "pbs"], friction: [] },
+          input: { title: "Long-form wildlife documentary", channel: "PBS Documentary", duration: "42:00" }
+        }),
+        goldenScenario({
+          id: "golden-public-radio-interview",
+          scenarioId: "golden-public-radio-interview",
+          name: "Public radio interview",
+          category: "political",
+          description: "Public radio interview stays low-friction.",
+          expectedLabel: "GREEN",
+          expectedConfidenceRange: [70, 100],
+          expectedGovernanceOutcomes: ["lower-friction source format"],
+          expectedContradictionState: false,
+          expectedMatchedSignalCategories: { positive: ["public radio"], friction: [] },
+          input: { title: "Thomas Massie discusses Iran vote on public radio", channel: "Public Radio Forum", duration: "24:00" }
+        }),
+        goldenScenario({
+          id: "golden-political-outrage",
+          scenarioId: "golden-political-outrage",
+          name: "Political outrage",
+          category: "political",
+          description: "Outrage framing remains RED.",
+          expectedLabel: "RED",
+          expectedConfidenceRange: [70, 100],
+          expectedGovernanceOutcomes: ["explicit escalation or distress framing detected"],
+          expectedContradictionState: false,
+          expectedMatchedSignalCategories: { positive: [], friction: ["outrage", "meltdown"] },
+          expectedSuppressedSignalCategories: ["outrage", "meltdown"],
+          input: { title: "OUTRAGE: Thomas Massie meltdown after Iran vote", channel: "Outrage Daily", duration: "4:10" }
+        }),
+        goldenScenario({
+          id: "golden-clickbait-manipulation",
+          scenarioId: "golden-clickbait-manipulation",
+          name: "Clickbait manipulation",
+          category: "manipulation",
+          description: "Clickbait manipulation terms remain RED.",
+          expectedLabel: "RED",
+          expectedConfidenceRange: [70, 100],
+          expectedGovernanceOutcomes: ["explicit escalation or distress framing detected"],
+          expectedContradictionState: false,
+          expectedMatchedSignalCategories: { positive: [], friction: ["you won't believe", "secret"] },
+          expectedSuppressedSignalCategories: ["you won't believe", "secret"],
+          input: { title: "You won't believe this secret trick", channel: "Viral Clips", duration: "4:00" }
+        }),
+        goldenScenario({
+          id: "golden-ambiguous-low-context",
+          scenarioId: "golden-ambiguous-low-context",
+          name: "Ambiguous low-context title",
+          category: "low-context",
+          description: "Low-context title stays deterministic YELLOW.",
+          expectedLabel: "YELLOW",
+          expectedConfidenceRange: [40, 60],
+          expectedGovernanceOutcomes: ["neutral default"],
+          expectedContradictionState: false,
+          expectedMatchedSignalCategories: { positive: [], friction: [] },
+          input: { title: "Obscure Segment 17", channel: "Channel 42", duration: "9:00" }
+        }),
+        goldenScenario({
+          id: "golden-adversarial-title",
+          scenarioId: "golden-adversarial-title",
+          name: "Adversarial title",
+          category: "adversarial-title",
+          description: "Adversarial domination framing remains RED.",
+          expectedLabel: "RED",
+          expectedConfidenceRange: [70, 100],
+          expectedGovernanceOutcomes: ["explicit escalation or distress framing detected"],
+          expectedContradictionState: false,
+          expectedMatchedSignalCategories: { positive: [], friction: ["obliterates", "insane", "meltdown"] },
+          expectedSuppressedSignalCategories: ["obliterates", "insane", "meltdown"],
+          input: { title: "MASSIE OBLITERATES opponents in insane Iran vote meltdown", channel: "Outrage Daily", duration: "4:10" }
+        }),
+        goldenScenario({
+          id: "golden-contradictory-explanation",
+          scenarioId: "golden-contradictory-explanation",
+          name: "Contradictory explanation guard",
+          category: "contradictory",
+          description: "Empty matched-term case must not claim matched terms.",
+          expectedLabel: "YELLOW",
+          expectedConfidenceRange: [40, 60],
+          expectedGovernanceOutcomes: ["neutral default"],
+          expectedContradictionState: false,
+          expectedMatchedSignalCategories: { positive: [], friction: [] },
+          input: { title: "Obscure Segment 17", channel: "Channel 42", duration: "9:00" }
+        }),
+        goldenScenario({
+          id: "golden-semantic-drift",
+          scenarioId: "golden-semantic-drift",
+          name: "Semantic drift sentinel",
+          category: "semantic-drift",
+          description: "Stable calm animal sentinel for drift detection.",
+          expectedLabel: "GREEN",
+          expectedConfidenceRange: [70, 100],
+          expectedGovernanceOutcomes: ["Calm/pet content detected"],
+          expectedContradictionState: false,
+          expectedMatchedSignalCategories: { positive: ["cute", "bunny"], friction: [] },
+          input: { title: "Cute Baby Bunny Compilation", channel: "Wholesome Pets", duration: "12:00" }
+        })
+      ]
+    };
+  }
+
   function scenarioExpectedLabels(expectedLabel) {
     return Array.isArray(expectedLabel) ? expectedLabel : [expectedLabel];
   }
@@ -1681,6 +1861,12 @@
       return "low";
     }
     return "none";
+  }
+
+  function scenarioSignalAgreement(expected, actual) {
+    const expectedValues = expected || [];
+    const actualValues = actual || [];
+    return expectedValues.every((value) => actualValues.includes(value));
   }
 
   function runScenario(scenario) {
@@ -1710,12 +1896,18 @@
     const governanceAgreement = expectedGovernance.every((expected) => governanceText.includes(expected));
     const expectedContradiction = Boolean(item.expectedContradictionState);
     const contradictionAgreement = expectedContradiction === (score.contradictions.length > 0);
+    const expectedMatched = item.expectedMatchedSignalCategories || {};
+    const matchedSignalAgreement =
+      scenarioSignalAgreement(expectedMatched.positive, score.matchedTerms && score.matchedTerms.positive) &&
+      scenarioSignalAgreement(expectedMatched.friction, score.matchedTerms && score.matchedTerms.friction);
+    const expectedSuppressed = item.expectedSuppressedSignalCategories || [];
+    const suppressedSignalAgreement = scenarioSignalAgreement(expectedSuppressed, score.suppressedTerms);
     const replayResults = item.replayTraces ? replayTraces(item.replayTraces) : [];
-    const driftDetected = !labelAgreement || !confidenceAgreement || !governanceAgreement || !contradictionAgreement || replayResults.some((replay) => replay.replayAgreementState === "drift");
+    const driftDetected = !labelAgreement || !confidenceAgreement || !governanceAgreement || !contradictionAgreement || !matchedSignalAgreement || !suppressedSignalAgreement || replayResults.some((replay) => replay.replayAgreementState === "drift");
     const severity = scenarioSeverity({ labelAgreement, confidenceAgreement, governanceAgreement, contradictionAgreement });
 
     return {
-      scenarioId: item.id || item.name || "unnamed-scenario",
+      scenarioId: item.scenarioId || item.id || item.name || "unnamed-scenario",
       name: item.name || item.id || "Unnamed scenario",
       category: SCENARIO_CATEGORIES.includes(item.category) ? item.category : "edge-case",
       description: item.description || "",
@@ -1724,6 +1916,8 @@
       confidenceDelta,
       governanceAgreement,
       contradictionAgreement,
+      matchedSignalAgreement,
+      suppressedSignalAgreement,
       driftDetected,
       severity,
       pipelineVersion: PIPELINE_VERSION,
@@ -1759,6 +1953,30 @@
             ? "low"
             : "none",
       results
+    };
+  }
+
+  function runGoldenRegressionPack(pack) {
+    const report = runScenarioPack(pack || defaultGoldenRegressionPack());
+    const failedResults = report.results.filter((result) => !result.pass);
+    return {
+      ...report,
+      golden: true,
+      driftCount: failedResults.length,
+      failedScenarioIds: failedResults.map((result) => result.scenarioId),
+      confidenceDeltas: report.results.map((result) => ({
+        scenarioId: result.scenarioId,
+        confidenceDelta: result.confidenceDelta
+      })),
+      governanceMismatches: report.results
+        .filter((result) => !result.governanceAgreement)
+        .map((result) => result.scenarioId),
+      contradictionMismatches: report.results
+        .filter((result) => !result.contradictionAgreement)
+        .map((result) => result.scenarioId),
+      matchedSignalMismatches: report.results
+        .filter((result) => !result.matchedSignalAgreement || !result.suppressedSignalAgreement)
+        .map((result) => result.scenarioId)
     };
   }
 
@@ -1894,6 +2112,7 @@
     classifyStyleTerms,
     detectObservabilitySignals,
     defaultScenarioPack,
+    defaultGoldenRegressionPack,
     extractNamedEntities,
     extractSubjectAnchor,
     filterCandidatesByLens,
@@ -1904,6 +2123,7 @@
     replayTraces,
     runScenario,
     runScenarioPack,
+    runGoldenRegressionPack,
     scoreContent,
     scoreCandidate,
     scoreCandidates,

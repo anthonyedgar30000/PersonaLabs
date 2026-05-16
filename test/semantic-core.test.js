@@ -805,3 +805,94 @@ test("scenario runner reports semantic drift from replay traces", () => {
   assert.equal(report.results[0].driftDetected, true);
   assert.equal(report.results[0].replayResults[0].replayAgreementState, "drift");
 });
+
+test("golden regression pack validates frozen canonical scenarios", () => {
+  const pack = semantic.defaultGoldenRegressionPack();
+  const report = semantic.runGoldenRegressionPack(pack);
+
+  assert.equal(pack.scenarios.length, 12);
+  pack.scenarios.forEach((scenario) => {
+    assert(scenario.scenarioId);
+    assert(scenario.input);
+    assert(scenario.expectedLabel);
+    assert(Array.isArray(scenario.expectedConfidenceRange));
+    assert.equal(typeof scenario.expectedContradictionState, "boolean");
+    assert(Array.isArray(scenario.expectedGovernanceOutcomes));
+    assert(scenario.expectedMatchedSignalCategories);
+    assert.equal(scenario.pipelineVersion, report.pipelineVersion);
+  });
+  assert.equal(report.failed, 0);
+  assert.equal(report.driftCount, 0);
+  assert.deepEqual(report.failedScenarioIds, []);
+  assert.equal(report.results.every((result) => result.matchedSignalAgreement), true);
+  assert.equal(report.results.every((result) => result.suppressedSignalAgreement), true);
+});
+
+test("golden runner detects confidence range drift", () => {
+  const report = semantic.runGoldenRegressionPack({
+    name: "Golden confidence mismatch",
+    scenarios: [
+      {
+        scenarioId: "golden-confidence-mismatch",
+        category: "semantic-drift",
+        description: "Confidence range intentionally excludes actual value.",
+        expectedLabel: "GREEN",
+        expectedConfidenceRange: [0, 10],
+        expectedGovernanceOutcomes: ["Calm/pet content detected"],
+        expectedContradictionState: false,
+        expectedMatchedSignalCategories: { positive: ["cute"], friction: [] },
+        input: { title: "Cute Baby Bunny Compilation", channel: "Wholesome Pets", duration: "12:00" }
+      }
+    ]
+  });
+
+  assert.equal(report.failed, 1);
+  assert.equal(report.results[0].confidenceAgreement, false);
+  assert.equal(report.driftCount, 1);
+});
+
+test("golden runner detects label governance and contradiction mismatches", () => {
+  const report = semantic.runGoldenRegressionPack({
+    name: "Golden mismatch pack",
+    scenarios: [
+      {
+        scenarioId: "golden-label-mismatch",
+        category: "semantic-drift",
+        description: "Label intentionally mismatches.",
+        expectedLabel: "RED",
+        expectedConfidenceRange: [0, 100],
+        expectedGovernanceOutcomes: ["Calm/pet content detected"],
+        expectedContradictionState: false,
+        expectedMatchedSignalCategories: { positive: ["cute"], friction: [] },
+        input: { title: "Cute Baby Bunny Compilation", channel: "Wholesome Pets", duration: "12:00" }
+      },
+      {
+        scenarioId: "golden-governance-mismatch",
+        category: "semantic-drift",
+        description: "Governance intentionally mismatches.",
+        expectedLabel: "GREEN",
+        expectedConfidenceRange: [0, 100],
+        expectedGovernanceOutcomes: ["not-present-governance-marker"],
+        expectedContradictionState: false,
+        expectedMatchedSignalCategories: { positive: ["cute"], friction: [] },
+        input: { title: "Cute Baby Bunny Compilation", channel: "Wholesome Pets", duration: "12:00" }
+      },
+      {
+        scenarioId: "golden-contradiction-mismatch",
+        category: "contradictory",
+        description: "Contradiction expectation intentionally mismatches.",
+        expectedLabel: "GREEN",
+        expectedConfidenceRange: [0, 100],
+        expectedGovernanceOutcomes: ["Calm/pet content detected"],
+        expectedContradictionState: true,
+        expectedMatchedSignalCategories: { positive: ["cute"], friction: [] },
+        input: { title: "Cute Baby Bunny Compilation", channel: "Wholesome Pets", duration: "12:00" }
+      }
+    ]
+  });
+
+  assert.equal(report.failed, 3);
+  assert(report.failedScenarioIds.includes("golden-label-mismatch"));
+  assert(report.governanceMismatches.includes("golden-governance-mismatch"));
+  assert(report.contradictionMismatches.includes("golden-contradiction-mismatch"));
+});

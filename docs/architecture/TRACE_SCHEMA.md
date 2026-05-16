@@ -147,6 +147,18 @@ The inspector summarizes pass/fail, label agreement, confidence agreement,
 contradiction agreement, governance agreement, drift severity, pipeline version,
 and summary stats.
 
+## Golden Regression Pack
+
+The Golden Regression Pack is a frozen set of canonical scenarios for platform
+stability. It includes calm animal content, harmless pet friction, animal
+distress, educational tutorial, documentary, public radio interview, political
+outrage, clickbait manipulation, ambiguous low-context title, adversarial title,
+contradictory explanation guard, and semantic drift sentinel.
+
+Golden validation reports total scenarios, pass/fail, drift count, failed
+scenario ids, confidence deltas, governance mismatches, contradiction
+mismatches, matched/suppressed signal mismatches, and pipeline version.
+
 ## Trace events
 
 Canonical `scoreContent(...)` results expose `traceEvents[]`. Runtime debug

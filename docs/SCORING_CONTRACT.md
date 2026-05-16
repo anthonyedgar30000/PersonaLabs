@@ -136,6 +136,21 @@ The runner calls `scoreContent(...)` only and reports scenario id, expected
 label, actual label, confidence delta, governance agreement, contradiction
 agreement, drift status, severity, and pipeline version.
 
+## Golden regression pack
+
+The frozen golden pack is exposed by:
+
+```js
+semantic.defaultGoldenRegressionPack()
+semantic.runGoldenRegressionPack(pack)
+```
+
+Golden scenarios include scenario id, input metadata, expected canonical label,
+expected confidence range, expected contradiction state, expected governance
+outcomes, expected matched/suppressed signal categories, and pipeline version.
+The golden runner is a thin validation layer over the canonical scenario runner
+and therefore calls `scoreContent(...)` only.
+
 ## Current scoring path audit
 
 The active runtime now routes overlay, retrieval, and panel decisions through

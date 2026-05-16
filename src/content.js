@@ -96,6 +96,7 @@
     debugVerboseTraces: false,
     replayAnalyses: [],
     scenarioReport: null,
+    goldenReport: null,
     mutationCount: 0
   };
 
@@ -1423,6 +1424,7 @@
       `<button type='button' data-action='toggle-verbose'>${state.debugVerboseTraces ? "Compact traces" : "Verbose traces"}</button>`,
       "<button type='button' data-action='replay-visible-traces'>Replay visible</button>",
       "<button type='button' data-action='run-scenarios'>Run scenarios</button>",
+      "<button type='button' data-action='run-golden-pack'>Run golden pack</button>",
       "<label>Load Replay JSON <input type='file' accept='application/json' data-action='load-replay-json'></label>",
       "<label>Filter <select data-action='filter-traces'>",
       `<option value='all'${state.debugTraceFilter === "all" ? " selected" : ""}>All</option>`,
@@ -1477,6 +1479,7 @@
       }) : "",
       renderReplayAnalysis(),
       renderScenarioValidation(),
+      renderGoldenRegressionPack(),
       renderInspectorListSection("Retrieval Transformations", {
         "Selected lens": [activePath() && (activePath().lensLabel || activePath().label) || "none"],
         "Transformed exploration paths": transformedPaths,
@@ -1500,6 +1503,7 @@
     const replayButton = section.querySelector("[data-action='replay-visible-traces']");
     const replayInput = section.querySelector("[data-action='load-replay-json']");
     const scenarioButton = section.querySelector("[data-action='run-scenarios']");
+    const goldenButton = section.querySelector("[data-action='run-golden-pack']");
 
     copyButton.addEventListener("click", () => {
       const payload = JSON.stringify(filteredDebugTraces(), null, 2);
@@ -1563,6 +1567,11 @@
       scheduleRender();
     });
 
+    goldenButton.addEventListener("click", () => {
+      state.goldenReport = semantic.runGoldenRegressionPack(semantic.defaultGoldenRegressionPack());
+      scheduleRender();
+    });
+
     return section;
   }
 
@@ -1621,6 +1630,31 @@
       ["Drift severity", report.severity],
       ["Pipeline version", report.pipelineVersion],
       ["Summary", `${report.failed} failed; drift detected: ${report.driftDetected}`]
+    ]);
+  }
+
+  function renderGoldenRegressionPack() {
+    const report = state.goldenReport;
+    if (!report) {
+      return renderInspectorSection("Golden Regression Pack", [
+        ["Total scenarios", "not run"],
+        ["Pass/fail", "not run"],
+        ["Drift count", "0"],
+        ["Failed IDs", "none"],
+        ["Confidence deltas", "none"],
+        ["Governance mismatches", "none"],
+        ["Pipeline version", "not run"]
+      ]);
+    }
+
+    return renderInspectorSection("Golden Regression Pack", [
+      ["Total scenarios", String(report.total)],
+      ["Pass/fail", `${report.passed}/${report.total} passing`],
+      ["Drift count", String(report.driftCount)],
+      ["Failed IDs", report.failedScenarioIds.length ? report.failedScenarioIds.join(", ") : "none"],
+      ["Confidence deltas", report.confidenceDeltas.map((item) => `${item.scenarioId}:${item.confidenceDelta}`).join(", ") || "none"],
+      ["Governance mismatches", report.governanceMismatches.length ? report.governanceMismatches.join(", ") : "none"],
+      ["Pipeline version", report.pipelineVersion]
     ]);
   }
 
