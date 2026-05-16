@@ -104,7 +104,7 @@ test("semantic drift analysis detects sudden, slow, inflation, collapse, oscilla
     { observationId: "low-1", actualCategory: "YELLOW", confidence: 30, classifiedAt: "2026-01-03T01:00:00.000Z", matchedSignals: {} },
     { observationId: "low-2", actualCategory: "YELLOW", confidence: 32, classifiedAt: "2026-01-03T02:00:00.000Z", matchedSignals: {} },
     { observationId: "low-3", actualCategory: "YELLOW", confidence: 35, classifiedAt: "2026-01-03T03:00:00.000Z", matchedSignals: {} },
-    ...Array.from({ length: 10 }, (_, index) => ({
+    ...Array.from({ length: 30 }, (_, index) => ({
       observationId: `collapse-${index}`,
       actualCategory: "RED",
       confidence: 88 + index,
