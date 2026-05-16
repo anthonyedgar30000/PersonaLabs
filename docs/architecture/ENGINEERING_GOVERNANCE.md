@@ -77,6 +77,7 @@ Before changing scoring weights, thresholds, dictionaries, or override rules:
 - Inspector utilities may copy, export, clear, filter, or expand traces.
 - Inspector utilities must not mutate scoring state or semantic labels.
 - Replay utilities may call canonical replay helpers only; replay helpers must call `scoreContent(...)` and must not implement separate scoring.
+- Scenario validation utilities may call canonical scenario helpers only; scenario helpers must call `scoreContent(...)` and must not implement separate scoring.
 
 ### Regression tests are required for scoring changes
 

@@ -99,6 +99,43 @@ the historical trace. Replay reports label drift, confidence drift,
 contradiction drift, governance decision changes, retrieval agreement changes,
 and pipeline version changes.
 
+## Scenario pack contract
+
+Scenario packs validate canonical governance without adding scoring systems:
+
+```js
+{
+  name,
+  category,
+  description,
+  scenarios: [
+    {
+      id,
+      name,
+      category,
+      description,
+      expectedLabel,
+      expectedConfidenceRange,
+      expectedGovernanceOutcomes,
+      expectedContradictionState,
+      input,
+      replayTraces
+    }
+  ]
+}
+```
+
+Scenario execution is provided by:
+
+```js
+semantic.runScenario(scenario)
+semantic.runScenarioPack(pack)
+```
+
+The runner calls `scoreContent(...)` only and reports scenario id, expected
+label, actual label, confidence delta, governance agreement, contradiction
+agreement, drift status, severity, and pipeline version.
+
 ## Current scoring path audit
 
 The active runtime now routes overlay, retrieval, and panel decisions through

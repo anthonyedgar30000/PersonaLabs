@@ -95,6 +95,7 @@
     debugTraceFilter: "all",
     debugVerboseTraces: false,
     replayAnalyses: [],
+    scenarioReport: null,
     mutationCount: 0
   };
 
@@ -1421,6 +1422,7 @@
       "<button type='button' data-action='clear-traces'>Clear</button>",
       `<button type='button' data-action='toggle-verbose'>${state.debugVerboseTraces ? "Compact traces" : "Verbose traces"}</button>`,
       "<button type='button' data-action='replay-visible-traces'>Replay visible</button>",
+      "<button type='button' data-action='run-scenarios'>Run scenarios</button>",
       "<label>Load Replay JSON <input type='file' accept='application/json' data-action='load-replay-json'></label>",
       "<label>Filter <select data-action='filter-traces'>",
       `<option value='all'${state.debugTraceFilter === "all" ? " selected" : ""}>All</option>`,
@@ -1474,6 +1476,7 @@
         "Semantic path validation": [latest.scoringPath || "unknown"]
       }) : "",
       renderReplayAnalysis(),
+      renderScenarioValidation(),
       renderInspectorListSection("Retrieval Transformations", {
         "Selected lens": [activePath() && (activePath().lensLabel || activePath().label) || "none"],
         "Transformed exploration paths": transformedPaths,
@@ -1496,6 +1499,7 @@
     const filterSelect = section.querySelector("[data-action='filter-traces']");
     const replayButton = section.querySelector("[data-action='replay-visible-traces']");
     const replayInput = section.querySelector("[data-action='load-replay-json']");
+    const scenarioButton = section.querySelector("[data-action='run-scenarios']");
 
     copyButton.addEventListener("click", () => {
       const payload = JSON.stringify(filteredDebugTraces(), null, 2);
@@ -1554,6 +1558,11 @@
       reader.readAsText(file);
     });
 
+    scenarioButton.addEventListener("click", () => {
+      state.scenarioReport = semantic.runScenarioPack(semantic.defaultScenarioPack());
+      scheduleRender();
+    });
+
     return section;
   }
 
@@ -1580,6 +1589,38 @@
       ["Replay timestamp", latest.replayTimestamp],
       ["Pipeline versions", `${latest.pipelineVersionComparison.original} -> ${latest.pipelineVersionComparison.current}`],
       ["Replay agreement", latest.replayAgreementState]
+    ]);
+  }
+
+  function renderScenarioValidation() {
+    const report = state.scenarioReport;
+    if (!report) {
+      return renderInspectorSection("Scenario Validation", [
+        ["Pass/fail", "not run"],
+        ["Label agreement", "not run"],
+        ["Confidence agreement", "not run"],
+        ["Contradiction agreement", "not run"],
+        ["Governance agreement", "not run"],
+        ["Drift severity", "none"],
+        ["Pipeline version", "not run"],
+        ["Summary", "Run scenarios to validate canonical governance."]
+      ]);
+    }
+
+    const labelAgreement = report.results.every((result) => result.labelAgreement);
+    const confidenceAgreement = report.results.every((result) => result.confidenceAgreement);
+    const contradictionAgreement = report.results.every((result) => result.contradictionAgreement);
+    const governanceAgreement = report.results.every((result) => result.governanceAgreement);
+
+    return renderInspectorSection("Scenario Validation", [
+      ["Pass/fail", `${report.passed}/${report.total} passing`],
+      ["Label agreement", labelAgreement ? "pass" : "fail"],
+      ["Confidence agreement", confidenceAgreement ? "pass" : "fail"],
+      ["Contradiction agreement", contradictionAgreement ? "pass" : "fail"],
+      ["Governance agreement", governanceAgreement ? "pass" : "fail"],
+      ["Drift severity", report.severity],
+      ["Pipeline version", report.pipelineVersion],
+      ["Summary", `${report.failed} failed; drift detected: ${report.driftDetected}`]
     ]);
   }
 

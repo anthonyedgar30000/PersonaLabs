@@ -11,6 +11,20 @@
 
   const PIPELINE_VERSION = "canonical-semantic-v1";
 
+  const SCENARIO_CATEGORIES = [
+    "benign",
+    "educational",
+    "political",
+    "inflammatory",
+    "ambiguous",
+    "contradictory",
+    "manipulation",
+    "edge-case",
+    "low-context",
+    "adversarial-title",
+    "semantic-drift"
+  ];
+
   const STYLE_TAXONOMY = {
     escalation: [
       "breaking",
@@ -1599,6 +1613,155 @@
     return items.filter(Boolean).map(replayTrace);
   }
 
+  function defaultScenarioPack() {
+    return {
+      name: "PersonaLabs canonical smoke scenarios",
+      scenarios: [
+        {
+          id: "benign-calm-bunny",
+          name: "Calm bunny content",
+          category: "benign",
+          description: "Calm animal content should remain GREEN.",
+          expectedLabel: "GREEN",
+          expectedConfidenceRange: [70, 100],
+          expectedGovernanceOutcomes: ["Calm/pet content detected"],
+          expectedContradictionState: false,
+          input: {
+            title: "Cute Baby Bunny Compilation",
+            channel: "Wholesome Pets",
+            duration: "12:00"
+          }
+        },
+        {
+          id: "educational-public-radio",
+          name: "Public radio context",
+          category: "educational",
+          description: "Lower-friction public radio interview should not be RED.",
+          expectedLabel: ["GREEN", "YELLOW"],
+          expectedConfidenceRange: [40, 100],
+          expectedGovernanceOutcomes: ["lower-friction source format"],
+          expectedContradictionState: false,
+          input: {
+            title: "Thomas Massie discusses Iran vote on public radio",
+            channel: "Public Radio Forum",
+            duration: "24:00"
+          }
+        },
+        {
+          id: "adversarial-outrage",
+          name: "Political outrage title",
+          category: "adversarial-title",
+          description: "Overt outrage framing should be RED.",
+          expectedLabel: "RED",
+          expectedConfidenceRange: [45, 100],
+          expectedGovernanceOutcomes: ["explicit escalation or distress framing detected"],
+          expectedContradictionState: false,
+          input: {
+            title: "OUTRAGE: Thomas Massie meltdown after Iran vote",
+            channel: "Outrage Daily",
+            duration: "4:10"
+          }
+        }
+      ]
+    };
+  }
+
+  function scenarioExpectedLabels(expectedLabel) {
+    return Array.isArray(expectedLabel) ? expectedLabel : [expectedLabel];
+  }
+
+  function scenarioSeverity({ labelAgreement, confidenceAgreement, governanceAgreement, contradictionAgreement }) {
+    if (!labelAgreement) {
+      return "high";
+    }
+    if (!governanceAgreement || !contradictionAgreement) {
+      return "medium";
+    }
+    if (!confidenceAgreement) {
+      return "low";
+    }
+    return "none";
+  }
+
+  function runScenario(scenario) {
+    const item = scenario || {};
+    const input = item.input || item.inputMetadata || {};
+    const anchor = analyzeAnchor(input.title || "");
+    const lens = resolveLensForReplay(anchor, item.lens || item.selectedLens);
+    const score = scoreContent({
+      candidate: input,
+      anchor,
+      lens,
+      scoringPath: `scenario:${item.id || item.name || "unnamed"}`,
+      expectedLabel: scenarioExpectedLabels(item.expectedLabel)[0] || ""
+    });
+    const labels = scenarioExpectedLabels(item.expectedLabel);
+    const labelAgreement = labels.includes(score.label);
+    const range = item.expectedConfidenceRange || [0, 100];
+    const confidenceAgreement = score.confidence >= range[0] && score.confidence <= range[1];
+    const midpoint = Math.round((range[0] + range[1]) / 2);
+    const confidenceDelta = score.confidence - midpoint;
+    const expectedGovernance = item.expectedGovernanceOutcomes || [];
+    const governanceText = [
+      ...((score.reasoning && score.reasoning.reasons) || []),
+      ...((score.reasoning && score.reasoning.downgradeReasons) || []),
+      score.explanation || ""
+    ].join(" | ");
+    const governanceAgreement = expectedGovernance.every((expected) => governanceText.includes(expected));
+    const expectedContradiction = Boolean(item.expectedContradictionState);
+    const contradictionAgreement = expectedContradiction === (score.contradictions.length > 0);
+    const replayResults = item.replayTraces ? replayTraces(item.replayTraces) : [];
+    const driftDetected = !labelAgreement || !confidenceAgreement || !governanceAgreement || !contradictionAgreement || replayResults.some((replay) => replay.replayAgreementState === "drift");
+    const severity = scenarioSeverity({ labelAgreement, confidenceAgreement, governanceAgreement, contradictionAgreement });
+
+    return {
+      scenarioId: item.id || item.name || "unnamed-scenario",
+      name: item.name || item.id || "Unnamed scenario",
+      category: SCENARIO_CATEGORIES.includes(item.category) ? item.category : "edge-case",
+      description: item.description || "",
+      expectedLabel: item.expectedLabel,
+      actualLabel: score.label,
+      confidenceDelta,
+      governanceAgreement,
+      contradictionAgreement,
+      driftDetected,
+      severity,
+      pipelineVersion: PIPELINE_VERSION,
+      pass: !driftDetected,
+      labelAgreement,
+      confidenceAgreement,
+      replayResults,
+      score
+    };
+  }
+
+  function runScenarioPack(pack) {
+    const scenarioPack = pack || defaultScenarioPack();
+    const scenarios = scenarioPack.scenarios || [];
+    const results = scenarios.map(runScenario);
+    const failed = results.filter((result) => !result.pass);
+
+    return {
+      name: scenarioPack.name || "Unnamed scenario pack",
+      category: scenarioPack.category || "mixed",
+      description: scenarioPack.description || "",
+      pipelineVersion: PIPELINE_VERSION,
+      generatedAt: new Date().toISOString(),
+      total: results.length,
+      passed: results.length - failed.length,
+      failed: failed.length,
+      driftDetected: failed.length > 0,
+      severity: failed.some((result) => result.severity === "high")
+        ? "high"
+        : failed.some((result) => result.severity === "medium")
+          ? "medium"
+          : failed.some((result) => result.severity === "low")
+            ? "low"
+            : "none",
+      results
+    };
+  }
+
   function scoreCandidate(candidate, anchorOrTitle, explorationPath) {
     return scoreContent(candidate, anchorOrTitle, explorationPath);
   }
@@ -1722,6 +1885,7 @@
     CALM_NATURE_ANIMAL_SIGNALS,
     CALM_POSITIVE_TERMS,
     HARMLESS_ENERGETIC_TERMS,
+    SCENARIO_CATEGORIES,
     STYLE_TAXONOMY,
     EXPLORATION_STYLES,
     analyzeAnchor,
@@ -1729,6 +1893,7 @@
     buildExplorationPaths,
     classifyStyleTerms,
     detectObservabilitySignals,
+    defaultScenarioPack,
     extractNamedEntities,
     extractSubjectAnchor,
     filterCandidatesByLens,
@@ -1737,6 +1902,8 @@
     removeSensationalTerms,
     replayTrace,
     replayTraces,
+    runScenario,
+    runScenarioPack,
     scoreContent,
     scoreCandidate,
     scoreCandidates,

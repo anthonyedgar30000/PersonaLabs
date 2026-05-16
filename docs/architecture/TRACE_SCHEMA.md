@@ -127,6 +127,26 @@ Replay telemetry includes:
 The inspector shows original/current labels, confidence delta, drift severity,
 changed governance decisions, replay timestamp, and pipeline version comparison.
 
+## Scenario Validation
+
+Scenario validation runs compact deterministic scenario packs through
+`semantic.runScenarioPack(...)`. The runner calls canonical `scoreContent(...)`
+only and emits scenario telemetry:
+
+- `scenarioId`
+- `expectedLabel`
+- `actualLabel`
+- `confidenceDelta`
+- `governanceAgreement`
+- `contradictionAgreement`
+- `driftDetected`
+- `severity`
+- `pipelineVersion`
+
+The inspector summarizes pass/fail, label agreement, confidence agreement,
+contradiction agreement, governance agreement, drift severity, pipeline version,
+and summary stats.
+
 ## Trace events
 
 Canonical `scoreContent(...)` results expose `traceEvents[]`. Runtime debug

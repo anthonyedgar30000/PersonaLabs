@@ -671,3 +671,137 @@ test("replay detects contradiction drift", () => {
   assert.equal(replay.contradictionDrift, true);
   assert(["medium", "high"].includes(replay.driftClassification));
 });
+
+test("scenario runner reports passing canonical scenarios", () => {
+  const report = semantic.runScenarioPack(semantic.defaultScenarioPack());
+
+  assert.equal(report.total >= 3, true);
+  assert.equal(report.failed, 0);
+  assert.equal(report.driftDetected, false);
+  assert.equal(report.severity, "none");
+  report.results.forEach((result) => {
+    assert.equal(result.pass, true);
+    assert.equal(result.labelAgreement, true);
+    assert.equal(result.confidenceAgreement, true);
+    assert.equal(result.governanceAgreement, true);
+    assert.equal(result.contradictionAgreement, true);
+    assert.equal(result.pipelineVersion, report.pipelineVersion);
+  });
+});
+
+test("scenario runner detects governance and contradiction mismatches", () => {
+  const report = semantic.runScenarioPack({
+    name: "Mismatch scenario pack",
+    scenarios: [
+      {
+        id: "governance-mismatch",
+        category: "semantic-drift",
+        description: "Expected governance text is intentionally absent.",
+        expectedLabel: "GREEN",
+        expectedConfidenceRange: [0, 100],
+        expectedGovernanceOutcomes: ["missing governance marker"],
+        expectedContradictionState: false,
+        input: {
+          title: "Cute Baby Bunny Compilation",
+          channel: "Wholesome Pets",
+          duration: "12:00"
+        }
+      },
+      {
+        id: "contradiction-mismatch",
+        category: "contradictory",
+        description: "Expected contradiction state is intentionally wrong.",
+        expectedLabel: "GREEN",
+        expectedConfidenceRange: [0, 100],
+        expectedGovernanceOutcomes: ["Calm/pet content detected"],
+        expectedContradictionState: true,
+        input: {
+          title: "Cute Baby Bunny Compilation",
+          channel: "Wholesome Pets",
+          duration: "12:00"
+        }
+      }
+    ]
+  });
+
+  assert.equal(report.failed, 2);
+  assert.equal(report.driftDetected, true);
+  assert(report.results.some((result) => !result.governanceAgreement));
+  assert(report.results.some((result) => !result.contradictionAgreement));
+});
+
+test("scenario runner covers edge-case and adversarial-title stability", () => {
+  const report = semantic.runScenarioPack({
+    name: "Edge and adversarial stability",
+    scenarios: [
+      {
+        id: "low-context-edge",
+        category: "edge-case",
+        description: "Low context content remains deterministic.",
+        expectedLabel: "YELLOW",
+        expectedConfidenceRange: [0, 100],
+        expectedGovernanceOutcomes: ["neutral default"],
+        expectedContradictionState: false,
+        input: {
+          title: "Obscure Segment 17",
+          channel: "Channel 42",
+          duration: "9:00"
+        }
+      },
+      {
+        id: "adversarial-title",
+        category: "adversarial-title",
+        description: "Outrage title remains high-friction.",
+        expectedLabel: "RED",
+        expectedConfidenceRange: [45, 100],
+        expectedGovernanceOutcomes: ["explicit escalation or distress framing detected"],
+        expectedContradictionState: false,
+        input: {
+          title: "OUTRAGE: Thomas Massie meltdown after Iran vote",
+          channel: "Outrage Daily",
+          duration: "4:10"
+        }
+      }
+    ]
+  });
+
+  assert.equal(report.failed, 0);
+  assert.equal(report.severity, "none");
+});
+
+test("scenario runner reports semantic drift from replay traces", () => {
+  const trace = semantic.scoreContent({
+    candidate: {
+      title: "Cute Baby Bunny Compilation",
+      channel: "Wholesome Pets",
+      duration: "12:00"
+    },
+    anchor: semantic.analyzeAnchor("Cute Baby Bunny Compilation"),
+    lens: semantic.buildExplorationPaths(semantic.analyzeAnchor("Cute Baby Bunny Compilation")).find((item) => item.id === "calmer"),
+    scoringPath: "scenario-replay-source"
+  });
+  const report = semantic.runScenarioPack({
+    name: "Replay drift scenario",
+    scenarios: [
+      {
+        id: "semantic-drift-replay",
+        category: "semantic-drift",
+        description: "Historical trace has a mismatched label.",
+        expectedLabel: "GREEN",
+        expectedConfidenceRange: [0, 100],
+        expectedGovernanceOutcomes: ["Calm/pet content detected"],
+        expectedContradictionState: false,
+        input: {
+          title: "Cute Baby Bunny Compilation",
+          channel: "Wholesome Pets",
+          duration: "12:00"
+        },
+        replayTraces: [{ ...trace, label: "RED" }]
+      }
+    ]
+  });
+
+  assert.equal(report.failed, 1);
+  assert.equal(report.results[0].driftDetected, true);
+  assert.equal(report.results[0].replayResults[0].replayAgreementState, "drift");
+});
