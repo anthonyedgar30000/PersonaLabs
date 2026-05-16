@@ -3,9 +3,12 @@
 
   const semantic = window.PersonaLabsSemantic;
   const retrieval = window.PersonaLabsRetrieval;
-  const headlineAnalyzer = window.PersonaLabsHeadlineAnalyzer;
   const LOG_PREFIX = "[PersonaLabs rendering]";
   const DEBUG_RENDERING = true;
+
+  if (typeof window.PERSONALABS_DEBUG === "undefined") {
+    window.PERSONALABS_DEBUG = false;
+  }
 
   if (!semantic) {
     console.warn(LOG_PREFIX, "content.js executed, but semantic core is unavailable");
@@ -14,11 +17,6 @@
 
   if (!retrieval) {
     console.warn(LOG_PREFIX, "content.js executed, but retrieval pipeline is unavailable");
-    return;
-  }
-
-  if (!headlineAnalyzer) {
-    console.warn(LOG_PREFIX, "content.js executed, but headline analyzer is unavailable");
     return;
   }
 
@@ -93,6 +91,12 @@
     annotationTimer: null,
     scanTimer: null,
     renderTimer: null,
+    traces: [],
+    debugTraceFilter: "all",
+    debugVerboseTraces: false,
+    replayAnalyses: [],
+    scenarioReport: null,
+    goldenReport: null,
     mutationCount: 0
   };
 
@@ -113,6 +117,16 @@
       console.warn(LOG_PREFIX, message);
     } else {
       console.warn(LOG_PREFIX, message, payload);
+    }
+  }
+
+  function personaLabsDebugEnabled() {
+    return window.PERSONALABS_DEBUG === true;
+  }
+
+  function traceLog(stage, trace) {
+    if (personaLabsDebugEnabled()) {
+      console.debug("[PersonaLabs trace]", stage, trace);
     }
   }
 
@@ -215,6 +229,325 @@
     }
   }
 
+  function videoIdFromUrl(url) {
+    try {
+      const parsed = new URL(url || "", location.origin);
+      if (parsed.searchParams.get("v")) {
+        return parsed.searchParams.get("v");
+      }
+
+      const shortsMatch = parsed.pathname.match(/\/shorts\/([^/?#]+)/);
+      if (shortsMatch) {
+        return shortsMatch[1];
+      }
+    } catch (error) {
+      return "";
+    }
+
+    return "";
+  }
+
+  function generateTraceId(candidate) {
+    const source = [
+      (candidate && candidate.videoId) || videoIdFromUrl(candidate && candidate.url),
+      candidate && candidate.title,
+      candidate && candidate.channel,
+      Date.now(),
+      Math.random().toString(36).slice(2, 8)
+    ].filter(Boolean).join(":");
+
+    let hash = 0;
+    for (let index = 0; index < source.length; index += 1) {
+      hash = ((hash << 5) - hash + source.charCodeAt(index)) | 0;
+    }
+
+    return `pl-${Math.abs(hash).toString(36)}-${Date.now().toString(36)}`;
+  }
+
+  function selectedLensLabel(lens) {
+    const selected = lens || activePath();
+    if (!selected) {
+      return "none";
+    }
+
+    return selected.id || selected.lensLabel || selected.label || "unknown";
+  }
+
+  function uniqueStrings(values) {
+    const seen = new Set();
+    return (values || []).reduce((output, value) => {
+      const normalized = String(value || "").trim();
+      if (normalized && !seen.has(normalized)) {
+        seen.add(normalized);
+        output.push(normalized);
+      }
+      return output;
+    }, []);
+  }
+
+  function termFromSignal(signal) {
+    if (!signal) {
+      return "";
+    }
+
+    if (typeof signal === "string") {
+      return signal;
+    }
+
+    return signal.term || signal.normalizedTerm || signal.category || "";
+  }
+
+  function signalTerms(signals) {
+    return uniqueStrings((signals || []).map(termFromSignal));
+  }
+
+  function detectDomainForTrace(scoring, headline) {
+    if (headline && headline.governance && headline.governance.safeDomain && headline.governance.safeDomain.isSafeAnimalDomain) {
+      return "animal-pet-nature";
+    }
+
+    if (scoring && scoring.breakdown) {
+      if (scoring.breakdown.calmAnimalScore > 0) {
+        return "animal-pet-nature";
+      }
+      if (scoring.breakdown.educationalFraming > 0) {
+        return "educational/explanatory";
+      }
+      if (scoring.breakdown.sourceFormat > 0 || scoring.breakdown.informationalTone > 0) {
+        return "low-friction-source";
+      }
+    }
+
+    return "general";
+  }
+
+  function matchedPositiveSignalsForTrace(scoring, headline) {
+    const observability = (scoring && scoring.observabilitySignals) || {};
+    const terms = [
+      ...signalTerms(observability.educational),
+      ...signalTerms(observability.lowFriction),
+      ...signalTerms(observability.calmPositive),
+      ...signalTerms(observability.calmNatureAnimal),
+      ...signalTerms(observability.neutralReporting),
+      ...signalTerms(observability.interviewDiscussion),
+      ...signalTerms(observability.lowerFrictionSource),
+      ...signalTerms(observability.longForm),
+      ...signalTerms(observability.beginner),
+      ...signalTerms(headline && headline.matchedTerms && headline.matchedTerms.green)
+    ];
+
+    return uniqueStrings(terms);
+  }
+
+  function matchedFrictionSignalsForTrace(scoring, headline) {
+    const observability = (scoring && scoring.observabilitySignals) || {};
+    const source = (headline && headline.sourceAdjustment) || {};
+    const terms = [
+      ...signalTerms(observability.friction),
+      ...signalTerms(observability.animalDistress),
+      ...signalTerms(observability.mixedSource),
+      ...signalTerms(scoring && scoring.detectedStyleTerms),
+      ...signalTerms(headline && headline.matchedTerms && headline.matchedTerms.yellow),
+      ...signalTerms(headline && headline.matchedTerms && headline.matchedTerms.red),
+      ...signalTerms(source.riskMatches)
+    ];
+
+    return uniqueStrings(terms);
+  }
+
+  function suppressedSignalsForTrace(headline, anchor) {
+    const suppressed = [
+      ...((headline && headline.governance && headline.governance.suppressedWeakTerms) || []),
+      ...(((anchor && anchor.removedEscalationTerms) || []).map(termFromSignal))
+    ];
+
+    return uniqueStrings(suppressed);
+  }
+
+  function downgradeReasonsForTrace(scoring, headline, visibleOverlay) {
+    if (scoring && scoring.reasoning && scoring.reasoning.downgradeReasons) {
+      return scoring.reasoning.downgradeReasons;
+    }
+
+    const reasons = [
+      ...((scoring && scoring.reasons) || []).filter((reason) => /downgrade|ranked lower|neutral default|chaotic|friction|escalation|suppression|cap/i.test(reason)),
+      ...((headline && headline.reasons) || []).filter((reason) => /yellow|red|suppressed|uncertain|risk/i.test(reason)),
+      visibleOverlay && visibleOverlay.code && visibleOverlay.reason ? visibleOverlay.reason : ""
+    ];
+
+    return uniqueStrings(reasons);
+  }
+
+  function scoreComponentsForTrace(scoring, headline) {
+    if (scoring && scoring.scores) {
+      return scoring.scores;
+    }
+
+    return {
+      semanticScore: scoring ? scoring.score : null,
+      semanticBreakdown: scoring && scoring.breakdown ? scoring.breakdown : {},
+      headlineScores: headline && headline.scores ? headline.scores : {},
+      confidence: scoring ? scoring.confidence : null,
+      domainConfidence: scoring ? scoring.domainConfidence : null,
+      frictionConfidence: scoring ? scoring.frictionConfidence : null,
+      positiveSignalConfidence: scoring ? scoring.positiveSignalConfidence : null
+    };
+  }
+
+  function createTrace(candidate, renderingTarget, lens) {
+    if (!personaLabsDebugEnabled()) {
+      return null;
+    }
+
+    const trace = {
+      traceId: generateTraceId(candidate),
+      videoId: (candidate && candidate.videoId) || videoIdFromUrl(candidate && candidate.url),
+      title: (candidate && candidate.title) || "",
+      channel: (candidate && candidate.channel) || "",
+      lens: selectedLensLabel(lens),
+      domain: "unknown",
+      label: "",
+      confidence: null,
+      scores: {},
+      matchedTerms: {
+        positive: [],
+        friction: []
+      },
+      matchedSignals: {
+        positive: [],
+        friction: []
+      },
+      suppressedTerms: [],
+      suppressedSignals: [],
+      downgradeReasons: [],
+      semanticSignals: {},
+      observabilitySignals: {},
+      reasoning: {},
+      pipelineVersion: "",
+      scoringPath: "",
+      contradictions: [],
+      confidenceValidation: null,
+      domainContext: {},
+      traceEvents: [],
+      explanation: "",
+      timestamp: new Date().toISOString(),
+      renderingTarget: renderingTarget || "unknown",
+      stages: []
+    };
+
+    state.traces.unshift(trace);
+    state.traces = state.traces.slice(0, 50);
+    window.PersonaLabsDebugTraces = state.traces;
+    return trace;
+  }
+
+  function updateTraceFromScoring(trace, scoring, headline, visibleOverlay, renderingTarget) {
+    if (!trace) {
+      return null;
+    }
+
+    if (scoring && scoring.traceId) {
+      trace.traceId = scoring.traceId;
+    }
+    trace.domain = (scoring && scoring.domain) || detectDomainForTrace(scoring, headline);
+    trace.matchedTerms = scoring && scoring.matchedTerms
+      ? {
+          positive: scoring.matchedTerms.positive || [],
+          friction: scoring.matchedTerms.friction || []
+        }
+      : {
+          positive: matchedPositiveSignalsForTrace(scoring, headline),
+          friction: matchedFrictionSignalsForTrace(scoring, headline)
+        };
+    trace.matchedSignals = trace.matchedTerms;
+    trace.suppressedTerms = scoring && scoring.suppressedTerms ? scoring.suppressedTerms : suppressedSignalsForTrace(headline, state.anchor);
+    trace.suppressedSignals = trace.suppressedTerms;
+    trace.scores = scoreComponentsForTrace(scoring, headline);
+    trace.label = (scoring && scoring.label) || (visibleOverlay && visibleOverlay.label) || (scoring && scoring.classification && scoring.classification.color) || (headline && headline.label) || "";
+    trace.confidence = scoring ? scoring.confidence : confidenceNumber(visibleOverlay && visibleOverlay.confidence);
+    trace.downgradeReasons = downgradeReasonsForTrace(scoring, headline, visibleOverlay);
+    trace.explanation = (scoring && scoring.explanation) || (scoring && scoring.finalReason) || (visibleOverlay && visibleOverlay.reason) || (headline && headline.explanation) || "";
+    trace.contradictions = scoring && scoring.contradictions ? scoring.contradictions : [];
+    trace.confidenceValidation = scoring && scoring.confidenceValidation ? scoring.confidenceValidation : null;
+    trace.pipelineVersion = scoring && scoring.pipelineVersion;
+    trace.scoringPath = scoring && scoring.scoringPath;
+    trace.semanticSignals = scoring && scoring.semanticSignals ? scoring.semanticSignals : {};
+    trace.observabilitySignals = scoring && scoring.observabilitySignals ? scoring.observabilitySignals : {};
+    trace.reasoning = scoring && scoring.reasoning ? scoring.reasoning : {};
+    trace.domainContext = scoring && scoring.domainContext ? scoring.domainContext : {};
+    trace.traceEvents = scoring && scoring.traceEvents ? scoring.traceEvents : [];
+    trace.renderingTarget = renderingTarget || trace.renderingTarget;
+    trace.timestamp = new Date().toISOString();
+    return trace;
+  }
+
+  function recordTraceStage(trace, stage, details, options) {
+    if (!trace || !personaLabsDebugEnabled()) {
+      return;
+    }
+
+    if (options && options.once && trace.stages.some((entry) => entry.stage === stage)) {
+      return;
+    }
+
+    const entry = {
+      traceId: trace.traceId,
+      stage,
+      timestamp: new Date().toISOString(),
+      input: {
+        title: trace.title,
+        channel: trace.channel,
+        videoId: trace.videoId,
+        lens: trace.lens
+      },
+      derivedState: details || {},
+      confidence: {
+        final: trace.confidence,
+        domain: trace.scores && trace.scores.domainConfidence,
+        friction: trace.scores && trace.scores.frictionConfidence,
+        positiveSignal: trace.scores && trace.scores.positiveSignalConfidence
+      },
+      canonicalLabel: trace.label,
+      contradictions: trace.contradictions || [],
+      metadata: {
+        renderingTarget: trace.renderingTarget,
+        scoringPath: trace.scoringPath,
+        pipelineVersion: trace.pipelineVersion
+      },
+      details: details || {}
+    };
+    trace.stages.push(entry);
+    trace.timestamp = entry.timestamp;
+    traceLog(stage, trace);
+  }
+
+  function attemptDatabaseTraceSave(trace) {
+    if (!trace || trace.databaseSaveAttempted) {
+      return;
+    }
+
+    trace.databaseSaveAttempted = true;
+    recordTraceStage(trace, "database save attempted", { traceId: trace.traceId }, { once: true });
+
+    const adapter = window.PersonaLabsTraceDatabase;
+    if (!adapter || typeof adapter.saveTrace !== "function") {
+      recordTraceStage(trace, "database save failed", { reason: "trace database adapter unavailable" }, { once: true });
+      return;
+    }
+
+    try {
+      Promise.resolve(adapter.saveTrace(trace))
+        .then(() => {
+          recordTraceStage(trace, "database save succeeded", { traceId: trace.traceId }, { once: true });
+        })
+        .catch((error) => {
+          recordTraceStage(trace, "database save failed", { message: error && error.message }, { once: true });
+        });
+    } catch (error) {
+      recordTraceStage(trace, "database save failed", { message: error && error.message }, { once: true });
+    }
+  }
+
   function uniqueElements(elements) {
     const seen = new Set();
     const output = [];
@@ -311,6 +644,7 @@
         card.querySelector("a[href*='watch'], a[href*='/shorts/']").getAttribute("href"));
 
     return {
+      videoId: videoIdFromUrl(absoluteUrl(link)),
       title,
       channel,
       duration,
@@ -338,6 +672,7 @@
     ]);
 
     return {
+      videoId: videoIdFromUrl(location.href),
       title,
       channel,
       url: location.href,
@@ -351,6 +686,7 @@
       .filter(Boolean)
       .filter((candidate) => candidate.url || location.pathname === "/results")
       .map((candidate) => ({
+        videoId: candidate.videoId || videoIdFromUrl(candidate.url),
         title: candidate.title,
         channel: candidate.channel,
         duration: candidate.duration,
@@ -507,13 +843,48 @@
       return;
     }
 
+    explorationSet.scored.forEach((item) => {
+      const trace = createTrace(item, "panel", explorationSet.lens);
+      item.personaLabsTrace = trace;
+      recordTraceStage(trace, "video/card detected", {
+        source: explorationSet.retrieval.source,
+        mode: explorationSet.retrieval.mode
+      }, { once: true });
+      recordTraceStage(trace, "metadata extracted", {
+        videoId: item.videoId || videoIdFromUrl(item.url),
+        title: item.title,
+        channel: item.channel,
+        duration: item.duration,
+        url: item.url,
+        source: item.source || explorationSet.retrieval.source
+      }, { once: true });
+      recordTraceStage(trace, "semantic scoring started", {
+        lens: selectedLensLabel(explorationSet.lens),
+        pipeline: explorationSet.pipeline
+      }, { once: true });
+      updateTraceFromScoring(trace, item.scoring, null, null, "panel");
+      recordTraceStage(trace, "domain/tone/friction signals matched", {
+        domain: trace && trace.domain,
+        matchedSignals: trace && trace.matchedSignals
+      }, { once: true });
+      recordTraceStage(trace, "suppression/override rules applied", {
+        suppressedSignals: trace && trace.suppressedSignals,
+        finalReason: item.scoring && item.scoring.finalReason
+      }, { once: true });
+      recordTraceStage(trace, "final classification selected", {
+        label: trace && trace.label,
+        confidence: trace && trace.confidence,
+        explanation: trace && trace.explanation
+      }, { once: true });
+    });
+
     state.suggestions = explorationSet.suggestions;
     state.scoredResultCount = explorationSet.scored.length;
     debugLog("score-first/filter-second pipeline completed", {
       scored: explorationSet.scored.map((item) => ({
         title: item.title,
         score: item.scoring.score,
-        color: item.scoring.classification.color,
+        color: item.scoring.label,
         allowed: explorationSet.suggestions.includes(item)
       })),
       suggestions: explorationSet.suggestions.length
@@ -552,39 +923,77 @@
         return;
       }
 
+      const trace = createTrace(candidate, "overlay", activePath());
+      recordTraceStage(trace, "video/card detected", describeCard(card, candidate), { once: true });
+      recordTraceStage(trace, "metadata extracted", {
+        videoId: candidate.videoId || videoIdFromUrl(candidate.url),
+        title: candidate.title,
+        channel: candidate.channel,
+        duration: candidate.duration,
+        url: candidate.url
+      }, { once: true });
+
       card.dataset.personaLabsTitle = titleKey;
-      const scoring = state.anchor ? semantic.scoreCandidate(candidate, state.anchor, activePath()) : null;
-      const headline = headlineAnalyzer.analyzeHeadline(candidate.title, candidate.channel, "chill");
-      const visibleOverlay = resolveVisibleOverlay(headline, scoring);
+      recordTraceStage(trace, "semantic scoring started", {
+        lens: selectedLensLabel(activePath()),
+        hasAnchor: Boolean(state.anchor)
+      }, { once: true });
+      const scoring = semantic.scoreContent({
+        candidate,
+        anchor: state.anchor || candidate.title,
+        lens: activePath(),
+        scoringPath: "overlay"
+      });
       const styleSignals = semantic.classifyStyleTerms(candidate.title);
-      const label = `PL ${visibleOverlay.label}`;
-      const category = visibleOverlay.color;
+      updateTraceFromScoring(trace, scoring, null, null, "overlay");
+      recordTraceStage(trace, "domain/tone/friction signals matched", {
+        domain: trace && trace.domain,
+        matchedSignals: trace && trace.matchedSignals,
+        styleSignals
+      }, { once: true });
+      recordTraceStage(trace, "suppression/override rules applied", {
+        suppressedSignals: trace && trace.suppressedSignals,
+        semanticOverrides: scoring.semanticSignals && scoring.semanticSignals.semanticOverrides,
+        contradictions: scoring.contradictions
+      }, { once: true });
+      recordTraceStage(trace, "final classification selected", {
+        label: trace && trace.label,
+        confidence: trace && trace.confidence,
+        explanation: trace && trace.explanation
+      }, { once: true });
+      const label = `PL ${scoring.label}`;
+      const category = scoring.label.toLowerCase();
       const details = {
         ...describeCard(card, candidate),
-        headlineScores: headline.scores,
-        headlineExplanation: headline.explanation,
-        visibleOverlay,
-        headlineGovernance: headline.governance,
-        matchedTerms: summarizeHeadlineTerms(headline),
-        semanticScore: scoring && scoring.score,
-        semanticColor: scoring && scoring.classification.color,
+        traceId: trace && trace.traceId,
+        canonicalScore: scoring.score,
+        canonicalLabel: scoring.label,
+        matchedTerms: scoring.matchedTerms,
+        contradictions: scoring.contradictions,
         category,
         label
       };
 
       debugLog("assigned deterministic classification", details);
 
-      const titleBadgeCreated = upsertTitleBadge(card, label, category, scoring, headline, visibleOverlay);
-      const overlayCreated = upsertThumbnailOverlay(card, label, category, scoring, headline, visibleOverlay);
+      const titleBadgeCreated = upsertTitleBadge(card, label, category, scoring);
+      const overlayCreated = upsertThumbnailOverlay(card, label, category, scoring);
 
       if (titleBadgeCreated || overlayCreated) {
         renderedCount += 1;
         debugLog("overlay/badge render result", {
+          traceId: trace && trace.traceId,
           title: candidate.title,
           titleBadgeCreated,
           overlayCreated,
           category
         });
+        recordTraceStage(trace, "overlay rendered", {
+          titleBadgeCreated,
+          overlayCreated,
+          category
+        }, { once: true });
+        attemptDatabaseTraceSave(trace);
       } else {
         skippedCount += 1;
         warnLog("overlay creation failed for detected card", details);
@@ -597,88 +1006,71 @@
       renderedCount,
       skippedCount
     });
+
+    if (personaLabsDebugEnabled() && renderedCount > 0) {
+      scheduleRender();
+    }
   }
 
-  function resolveVisibleOverlay(headline, scoring) {
-    const baseOverlay = headline.visibleOverlay || {
-      label: headline.label,
-      color: headline.color,
-      confidence: headline.confidence || "medium",
-      reason: headline.explanation
-    };
-    const semanticColor = scoring && scoring.classification && scoring.classification.color;
-    const calmAnimalScore = scoring && scoring.breakdown && scoring.breakdown.calmAnimalScore;
-    const animalDistressScore = scoring && scoring.breakdown && scoring.breakdown.animalDistressScore;
-    const headlineHasRed = headline.scores && headline.scores.red_score > 0;
-
-    if (
-      semanticColor === "GREEN" &&
-      baseOverlay.label === "YELLOW" &&
-      calmAnimalScore > 0 &&
-      animalDistressScore === 0 &&
-      !headlineHasRed
-    ) {
-      return {
-        label: "GREEN",
-        color: "green",
-        confidence: "medium",
-        reason: "Visible overlay kept GREEN because semantic scoring detected harmless animal/pet content and headline YELLOW was only uncertainty.",
-        code: "visible.safe_domain_semantic_green_override"
-      };
+  function confidenceNumber(value) {
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) {
+      return Math.max(0, Math.min(100, Math.round(numeric)));
     }
 
+    const label = String(value || "").toLowerCase();
+    if (label === "high") {
+      return 85;
+    }
+    if (label === "medium") {
+      return 60;
+    }
+    if (label === "low") {
+      return 30;
+    }
+    if (label === "uncertain") {
+      return 40;
+    }
+    return 0;
+  }
+
+  function formatConfidence(value) {
+    return `${confidenceNumber(value)}/100`;
+  }
+
+  function classificationConfidence(scoring, visibleOverlay) {
     return {
-      ...baseOverlay,
-      code: baseOverlay.code || "visible.headline_governance"
+      confidence: scoring ? scoring.confidence : confidenceNumber(visibleOverlay && visibleOverlay.confidence),
+      domainConfidence: scoring ? scoring.domainConfidence : "",
+      frictionConfidence: scoring ? scoring.frictionConfidence : "",
+      positiveSignalConfidence: scoring ? scoring.positiveSignalConfidence : "",
+      finalReason: scoring && scoring.finalReason ? scoring.finalReason : (visibleOverlay && visibleOverlay.reason) || ""
     };
   }
 
-  function summarizeHeadlineTerms(headline) {
-    return {
-      green: headline.matchedTerms.green.map((match) => match.term),
-      yellow: headline.matchedTerms.yellow.map((match) => match.term),
-      red: headline.matchedTerms.red.map((match) => match.term)
-    };
-  }
-
-  function formatHeadlineTooltip(headline, scoring, visibleOverlay) {
-    const terms = summarizeHeadlineTerms(headline);
-    const matched = [
-      terms.green.length ? `green: ${terms.green.join(", ")}` : "",
-      terms.yellow.length ? `yellow: ${terms.yellow.join(", ")}` : "",
-      terms.red.length ? `red: ${terms.red.join(", ")}` : ""
-    ]
-      .filter(Boolean)
-      .join(" | ");
+  function formatCanonicalTooltip(scoring) {
+    const confidence = classificationConfidence(scoring);
 
     return [
-      `Visible overlay: ${visibleOverlay.label} (${visibleOverlay.confidence}).`,
-      visibleOverlay.reason,
-      headline.explanation,
-      `Headline scores: green ${headline.scores.green_score}, yellow ${headline.scores.yellow_score}, red ${headline.scores.red_score}.`,
-      headline.governance && headline.governance.suppressedWeakTerms.length
-        ? `Suppressed weak safe-domain terms: ${headline.governance.suppressedWeakTerms.join(", ")}.`
-        : "",
-      matched ? `Matched terms: ${matched}.` : "Matched terms: none.",
-      scoring ? `Semantic score: ${scoring.score} (${scoring.classification.color}).` : ""
+      `Canonical label: ${scoring.label}.`,
+      `Confidence: ${formatConfidence(confidence.confidence)}.`,
+      scoring.explanation || confidence.finalReason || ""
     ]
       .filter(Boolean)
       .join("\n");
   }
 
-  function renderHeadlineOverlay(label, headline, visibleOverlay) {
-    const terms = summarizeHeadlineTerms(headline);
-    const matched = [...terms.green, ...terms.yellow, ...terms.red].slice(0, 4).join(", ") || "no matched terms";
+  function renderCanonicalOverlay(label, scoring) {
+    const confidence = classificationConfidence(scoring);
 
     return [
       `<span class="personalabs-overlay-label">${escapeHtml(label)}</span>`,
-      `<span class="personalabs-overlay-breakdown">G ${headline.scores.green_score} / Y ${headline.scores.yellow_score} / R ${headline.scores.red_score}</span>`,
-      `<span class="personalabs-overlay-reason">${escapeHtml(visibleOverlay.reason || headline.explanation)}</span>`,
-      `<span class="personalabs-overlay-terms">${escapeHtml(matched)}</span>`
-    ].join("");
+      `<span class="personalabs-overlay-confidence">Confidence ${escapeHtml(formatConfidence(confidence.confidence))}</span>`,
+      `<span class="personalabs-overlay-reason">${escapeHtml(scoring.explanation || scoring.finalReason)}</span>`
+    ].filter(Boolean).join("");
   }
 
-  function upsertTitleBadge(card, label, category, scoring, headline, visibleOverlay) {
+  function upsertTitleBadge(card, label, category, scoring) {
     const titleElement = findTitleElement(card);
     if (!titleElement) {
       warnLog("title badge skipped; no title element found", { tag: card && card.tagName });
@@ -694,7 +1086,7 @@
 
     badge.textContent = label;
     badge.dataset.signal = category;
-    badge.title = formatHeadlineTooltip(headline, scoring, visibleOverlay);
+    badge.title = formatCanonicalTooltip(scoring);
 
     return badge.isConnected;
   }
@@ -715,7 +1107,7 @@
     );
   }
 
-  function upsertThumbnailOverlay(card, label, category, scoring, headline, visibleOverlay) {
+  function upsertThumbnailOverlay(card, label, category, scoring) {
     const host = findThumbnailHost(card);
     if (!host) {
       warnLog("thumbnail overlay skipped; no host found", { tag: card && card.tagName });
@@ -733,9 +1125,9 @@
       host.appendChild(overlay);
     }
 
-    overlay.innerHTML = renderHeadlineOverlay(label, headline, visibleOverlay);
+    overlay.innerHTML = renderCanonicalOverlay(label, scoring);
     overlay.dataset.signal = category;
-    overlay.title = formatHeadlineTooltip(headline, scoring, visibleOverlay);
+    overlay.title = formatCanonicalTooltip(scoring);
 
     return overlay.isConnected;
   }
@@ -768,6 +1160,10 @@
 
     if (!anchor) {
       panel.appendChild(renderEmptyState());
+      if (personaLabsDebugEnabled()) {
+        panel.appendChild(renderPipelineHealth());
+        panel.appendChild(renderDebugTraces());
+      }
       return;
     }
 
@@ -775,6 +1171,10 @@
     panel.appendChild(renderPaths(path));
     panel.appendChild(renderSuggestions());
     panel.appendChild(renderPrinciples());
+    if (personaLabsDebugEnabled()) {
+      panel.appendChild(renderPipelineHealth());
+      panel.appendChild(renderDebugTraces());
+    }
   }
 
   function renderHeader() {
@@ -904,23 +1304,33 @@
     state.suggestions.forEach((suggestion) => {
       const item = document.createElement("li");
       const link = suggestion.url ? `<a href='${escapeAttribute(suggestion.url)}'>${escapeHtml(suggestion.title)}</a>` : escapeHtml(suggestion.title);
+      const confidence = classificationConfidence(suggestion.scoring);
+      const trace = suggestion.personaLabsTrace;
       const reasons = suggestion.scoring.reasons
         .slice(0, 3)
         .map((reason) => `<span>${escapeHtml(reason)}</span>`)
         .join("");
-      const color = suggestion.scoring.classification.color.toLowerCase();
+      const color = suggestion.scoring.label.toLowerCase();
 
       item.dataset.classification = color;
       item.innerHTML = [
         `<div class='personalabs-score' data-classification='${color}'>${suggestion.scoring.score}</div>`,
         "<div>",
-        `<div class='personalabs-classification' data-classification='${color}'>${escapeHtml(suggestion.scoring.classification.color)} | ${escapeHtml(suggestion.scoring.classification.label)}</div>`,
+        `<div class='personalabs-classification' data-classification='${color}'>${escapeHtml(suggestion.scoring.label)} | ${escapeHtml(suggestion.scoring.classification.label)} | Confidence ${escapeHtml(formatConfidence(confidence.confidence))}</div>`,
         `<h4>${link}</h4>`,
         `<p>${escapeHtml(suggestion.channel || "Visible YouTube result")}</p>`,
+        `<div class='personalabs-confidence-details'>Domain ${escapeHtml(formatConfidence(confidence.domainConfidence))} | Friction ${escapeHtml(formatConfidence(confidence.frictionConfidence))} | Positive ${escapeHtml(formatConfidence(confidence.positiveSignalConfidence))}</div>`,
+        `<p class='personalabs-final-reason'>Final reason: ${escapeHtml(suggestion.scoring.explanation || confidence.finalReason || suggestion.scoring.classification.reason || "classification reason unavailable")}</p>`,
         `<div class='personalabs-reasons'>${reasons}</div>`,
         "</div>"
       ].join("");
       list.appendChild(item);
+      recordTraceStage(trace, "panel recommendation rendered", {
+        title: suggestion.title,
+        color: suggestion.scoring.label,
+        confidence: suggestion.scoring.confidence
+      }, { once: true });
+      attemptDatabaseTraceSave(trace);
     });
 
     section.appendChild(list);
@@ -943,6 +1353,366 @@
       "</ul>"
     ].join("");
     return section;
+  }
+
+  function renderPipelineHealth() {
+    const section = document.createElement("section");
+    section.className = "personalabs-section personalabs-pipeline-health";
+    const latest = state.traces[0];
+    const labels = state.traces.reduce((groups, trace) => {
+      const key = trace.renderingTarget || trace.scoringPath || "unknown";
+      groups[key] = trace.label || "";
+      return groups;
+    }, {});
+    const overlayLabel = labels.overlay || "";
+    const panelLabel = labels.panel || "";
+    const retrievalLabel = state.traces.find((trace) => /^retrieval/.test(trace.scoringPath || ""))?.label || panelLabel;
+    const overlayPanelAgreement = overlayLabel && panelLabel ? (overlayLabel === panelLabel ? "agree" : "drift") : "pending";
+    const retrievalAgreement = retrievalLabel && panelLabel ? (retrievalLabel === panelLabel ? "agree" : "drift") : "pending";
+    const fallbackActive = state.traces.some((trace) => /legacy|fallback|headline/i.test(`${trace.scoringPath || ""} ${trace.reasoning && trace.reasoning.finalReason || ""}`));
+    const contradictionCount = state.traces.reduce((total, trace) => total + ((trace.contradictions && trace.contradictions.length) || 0), 0);
+    const traceEventCount = state.traces.reduce((total, trace) => total + ((trace.traceEvents && trace.traceEvents.length) || 0), 0);
+    const driftWarning = contradictionCount > 0 || overlayPanelAgreement === "drift" || retrievalAgreement === "drift";
+
+    section.innerHTML = [
+      "<p class='personalabs-eyebrow'>Pipeline Health</p>",
+      "<div class='personalabs-health-grid'>",
+      healthItem("Canonical label", latest && latest.label || "pending"),
+      healthItem("Final confidence", latest ? formatConfidence(latest.confidence) : "pending"),
+      healthItem("Contradictions", String(contradictionCount)),
+      healthItem("Overlay/panel agreement", overlayPanelAgreement),
+      healthItem("Retrieval agreement", retrievalAgreement),
+      healthItem("Fallback active", fallbackActive ? "yes" : "no"),
+      healthItem("Trace events", String(traceEventCount)),
+      healthItem("Semantic drift warning", driftWarning ? "warning" : "clear"),
+      "</div>"
+    ].join("");
+
+    return section;
+  }
+
+  function healthItem(label, value) {
+    return `<div class='personalabs-health-item'><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`;
+  }
+
+  function renderDebugTraces() {
+    const section = document.createElement("details");
+    section.className = "personalabs-section personalabs-debug-traces";
+    section.open = false;
+    const traces = filteredDebugTraces();
+    const json = JSON.stringify(traces, null, 2);
+    const latest = traces[0] || state.traces[0];
+    const summary = latest
+      ? `${state.traces.length} traces captured; ${traces.length} shown. Latest: ${latest.label || "pending"} ${latest.title || "untitled"}`
+      : "No traces captured yet.";
+    const traceEvents = latest ? latest.traceEvents || [] : [];
+    const runtimeStages = latest ? latest.stages || [] : [];
+    const confidenceDeltas = latest && latest.semanticSignals ? latest.semanticSignals.confidenceDeltas || {} : {};
+    const transformedPaths = (state.paths || []).map((path) => `${path.id}: ${path.query}`);
+    const retrievalFilters = activePath() ? [describeFilterPolicy(activePath().filterPolicy)] : [];
+    const warnings = latest && latest.contradictions && latest.contradictions.length
+      ? latest.contradictions
+      : ["No contradiction warnings for selected trace."];
+
+    section.innerHTML = [
+      "<summary><span class='personalabs-eyebrow'>Semantic Trace Inspector</span><strong>Trace details</strong></summary>",
+      `<p class='personalabs-muted'>${escapeHtml(summary)}</p>`,
+      "<div class='personalabs-debug-actions'>",
+      "<button type='button' data-action='copy-traces'>Copy JSON</button>",
+      "<button type='button' data-action='export-traces'>Export JSON</button>",
+      "<button type='button' data-action='clear-traces'>Clear</button>",
+      `<button type='button' data-action='toggle-verbose'>${state.debugVerboseTraces ? "Compact traces" : "Verbose traces"}</button>`,
+      "<button type='button' data-action='replay-visible-traces'>Replay visible</button>",
+      "<button type='button' data-action='run-scenarios'>Run scenarios</button>",
+      "<button type='button' data-action='run-golden-pack'>Run golden pack</button>",
+      "<label>Load Replay JSON <input type='file' accept='application/json' data-action='load-replay-json'></label>",
+      "<label>Filter <select data-action='filter-traces'>",
+      `<option value='all'${state.debugTraceFilter === "all" ? " selected" : ""}>All</option>`,
+      `<option value='overlay'${state.debugTraceFilter === "overlay" ? " selected" : ""}>Overlay</option>`,
+      `<option value='retrieval'${state.debugTraceFilter === "retrieval" ? " selected" : ""}>Retrieval</option>`,
+      `<option value='contradictions'${state.debugTraceFilter === "contradictions" ? " selected" : ""}>Contradictions</option>`,
+      `<option value='governance'${state.debugTraceFilter === "governance" ? " selected" : ""}>Governance</option>`,
+      "</select></label>",
+      "</div>",
+      latest ? renderInspectorSection("Input", [
+        ["Raw title", latest.title || "none"],
+        ["Raw metadata", `${latest.channel || "no channel"} | ${latest.videoId || "no video id"}`],
+        ["Source URL", latest.url || "not captured"],
+        ["Timestamp", latest.timestamp || "none"]
+      ]) : "",
+      latest ? renderInspectorSection("Contextual Anchors", [
+        ["Extracted anchor", state.anchor && state.anchor.subjectAnchor || "none"],
+        ["Normalized anchor", state.anchor && state.anchor.keyTerms ? state.anchor.keyTerms.join(", ") : "none"],
+        ["Inferred domain", latest.domain || "unknown"],
+        ["Matched semantic domains", latest.domainContext && latest.domainContext.boosts ? latest.domainContext.boosts.join(", ") || "none" : "none"]
+      ]) : "",
+      latest ? renderInspectorListSection("Extracted Terms", {
+        "Matched positive terms": latest.matchedTerms && latest.matchedTerms.positive,
+        "Matched friction terms": latest.matchedTerms && latest.matchedTerms.friction,
+        "Removed/suppressed terms": latest.suppressedTerms,
+        "Ignored terms": [],
+        "Override terms": latest.semanticSignals && latest.semanticSignals.semanticOverrides ? [latest.semanticSignals.semanticOverrides] : []
+      }) : "",
+      latest ? renderInspectorListSection("Detected Signals", {
+        "Semantic domain boosts": latest.semanticSignals && latest.semanticSignals.domainBoosts,
+        "Observability groups": latest.observabilitySignals ? Object.keys(latest.observabilitySignals) : [],
+        "Friction signals": latest.matchedTerms && latest.matchedTerms.friction,
+        "Positive signals": latest.matchedTerms && latest.matchedTerms.positive
+      }) : "",
+      latest ? renderInspectorSection("Confidence Deltas", [
+        ["Domain", formatConfidence(confidenceDeltas.domain)],
+        ["Friction", formatConfidence(confidenceDeltas.friction)],
+        ["Positive signal", formatConfidence(confidenceDeltas.positiveSignal)],
+        ["Final", formatConfidence(latest.confidence)]
+      ]) : "",
+      latest ? renderInspectorSection("Scoring Flow", [
+        ["Stages", (latest.pipelineStages || []).join(" -> ") || "none"],
+        ["Confidence evolution", `domain ${formatConfidence(confidenceDeltas.domain)} | friction ${formatConfidence(confidenceDeltas.friction)} | positive ${formatConfidence(confidenceDeltas.positiveSignal)} | final ${formatConfidence(latest.confidence)}`],
+        ["Applied modifiers", latest.reasoning && latest.reasoning.reasons ? latest.reasoning.reasons.join(" | ") : "none"],
+        ["Final canonical label", latest.label || "none"]
+      ]) : "",
+      latest ? renderInspectorListSection("Governance Decisions", {
+        "Contradictions detected": warnings,
+        "Override reasons": latest.reasoning && latest.reasoning.downgradeReasons,
+        "Canonical agreement validation": latest.confidenceValidation ? [`confidence valid: ${latest.confidenceValidation.valid}`] : ["not available"],
+        "Semantic path validation": [latest.scoringPath || "unknown"]
+      }) : "",
+      renderReplayAnalysis(),
+      renderScenarioValidation(),
+      renderGoldenRegressionPack(),
+      renderInspectorListSection("Retrieval Transformations", {
+        "Selected lens": [activePath() && (activePath().lensLabel || activePath().label) || "none"],
+        "Transformed exploration paths": transformedPaths,
+        "Retrieval filters applied": retrievalFilters,
+        "Retrieval exclusions": ["RED excluded by filter policy"]
+      }),
+      latest ? renderInspectorListSection("Contradictions", {
+        "Warnings": warnings
+      }) : "",
+      latest ? renderInspectorEvents("Trace Events", traceEvents, state.debugVerboseTraces) : "",
+      latest ? renderInspectorEvents("Runtime Events", runtimeStages, state.debugVerboseTraces) : "",
+      "<div class='personalabs-inspector-block'><h4>Canonical Trace JSON</h4></div>",
+      `<pre>${escapeHtml(json || "[]")}</pre>`
+    ].join("");
+
+    const copyButton = section.querySelector("[data-action='copy-traces']");
+    const exportButton = section.querySelector("[data-action='export-traces']");
+    const clearButton = section.querySelector("[data-action='clear-traces']");
+    const verboseButton = section.querySelector("[data-action='toggle-verbose']");
+    const filterSelect = section.querySelector("[data-action='filter-traces']");
+    const replayButton = section.querySelector("[data-action='replay-visible-traces']");
+    const replayInput = section.querySelector("[data-action='load-replay-json']");
+    const scenarioButton = section.querySelector("[data-action='run-scenarios']");
+    const goldenButton = section.querySelector("[data-action='run-golden-pack']");
+
+    copyButton.addEventListener("click", () => {
+      const payload = JSON.stringify(filteredDebugTraces(), null, 2);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(payload);
+      }
+    });
+
+    exportButton.addEventListener("click", () => {
+      const blob = new Blob([JSON.stringify(filteredDebugTraces(), null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "personalabs-debug-traces.json";
+      link.click();
+      URL.revokeObjectURL(url);
+    });
+
+    clearButton.addEventListener("click", () => {
+      state.traces = [];
+      window.PersonaLabsDebugTraces = state.traces;
+      scheduleRender();
+    });
+
+    verboseButton.addEventListener("click", () => {
+      state.debugVerboseTraces = !state.debugVerboseTraces;
+      scheduleRender();
+    });
+
+    filterSelect.addEventListener("change", () => {
+      state.debugTraceFilter = filterSelect.value;
+      scheduleRender();
+    });
+
+    replayButton.addEventListener("click", () => {
+      state.replayAnalyses = semantic.replayTraces(filteredDebugTraces());
+      scheduleRender();
+    });
+
+    replayInput.addEventListener("change", () => {
+      const file = replayInput.files && replayInput.files[0];
+      if (!file) {
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.addEventListener("load", () => {
+        try {
+          const parsed = JSON.parse(String(reader.result || "[]"));
+          state.replayAnalyses = semantic.replayTraces(parsed);
+          scheduleRender();
+        } catch (error) {
+          warnLog("replay JSON load failed", { message: error && error.message });
+        }
+      });
+      reader.readAsText(file);
+    });
+
+    scenarioButton.addEventListener("click", () => {
+      state.scenarioReport = semantic.runScenarioPack(semantic.defaultScenarioPack());
+      scheduleRender();
+    });
+
+    goldenButton.addEventListener("click", () => {
+      state.goldenReport = semantic.runGoldenRegressionPack(semantic.defaultGoldenRegressionPack());
+      scheduleRender();
+    });
+
+    return section;
+  }
+
+  function renderReplayAnalysis() {
+    const latest = state.replayAnalyses[0];
+    if (!latest) {
+      return renderInspectorSection("Replay Analysis", [
+        ["Original label", "not loaded"],
+        ["Current label", "not replayed"],
+        ["Confidence delta", "0"],
+        ["Drift severity", "none"],
+        ["Changed governance", "none"],
+        ["Replay timestamp", "none"],
+        ["Pipeline versions", "not compared"]
+      ]);
+    }
+
+    return renderInspectorSection("Replay Analysis", [
+      ["Original label", latest.originalLabel || "none"],
+      ["Current label", latest.currentLabel || "none"],
+      ["Confidence delta", String(latest.confidenceDelta)],
+      ["Drift severity", latest.driftClassification],
+      ["Changed governance", latest.governanceDecisionChanges.length ? latest.governanceDecisionChanges.join(" | ") : "none"],
+      ["Replay timestamp", latest.replayTimestamp],
+      ["Pipeline versions", `${latest.pipelineVersionComparison.original} -> ${latest.pipelineVersionComparison.current}`],
+      ["Replay agreement", latest.replayAgreementState]
+    ]);
+  }
+
+  function renderScenarioValidation() {
+    const report = state.scenarioReport;
+    if (!report) {
+      return renderInspectorSection("Scenario Validation", [
+        ["Pass/fail", "not run"],
+        ["Label agreement", "not run"],
+        ["Confidence agreement", "not run"],
+        ["Contradiction agreement", "not run"],
+        ["Governance agreement", "not run"],
+        ["Drift severity", "none"],
+        ["Pipeline version", "not run"],
+        ["Summary", "Run scenarios to validate canonical governance."]
+      ]);
+    }
+
+    const labelAgreement = report.results.every((result) => result.labelAgreement);
+    const confidenceAgreement = report.results.every((result) => result.confidenceAgreement);
+    const contradictionAgreement = report.results.every((result) => result.contradictionAgreement);
+    const governanceAgreement = report.results.every((result) => result.governanceAgreement);
+
+    return renderInspectorSection("Scenario Validation", [
+      ["Pass/fail", `${report.passed}/${report.total} passing`],
+      ["Label agreement", labelAgreement ? "pass" : "fail"],
+      ["Confidence agreement", confidenceAgreement ? "pass" : "fail"],
+      ["Contradiction agreement", contradictionAgreement ? "pass" : "fail"],
+      ["Governance agreement", governanceAgreement ? "pass" : "fail"],
+      ["Drift severity", report.severity],
+      ["Pipeline version", report.pipelineVersion],
+      ["Summary", `${report.failed} failed; drift detected: ${report.driftDetected}`]
+    ]);
+  }
+
+  function renderGoldenRegressionPack() {
+    const report = state.goldenReport;
+    if (!report) {
+      return renderInspectorSection("Golden Regression Pack", [
+        ["Total scenarios", "not run"],
+        ["Pass/fail", "not run"],
+        ["Drift count", "0"],
+        ["Failed IDs", "none"],
+        ["Confidence deltas", "none"],
+        ["Governance mismatches", "none"],
+        ["Pipeline version", "not run"]
+      ]);
+    }
+
+    return renderInspectorSection("Golden Regression Pack", [
+      ["Total scenarios", String(report.total)],
+      ["Pass/fail", `${report.passed}/${report.total} passing`],
+      ["Drift count", String(report.driftCount)],
+      ["Failed IDs", report.failedScenarioIds.length ? report.failedScenarioIds.join(", ") : "none"],
+      ["Confidence deltas", report.confidenceDeltas.map((item) => `${item.scenarioId}:${item.confidenceDelta}`).join(", ") || "none"],
+      ["Governance mismatches", report.governanceMismatches.length ? report.governanceMismatches.join(", ") : "none"],
+      ["Pipeline version", report.pipelineVersion]
+    ]);
+  }
+
+  function filteredDebugTraces() {
+    if (state.debugTraceFilter === "overlay") {
+      return state.traces.filter((trace) => trace.renderingTarget === "overlay");
+    }
+    if (state.debugTraceFilter === "panel") {
+      return state.traces.filter((trace) => trace.renderingTarget === "panel");
+    }
+    if (state.debugTraceFilter === "retrieval") {
+      return state.traces.filter((trace) => /^retrieval|panel/.test(`${trace.scoringPath || ""} ${trace.renderingTarget || ""}`));
+    }
+    if (state.debugTraceFilter === "contradictions") {
+      return state.traces.filter((trace) => trace.contradictions && trace.contradictions.length);
+    }
+    if (state.debugTraceFilter === "governance") {
+      return state.traces.filter((trace) => (trace.confidenceValidation && !trace.confidenceValidation.valid) || (trace.reasoning && trace.reasoning.downgradeReasons && trace.reasoning.downgradeReasons.length));
+    }
+    return state.traces;
+  }
+
+  function renderInspectorSection(title, rows) {
+    return [
+      "<div class='personalabs-inspector-block'>",
+      `<h4>${escapeHtml(title)}</h4>`,
+      "<dl>",
+      rows.map(([label, value]) => `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value || "none")}</dd>`).join(""),
+      "</dl>",
+      "</div>"
+    ].join("");
+  }
+
+  function renderInspectorListSection(title, groups) {
+    return [
+      "<div class='personalabs-inspector-block'>",
+      `<h4>${escapeHtml(title)}</h4>`,
+      Object.entries(groups).map(([label, values]) => {
+        const list = values && values.length ? values : ["none"];
+        return `<p><strong>${escapeHtml(label)}:</strong> ${escapeHtml(list.join(", "))}</p>`;
+      }).join(""),
+      "</div>"
+    ].join("");
+  }
+
+  function renderInspectorEvents(title, events, verbose) {
+    const rendered = (events || []).map((event) => {
+      const label = event.metadata && event.metadata.order ? `${event.metadata.order}. ${event.stage}` : event.stage;
+      const detail = verbose ? JSON.stringify(event, null, 2) : `${event.timestamp || ""} | ${event.canonicalLabel || ""}`;
+      return `<li><span>${escapeHtml(label)}</span><code>${escapeHtml(detail)}</code></li>`;
+    }).join("");
+
+    return [
+      "<div class='personalabs-inspector-block'>",
+      `<h4>${escapeHtml(title)}</h4>`,
+      `<ol class='personalabs-inspector-events'>${rendered || "<li><span>none</span><code></code></li>"}</ol>`,
+      "</div>"
+    ].join("");
   }
 
   function renderSignalSummary(anchor) {

@@ -65,9 +65,9 @@ test("runs retrieval to deterministic scoring to lens-aware reranking", async ()
   assert.deepEqual(calmer.pipeline, retrieval.PIPELINE_STAGES);
   assert.equal(calmer.retrieval.source, "mock-structured-metadata");
   assert.equal(calmer.scored.length, 3);
-  assert.deepEqual(calmer.suggestions.map((item) => item.scoring.classification.color), ["GREEN"]);
+  assert.deepEqual(calmer.suggestions.map((item) => item.scoring.label), ["GREEN"]);
   assert.deepEqual(
-    educational.suggestions.map((item) => item.scoring.classification.color),
+    educational.suggestions.map((item) => item.scoring.label),
     ["GREEN", "YELLOW"]
   );
 });

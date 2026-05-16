@@ -9,6 +9,22 @@
 })(typeof globalThis !== "undefined" ? globalThis : window, function createPersonaLabsSemantic() {
   "use strict";
 
+  const PIPELINE_VERSION = "canonical-semantic-v1";
+
+  const SCENARIO_CATEGORIES = [
+    "benign",
+    "educational",
+    "political",
+    "inflammatory",
+    "ambiguous",
+    "contradictory",
+    "manipulation",
+    "edge-case",
+    "low-context",
+    "adversarial-title",
+    "semantic-drift"
+  ];
+
   const STYLE_TAXONOMY = {
     escalation: [
       "breaking",
@@ -955,8 +971,331 @@
     };
   }
 
-  function scoreCandidate(candidate, anchorOrTitle, explorationPath) {
-    const anchor = typeof anchorOrTitle === "string" ? analyzeAnchor(anchorOrTitle) : anchorOrTitle;
+  function confidenceForScoredCandidate(metrics, classification) {
+    const domainConfidence = clampScore(Math.max(
+      metrics.topicRelevance * 2.5,
+      metrics.continuity * 8,
+      metrics.calmAnimalScore > 0 ? 70 + metrics.calmAnimalScore * 10 : 0
+    ));
+    const frictionConfidence = clampScore(Math.max(
+      metrics.styleTermCount * 30 + metrics.penalty * 2,
+      metrics.animalDistressScore * 45,
+      metrics.harmlessEnergy * 25,
+      metrics.capitalizationRatio > 0.5 ? 35 : 0
+    ));
+    const positiveSignalConfidence = clampScore(Math.max(
+      metrics.calmPositive * 25 + metrics.calmAnimalScore * 20,
+      metrics.educationalFraming * 4,
+      metrics.informationalTone * 7 + metrics.sourceFormat * 7,
+      metrics.format * 6,
+      Math.max(0, metrics.calmLanguage - 10) * 4
+    ));
+    const confidence = clampScore(
+      classification.color === "RED"
+        ? Math.max(frictionConfidence, 45)
+        : classification.color === "GREEN"
+          ? Math.max(domainConfidence, positiveSignalConfidence)
+          : Math.max(45, Math.round((domainConfidence + frictionConfidence + positiveSignalConfidence) / 3))
+    );
+
+    return {
+      confidence,
+      domainConfidence,
+      frictionConfidence,
+      positiveSignalConfidence,
+      finalReason: classification.reason
+    };
+  }
+
+  function videoIdFromCandidate(candidate) {
+    const explicit = candidate && candidate.videoId;
+    if (explicit) {
+      return explicit;
+    }
+
+    try {
+      const parsed = new URL((candidate && candidate.url) || "", "https://www.youtube.com");
+      const videoId = parsed.searchParams.get("v");
+      if (videoId) {
+        return videoId;
+      }
+
+      const shortsMatch = parsed.pathname.match(/\/shorts\/([^/?#]+)/);
+      return shortsMatch ? shortsMatch[1] : "";
+    } catch (error) {
+      return "";
+    }
+  }
+
+  function traceIdForCandidate(candidate, scoringPath) {
+    const source = [
+      videoIdFromCandidate(candidate),
+      candidate && candidate.title,
+      candidate && candidate.channel,
+      scoringPath,
+      Date.now(),
+      Math.random().toString(36).slice(2, 8)
+    ].filter(Boolean).join(":");
+    let hash = 0;
+
+    for (let index = 0; index < source.length; index += 1) {
+      hash = ((hash << 5) - hash + source.charCodeAt(index)) | 0;
+    }
+
+    return `pl-${Math.abs(hash).toString(36)}-${Date.now().toString(36)}`;
+  }
+
+  function termsFromSignals(signals) {
+    return unique((signals || []).map((signal) => signal && (signal.normalizedTerm || signal.term || signal.category)).filter(Boolean));
+  }
+
+  function matchedTermsForCanonical(signals) {
+    return {
+      positive: unique([
+        ...termsFromSignals(signals.educational),
+        ...termsFromSignals(signals.lowFriction),
+        ...termsFromSignals(signals.calmPositive),
+        ...termsFromSignals(signals.calmNatureAnimal),
+        ...termsFromSignals(signals.neutralReporting),
+        ...termsFromSignals(signals.interviewDiscussion),
+        ...termsFromSignals(signals.lowerFrictionSource),
+        ...termsFromSignals(signals.longForm),
+        ...termsFromSignals(signals.beginner)
+      ]),
+      friction: unique([
+        ...termsFromSignals(signals.friction),
+        ...termsFromSignals(signals.harmlessEnergetic),
+        ...termsFromSignals(signals.animalDistress),
+        ...termsFromSignals(signals.mixedSource)
+      ])
+    };
+  }
+
+  function suppressedTermsForCanonical(anchor) {
+    return unique(((anchor && anchor.removedEscalationTerms) || [])
+      .map((signal) => signal && (signal.normalizedTerm || signal.term || signal.category))
+      .filter(Boolean));
+  }
+
+  function domainContextForCanonical(metrics) {
+    if (metrics.calmAnimalScore > 0) {
+      return {
+        domain: "animal-pet-nature",
+        boosts: ["calm animal/nature signals"],
+        confidenceSource: "calmAnimalScore"
+      };
+    }
+
+    if (metrics.educationalFraming > 0) {
+      return {
+        domain: "educational/explanatory",
+        boosts: ["educational framing"],
+        confidenceSource: "educationalFraming"
+      };
+    }
+
+    if (metrics.sourceFormat > 0 || metrics.informationalTone > 0) {
+      return {
+        domain: "low-friction-source",
+        boosts: ["source format", "informational tone"].filter((label, index) => index === 0 ? metrics.sourceFormat > 0 : metrics.informationalTone > 0),
+        confidenceSource: "sourceFormat"
+      };
+    }
+
+    return {
+      domain: "general",
+      boosts: [],
+      confidenceSource: "default"
+    };
+  }
+
+  function downgradeReasonsForCanonical(reasons, classification) {
+    return unique([
+      ...(reasons || []).filter((reason) => /ranked lower|neutral default|chaotic|friction|escalation|distress|mixed/i.test(reason)),
+      classification && /yellow|red|mixed|friction|escalation|distress/i.test(`${classification.color} ${classification.reason}`) ? classification.reason : ""
+    ].filter(Boolean));
+  }
+
+  function normalizeScoreContentInput(input, anchorOrTitle, explorationPath) {
+    if (input && input.candidate) {
+      return {
+        candidate: input.candidate,
+        anchor: input.anchor,
+        lens: input.lens || input.explorationPath,
+        scoringPath: input.scoringPath || "canonical-semantic",
+        expectedLabel: input.expectedLabel || ""
+      };
+    }
+
+    return {
+      candidate: input || {},
+      anchor: anchorOrTitle,
+      lens: explorationPath,
+      scoringPath: "legacy-scoreCandidate",
+      expectedLabel: ""
+    };
+  }
+
+  function resolveLensForReplay(anchor, lensId) {
+    const paths = buildExplorationPaths(anchor);
+    return paths.find((path) => [path.id, path.label, path.lensLabel].includes(lensId)) || paths[0] || null;
+  }
+
+  function detectContradictions(result) {
+    const contradictions = [];
+    const explanation = `${result.explanation || ""} ${((result.reasoning && result.reasoning.reasons) || []).join(" ")}`.toLowerCase();
+    const matchedTerms = [
+      ...((result.matchedTerms && result.matchedTerms.positive) || []),
+      ...((result.matchedTerms && result.matchedTerms.friction) || [])
+    ];
+
+    if (matchedTerms.length === 0 && /(matched terms|title contains|contains .*terms|detected .*terms)/i.test(explanation)) {
+      contradictions.push("explanation claims matched terms while matchedTerms is empty");
+    }
+
+    if (result.label === "GREEN" && /(marked yellow|marked red|explicit escalation|high-friction|controversy terms)/i.test(explanation)) {
+      contradictions.push("GREEN label conflicts with escalation/yellow/red explanation language");
+    }
+
+    if (result.classification && result.classification.color !== result.label) {
+      contradictions.push(`canonical label ${result.label} disagrees with classification color ${result.classification.color}`);
+    }
+
+    if (result.expectedLabel && result.expectedLabel !== result.label) {
+      contradictions.push(`expected label ${result.expectedLabel} disagrees with canonical label ${result.label}`);
+    }
+
+    return contradictions;
+  }
+
+  function validateConfidenceConsistency(result) {
+    const checks = [];
+    const failures = [];
+    const confidenceFields = [
+      ["confidence", result.confidence],
+      ["scores.confidence", result.scores && result.scores.confidence],
+      ["domainConfidence", result.domainConfidence],
+      ["scores.domainConfidence", result.scores && result.scores.domainConfidence],
+      ["semanticSignals.confidenceDeltas.domain", result.semanticSignals && result.semanticSignals.confidenceDeltas && result.semanticSignals.confidenceDeltas.domain],
+      ["frictionConfidence", result.frictionConfidence],
+      ["scores.frictionConfidence", result.scores && result.scores.frictionConfidence],
+      ["semanticSignals.confidenceDeltas.friction", result.semanticSignals && result.semanticSignals.confidenceDeltas && result.semanticSignals.confidenceDeltas.friction],
+      ["positiveSignalConfidence", result.positiveSignalConfidence],
+      ["scores.positiveSignalConfidence", result.scores && result.scores.positiveSignalConfidence],
+      ["semanticSignals.confidenceDeltas.positiveSignal", result.semanticSignals && result.semanticSignals.confidenceDeltas && result.semanticSignals.confidenceDeltas.positiveSignal]
+    ];
+
+    confidenceFields.forEach(([field, value]) => {
+      const valid = Number.isInteger(value) && value >= 0 && value <= 100;
+      checks.push({ field, valid, value });
+      if (!valid) {
+        failures.push(`${field} must be an integer from 0 to 100`);
+      }
+    });
+
+    [
+      ["confidence", result.confidence, result.scores && result.scores.confidence],
+      ["domainConfidence", result.domainConfidence, result.scores && result.scores.domainConfidence],
+      ["frictionConfidence", result.frictionConfidence, result.scores && result.scores.frictionConfidence],
+      ["positiveSignalConfidence", result.positiveSignalConfidence, result.scores && result.scores.positiveSignalConfidence],
+      ["domainConfidence delta", result.domainConfidence, result.semanticSignals && result.semanticSignals.confidenceDeltas && result.semanticSignals.confidenceDeltas.domain],
+      ["frictionConfidence delta", result.frictionConfidence, result.semanticSignals && result.semanticSignals.confidenceDeltas && result.semanticSignals.confidenceDeltas.friction],
+      ["positiveSignalConfidence delta", result.positiveSignalConfidence, result.semanticSignals && result.semanticSignals.confidenceDeltas && result.semanticSignals.confidenceDeltas.positiveSignal]
+    ].forEach(([field, left, right]) => {
+      const valid = left === right;
+      checks.push({ field, valid, value: left, expected: right });
+      if (!valid) {
+        failures.push(`${field} is inconsistent across canonical confidence fields`);
+      }
+    });
+
+    return {
+      valid: failures.length === 0,
+      checks,
+      failures
+    };
+  }
+
+  function semanticTraceEvent(result, order, stage, derivedState) {
+    return {
+      traceId: result.traceId,
+      order,
+      stage,
+      timestamp: result.timestamp,
+      input: {
+        title: result.title,
+        channel: result.channel,
+        videoId: result.videoId,
+        duration: result.duration,
+        url: result.url,
+        lens: result.lens
+      },
+      derivedState,
+      confidence: {
+        final: result.confidence,
+        domain: result.domainConfidence,
+        friction: result.frictionConfidence,
+        positiveSignal: result.positiveSignalConfidence
+      },
+      canonicalLabel: result.label,
+      contradictions: result.contradictions,
+      metadata: {
+        order,
+        pipelineVersion: result.pipelineVersion,
+        scoringPath: result.scoringPath
+      },
+      details: derivedState
+    };
+  }
+
+  function semanticTraceEventsForResult(result) {
+    return [
+      semanticTraceEvent(result, 1, "metadata normalization", {
+        title: result.title,
+        channel: result.channel,
+        videoId: result.videoId,
+        lens: result.lens,
+        scoringPath: result.scoringPath
+      }),
+      semanticTraceEvent(result, 2, "domain detection", {
+        domain: result.domain,
+        domainContext: result.domainContext
+      }),
+      semanticTraceEvent(result, 3, "signal matching", {
+        matchedTerms: result.matchedTerms,
+        observabilitySignals: result.observabilitySignals
+      }),
+      semanticTraceEvent(result, 4, "semantic scoring", {
+        scores: result.scores,
+        confidenceDeltas: result.semanticSignals.confidenceDeltas
+      }),
+      semanticTraceEvent(result, 5, "confidence consistency validation", {
+        confidenceValidation: result.confidenceValidation
+      }),
+      semanticTraceEvent(result, 6, "suppression/override evaluation", {
+        suppressedTerms: result.suppressedTerms,
+        overrides: result.semanticSignals.semanticOverrides,
+        downgradeReasons: result.reasoning.downgradeReasons
+      }),
+      semanticTraceEvent(result, 7, "contradiction detection", {
+        contradictions: result.contradictions
+      }),
+      semanticTraceEvent(result, 8, "final label selection", {
+        label: result.label,
+        confidence: result.confidence,
+        explanation: result.explanation,
+        finalDecisionSource: result.semanticSignals.finalDecisionSource
+      })
+    ];
+  }
+
+  function scoreContent(input, anchorOrTitle, explorationPath) {
+    const normalizedInput = normalizeScoreContentInput(input, anchorOrTitle, explorationPath);
+    const candidate = normalizedInput.candidate || {};
+    const anchorInput = normalizedInput.anchor || candidate.title || "";
+    const anchor = typeof anchorInput === "string" ? analyzeAnchor(anchorInput) : anchorInput;
+    const activeLens = normalizedInput.lens || null;
+    const scoringPath = normalizedInput.scoringPath || "canonical-semantic";
     const title = candidate.title || "";
     const channel = candidate.channel || "";
     const text = normalizeWhitespace(`${title} ${channel}`);
@@ -979,7 +1318,7 @@
     const interviewDiscussionMatches = countMatches(tokens, INTERVIEW_DISCUSSION_TERMS);
     const lowerFrictionSourceMatches = countMatches(tokens, LOWER_FRICTION_SOURCE_TERMS);
     const mixedSourceMatches = countMatches(tokens, MIXED_SOURCE_TERMS);
-    const preferredMatches = countMatches(tokens, (explorationPath && explorationPath.preferredTerms) || []);
+    const preferredMatches = countMatches(tokens, (activeLens && activeLens.preferredTerms) || []);
     const continuityMatches = countMatches(titleTokens, namedEntityTokens);
     const topicMatches = countMatches(titleTokens, anchorTerms);
     const durationSeconds = parseDurationSeconds(candidate.duration);
@@ -1006,7 +1345,7 @@
     const neutralOffset = styleTerms.length > 0 ? 0 : Math.min(8, neutralReportingMatches * 2 + interviewDiscussionMatches * 2 + lowerFrictionSourceMatches * 2);
     const penalty = Math.max(0, Math.min(28, styleTerms.length * 6 + mixedSourceMatches * 2 + (capRatio > 0.5 ? 8 : 0) - neutralOffset));
     const score = clampScore(topicRelevance + educationalFraming + calmLanguage + continuity + format + informationalTone + sourceFormat - penalty);
-    const classification = classifyScoredCandidate({
+    const classificationMetrics = {
       score,
       topicRelevance,
       educationalFraming,
@@ -1023,7 +1362,12 @@
       penalty,
       styleTermCount: styleTerms.length,
       capitalizationRatio: capRatio
-    });
+    };
+    const classification = classifyScoredCandidate(classificationMetrics);
+    const confidence = confidenceForScoredCandidate(classificationMetrics, classification);
+    const domainContext = domainContextForCanonical(classificationMetrics);
+    const matchedTerms = matchedTermsForCanonical(signals);
+    const suppressedTerms = suppressedTermsForCanonical(anchor);
 
     const reasons = [];
     if (topicMatches > 0 || continuityMatches > 0) {
@@ -1069,13 +1413,84 @@
       reasons.push("visible result with partial subject overlap");
     }
 
-    return {
+    const result = {
+      traceId: traceIdForCandidate(candidate, scoringPath),
+      pipelineVersion: PIPELINE_VERSION,
+      scoringPath,
+      videoId: videoIdFromCandidate(candidate),
+      title,
+      channel,
+      duration: candidate.duration || "",
+      url: candidate.url || "",
+      lens: activeLens && (activeLens.id || activeLens.lensLabel || activeLens.label) || "none",
+      domain: domainContext.domain,
+      label: classification.color,
       score,
+      scores: {
+        final: score,
+        breakdown: {
+          topicRelevance,
+          educationalFraming,
+          calmLanguage,
+          continuity,
+          format,
+          informationalTone,
+          sourceFormat,
+          calmAnimalScore: calmNatureAnimalMatches,
+          harmlessEnergy: harmlessEnergeticMatches,
+          animalDistressScore: animalDistressMatches,
+          penalty
+        },
+        confidence: confidence.confidence,
+        domainConfidence: confidence.domainConfidence,
+        frictionConfidence: confidence.frictionConfidence,
+        positiveSignalConfidence: confidence.positiveSignalConfidence
+      },
+      matchedTerms,
+      suppressedTerms,
+      semanticSignals: {
+        domainBoosts: domainContext.boosts,
+        confidenceDeltas: {
+          domain: confidence.domainConfidence,
+          friction: confidence.frictionConfidence,
+          positiveSignal: confidence.positiveSignalConfidence
+        },
+        semanticOverrides: classification.reason,
+        finalDecisionSource: "canonical.semantic.classifyScoredCandidate"
+      },
+      reasoning: {
+        reasons,
+        finalReason: confidence.finalReason,
+        downgradeReasons: downgradeReasonsForCanonical(reasons, classification)
+      },
+      domainContext,
+      contradictions: [],
+      expectedLabel: normalizedInput.expectedLabel || "",
+      confidenceValidation: null,
+      traceEvents: [],
+      pipelineStages: [
+        "metadata normalization",
+        "domain detection",
+        "signal matching",
+        "semantic scoring",
+        "confidence consistency validation",
+        "suppression/override evaluation",
+        "final label selection"
+      ],
       classification,
+      confidence: confidence.confidence,
+      domainConfidence: confidence.domainConfidence,
+      frictionConfidence: confidence.frictionConfidence,
+      positiveSignalConfidence: confidence.positiveSignalConfidence,
+      finalReason: confidence.finalReason,
       debug: {
         calm_animal_score: calmNatureAnimalMatches,
         escalation_score: animalDistressMatches || styleTerms.length,
-        final_classification_reason: classification.reason
+        final_classification_reason: classification.reason,
+        confidence: confidence.confidence,
+        domain_confidence: confidence.domainConfidence,
+        friction_confidence: confidence.frictionConfidence,
+        positive_signal_confidence: confidence.positiveSignalConfidence
       },
       breakdown: {
         topicRelevance,
@@ -1096,8 +1511,477 @@
         source: sourceSignals
       },
       detectedStyleTerms: styleTerms,
-      capitalizationRatio: capRatio
+      capitalizationRatio: capRatio,
+      explanation: confidence.finalReason,
+      timestamp: new Date().toISOString()
     };
+
+    result.confidenceValidation = validateConfidenceConsistency(result);
+    result.contradictions = [
+      ...detectContradictions(result),
+      ...result.confidenceValidation.failures.map((failure) => `confidence inconsistency: ${failure}`)
+    ];
+    result.traceEvents = semanticTraceEventsForResult(result);
+    return result;
+  }
+
+  function changedList(left, right) {
+    const leftValues = unique(left || []);
+    const rightValues = unique(right || []);
+    return [
+      ...leftValues.filter((value) => !rightValues.includes(value)).map((value) => `removed: ${value}`),
+      ...rightValues.filter((value) => !leftValues.includes(value)).map((value) => `added: ${value}`)
+    ];
+  }
+
+  function driftClassificationForReplay({ labelDrift, confidenceDelta, contradictionDrift, governanceDecisionChanges }) {
+    if (labelDrift) {
+      return "high";
+    }
+    if (contradictionDrift || governanceDecisionChanges.length > 0 || Math.abs(confidenceDelta) >= 10) {
+      return "medium";
+    }
+    if (confidenceDelta !== 0) {
+      return "low";
+    }
+    return "none";
+  }
+
+  function replayTrace(trace) {
+    const source = trace || {};
+    const candidate = {
+      videoId: source.videoId || (source.input && source.input.videoId) || "",
+      title: source.title || (source.input && source.input.title) || "",
+      channel: source.channel || (source.input && source.input.channel) || "",
+      duration: source.duration || (source.input && source.input.duration) || "",
+      url: source.url || (source.input && source.input.url) || ""
+    };
+    const anchor = analyzeAnchor(candidate.title);
+    const lens = resolveLensForReplay(anchor, source.lens || (source.input && source.input.lens));
+    const current = scoreContent({
+      candidate,
+      anchor,
+      lens,
+      scoringPath: "replay",
+      expectedLabel: source.label || source.canonicalLabel || ""
+    });
+    const originalLabel = source.label || source.canonicalLabel || "";
+    const originalConfidence = Number.isFinite(Number(source.confidence))
+      ? Number(source.confidence)
+      : Number(source.confidence && source.confidence.final) || 0;
+    const confidenceDelta = current.confidence - originalConfidence;
+    const originalContradictions = source.contradictions || [];
+    const contradictionDrift = JSON.stringify(originalContradictions) !== JSON.stringify(current.contradictions);
+    const originalGovernance = (source.reasoning && source.reasoning.downgradeReasons) || source.downgradeReasons || [];
+    const currentGovernance = (current.reasoning && current.reasoning.downgradeReasons) || [];
+    const governanceDecisionChanges = changedList(originalGovernance, currentGovernance);
+    const labelDrift = Boolean(originalLabel && originalLabel !== current.label);
+    const driftClassification = driftClassificationForReplay({
+      labelDrift,
+      confidenceDelta,
+      contradictionDrift,
+      governanceDecisionChanges
+    });
+
+    return {
+      replayId: traceIdForCandidate(candidate, "replay-analysis"),
+      sourceTraceId: source.traceId || "",
+      replayPipelineVersion: PIPELINE_VERSION,
+      driftClassification,
+      replayAgreementState: driftClassification === "none" ? "agreement" : "drift",
+      replayTimestamp: new Date().toISOString(),
+      originalLabel,
+      currentLabel: current.label,
+      confidenceDelta,
+      labelDrift,
+      confidenceDrift: confidenceDelta !== 0,
+      contradictionDrift,
+      retrievalAgreementChanged: /^retrieval/.test(source.scoringPath || "") && labelDrift,
+      governanceDecisionChanges,
+      pipelineVersionComparison: {
+        original: source.pipelineVersion || "unknown",
+        current: PIPELINE_VERSION,
+        changed: Boolean(source.pipelineVersion && source.pipelineVersion !== PIPELINE_VERSION)
+      },
+      current,
+      sourceTrace: source
+    };
+  }
+
+  function replayTraces(traces) {
+    const items = Array.isArray(traces) ? traces : [traces];
+    return items.filter(Boolean).map(replayTrace);
+  }
+
+  function defaultScenarioPack() {
+    return {
+      name: "PersonaLabs canonical smoke scenarios",
+      scenarios: [
+        {
+          id: "benign-calm-bunny",
+          name: "Calm bunny content",
+          category: "benign",
+          description: "Calm animal content should remain GREEN.",
+          expectedLabel: "GREEN",
+          expectedConfidenceRange: [70, 100],
+          expectedGovernanceOutcomes: ["Calm/pet content detected"],
+          expectedContradictionState: false,
+          input: {
+            title: "Cute Baby Bunny Compilation",
+            channel: "Wholesome Pets",
+            duration: "12:00"
+          }
+        },
+        {
+          id: "educational-public-radio",
+          name: "Public radio context",
+          category: "educational",
+          description: "Lower-friction public radio interview should not be RED.",
+          expectedLabel: ["GREEN", "YELLOW"],
+          expectedConfidenceRange: [40, 100],
+          expectedGovernanceOutcomes: ["lower-friction source format"],
+          expectedContradictionState: false,
+          input: {
+            title: "Thomas Massie discusses Iran vote on public radio",
+            channel: "Public Radio Forum",
+            duration: "24:00"
+          }
+        },
+        {
+          id: "adversarial-outrage",
+          name: "Political outrage title",
+          category: "adversarial-title",
+          description: "Overt outrage framing should be RED.",
+          expectedLabel: "RED",
+          expectedConfidenceRange: [45, 100],
+          expectedGovernanceOutcomes: ["explicit escalation or distress framing detected"],
+          expectedContradictionState: false,
+          input: {
+            title: "OUTRAGE: Thomas Massie meltdown after Iran vote",
+            channel: "Outrage Daily",
+            duration: "4:10"
+          }
+        }
+      ]
+    };
+  }
+
+  function goldenScenario(scenario) {
+    return {
+      pipelineVersion: PIPELINE_VERSION,
+      expectedMatchedSignalCategories: { positive: [], friction: [] },
+      expectedSuppressedSignalCategories: [],
+      ...scenario
+    };
+  }
+
+  function defaultGoldenRegressionPack() {
+    return {
+      name: "PersonaLabs Golden Regression Pack",
+      category: "golden-regression",
+      description: "Frozen deterministic semantic governance scenarios.",
+      pipelineVersion: PIPELINE_VERSION,
+      scenarios: [
+        goldenScenario({
+          id: "golden-calm-animal",
+          scenarioId: "golden-calm-animal",
+          name: "Calm animal content",
+          category: "benign",
+          description: "Calm bunny content remains GREEN.",
+          expectedLabel: "GREEN",
+          expectedConfidenceRange: [70, 100],
+          expectedGovernanceOutcomes: ["Calm/pet content detected"],
+          expectedContradictionState: false,
+          expectedMatchedSignalCategories: { positive: ["cute", "bunny"], friction: [] },
+          input: { title: "Cute Baby Bunny Compilation", channel: "Wholesome Pets", duration: "12:00" }
+        }),
+        goldenScenario({
+          id: "golden-harmless-pet-friction",
+          scenarioId: "golden-harmless-pet-friction",
+          name: "Harmless pet friction",
+          category: "benign",
+          description: "Harmless pet wording does not become YELLOW.",
+          expectedLabel: "GREEN",
+          expectedConfidenceRange: [70, 100],
+          expectedGovernanceOutcomes: ["Calm/pet content detected"],
+          expectedContradictionState: false,
+          expectedMatchedSignalCategories: { positive: ["bunny"], friction: [] },
+          input: { title: "Funny Baby Bunny Compilation", channel: "Pet Videos", duration: "0:45" }
+        }),
+        goldenScenario({
+          id: "golden-animal-distress",
+          scenarioId: "golden-animal-distress",
+          name: "Animal distress",
+          category: "inflammatory",
+          description: "Explicit animal distress remains RED.",
+          expectedLabel: "RED",
+          expectedConfidenceRange: [70, 100],
+          expectedGovernanceOutcomes: ["explicit animal distress or danger framing detected"],
+          expectedContradictionState: false,
+          expectedMatchedSignalCategories: { positive: ["pet"], friction: ["terrifying", "emergency"] },
+          expectedSuppressedSignalCategories: ["terrifying", "emergency"],
+          input: { title: "Terrifying Pet Emergency Breakdown", channel: "Breaking Clips", duration: "8:00" }
+        }),
+        goldenScenario({
+          id: "golden-educational-tutorial",
+          scenarioId: "golden-educational-tutorial",
+          name: "Educational tutorial",
+          category: "educational",
+          description: "Explanatory tutorial remains GREEN.",
+          expectedLabel: "GREEN",
+          expectedConfidenceRange: [70, 100],
+          expectedGovernanceOutcomes: ["low-friction candidate"],
+          expectedContradictionState: false,
+          expectedMatchedSignalCategories: { positive: ["explained"], friction: [] },
+          input: { title: "Kubernetes YAML tutorial explained", channel: "Cloud Academy", duration: "18:24" }
+        }),
+        goldenScenario({
+          id: "golden-documentary",
+          scenarioId: "golden-documentary",
+          name: "Documentary",
+          category: "educational",
+          description: "Documentary/source-format signals remain GREEN.",
+          expectedLabel: "GREEN",
+          expectedConfidenceRange: [70, 100],
+          expectedGovernanceOutcomes: ["lower-friction source format"],
+          expectedContradictionState: false,
+          expectedMatchedSignalCategories: { positive: ["documentary", "pbs"], friction: [] },
+          input: { title: "Long-form wildlife documentary", channel: "PBS Documentary", duration: "42:00" }
+        }),
+        goldenScenario({
+          id: "golden-public-radio-interview",
+          scenarioId: "golden-public-radio-interview",
+          name: "Public radio interview",
+          category: "political",
+          description: "Public radio interview stays low-friction.",
+          expectedLabel: "GREEN",
+          expectedConfidenceRange: [70, 100],
+          expectedGovernanceOutcomes: ["lower-friction source format"],
+          expectedContradictionState: false,
+          expectedMatchedSignalCategories: { positive: ["public radio"], friction: [] },
+          input: { title: "Thomas Massie discusses Iran vote on public radio", channel: "Public Radio Forum", duration: "24:00" }
+        }),
+        goldenScenario({
+          id: "golden-political-outrage",
+          scenarioId: "golden-political-outrage",
+          name: "Political outrage",
+          category: "political",
+          description: "Outrage framing remains RED.",
+          expectedLabel: "RED",
+          expectedConfidenceRange: [70, 100],
+          expectedGovernanceOutcomes: ["explicit escalation or distress framing detected"],
+          expectedContradictionState: false,
+          expectedMatchedSignalCategories: { positive: [], friction: ["outrage", "meltdown"] },
+          expectedSuppressedSignalCategories: ["outrage", "meltdown"],
+          input: { title: "OUTRAGE: Thomas Massie meltdown after Iran vote", channel: "Outrage Daily", duration: "4:10" }
+        }),
+        goldenScenario({
+          id: "golden-clickbait-manipulation",
+          scenarioId: "golden-clickbait-manipulation",
+          name: "Clickbait manipulation",
+          category: "manipulation",
+          description: "Clickbait manipulation terms remain RED.",
+          expectedLabel: "RED",
+          expectedConfidenceRange: [70, 100],
+          expectedGovernanceOutcomes: ["explicit escalation or distress framing detected"],
+          expectedContradictionState: false,
+          expectedMatchedSignalCategories: { positive: [], friction: ["you won't believe", "secret"] },
+          expectedSuppressedSignalCategories: ["you won't believe", "secret"],
+          input: { title: "You won't believe this secret trick", channel: "Viral Clips", duration: "4:00" }
+        }),
+        goldenScenario({
+          id: "golden-ambiguous-low-context",
+          scenarioId: "golden-ambiguous-low-context",
+          name: "Ambiguous low-context title",
+          category: "low-context",
+          description: "Low-context title stays deterministic YELLOW.",
+          expectedLabel: "YELLOW",
+          expectedConfidenceRange: [40, 60],
+          expectedGovernanceOutcomes: ["neutral default"],
+          expectedContradictionState: false,
+          expectedMatchedSignalCategories: { positive: [], friction: [] },
+          input: { title: "Obscure Segment 17", channel: "Channel 42", duration: "9:00" }
+        }),
+        goldenScenario({
+          id: "golden-adversarial-title",
+          scenarioId: "golden-adversarial-title",
+          name: "Adversarial title",
+          category: "adversarial-title",
+          description: "Adversarial domination framing remains RED.",
+          expectedLabel: "RED",
+          expectedConfidenceRange: [70, 100],
+          expectedGovernanceOutcomes: ["explicit escalation or distress framing detected"],
+          expectedContradictionState: false,
+          expectedMatchedSignalCategories: { positive: [], friction: ["obliterates", "insane", "meltdown"] },
+          expectedSuppressedSignalCategories: ["obliterates", "insane", "meltdown"],
+          input: { title: "MASSIE OBLITERATES opponents in insane Iran vote meltdown", channel: "Outrage Daily", duration: "4:10" }
+        }),
+        goldenScenario({
+          id: "golden-contradictory-explanation",
+          scenarioId: "golden-contradictory-explanation",
+          name: "Contradictory explanation guard",
+          category: "contradictory",
+          description: "Empty matched-term case must not claim matched terms.",
+          expectedLabel: "YELLOW",
+          expectedConfidenceRange: [40, 60],
+          expectedGovernanceOutcomes: ["neutral default"],
+          expectedContradictionState: false,
+          expectedMatchedSignalCategories: { positive: [], friction: [] },
+          input: { title: "Obscure Segment 17", channel: "Channel 42", duration: "9:00" }
+        }),
+        goldenScenario({
+          id: "golden-semantic-drift",
+          scenarioId: "golden-semantic-drift",
+          name: "Semantic drift sentinel",
+          category: "semantic-drift",
+          description: "Stable calm animal sentinel for drift detection.",
+          expectedLabel: "GREEN",
+          expectedConfidenceRange: [70, 100],
+          expectedGovernanceOutcomes: ["Calm/pet content detected"],
+          expectedContradictionState: false,
+          expectedMatchedSignalCategories: { positive: ["cute", "bunny"], friction: [] },
+          input: { title: "Cute Baby Bunny Compilation", channel: "Wholesome Pets", duration: "12:00" }
+        })
+      ]
+    };
+  }
+
+  function scenarioExpectedLabels(expectedLabel) {
+    return Array.isArray(expectedLabel) ? expectedLabel : [expectedLabel];
+  }
+
+  function scenarioSeverity({ labelAgreement, confidenceAgreement, governanceAgreement, contradictionAgreement }) {
+    if (!labelAgreement) {
+      return "high";
+    }
+    if (!governanceAgreement || !contradictionAgreement) {
+      return "medium";
+    }
+    if (!confidenceAgreement) {
+      return "low";
+    }
+    return "none";
+  }
+
+  function scenarioSignalAgreement(expected, actual) {
+    const expectedValues = expected || [];
+    const actualValues = actual || [];
+    return expectedValues.every((value) => actualValues.includes(value));
+  }
+
+  function runScenario(scenario) {
+    const item = scenario || {};
+    const input = item.input || item.inputMetadata || {};
+    const anchor = analyzeAnchor(input.title || "");
+    const lens = resolveLensForReplay(anchor, item.lens || item.selectedLens);
+    const score = scoreContent({
+      candidate: input,
+      anchor,
+      lens,
+      scoringPath: `scenario:${item.id || item.name || "unnamed"}`,
+      expectedLabel: scenarioExpectedLabels(item.expectedLabel)[0] || ""
+    });
+    const labels = scenarioExpectedLabels(item.expectedLabel);
+    const labelAgreement = labels.includes(score.label);
+    const range = item.expectedConfidenceRange || [0, 100];
+    const confidenceAgreement = score.confidence >= range[0] && score.confidence <= range[1];
+    const midpoint = Math.round((range[0] + range[1]) / 2);
+    const confidenceDelta = score.confidence - midpoint;
+    const expectedGovernance = item.expectedGovernanceOutcomes || [];
+    const governanceText = [
+      ...((score.reasoning && score.reasoning.reasons) || []),
+      ...((score.reasoning && score.reasoning.downgradeReasons) || []),
+      score.explanation || ""
+    ].join(" | ");
+    const governanceAgreement = expectedGovernance.every((expected) => governanceText.includes(expected));
+    const expectedContradiction = Boolean(item.expectedContradictionState);
+    const contradictionAgreement = expectedContradiction === (score.contradictions.length > 0);
+    const expectedMatched = item.expectedMatchedSignalCategories || {};
+    const matchedSignalAgreement =
+      scenarioSignalAgreement(expectedMatched.positive, score.matchedTerms && score.matchedTerms.positive) &&
+      scenarioSignalAgreement(expectedMatched.friction, score.matchedTerms && score.matchedTerms.friction);
+    const expectedSuppressed = item.expectedSuppressedSignalCategories || [];
+    const suppressedSignalAgreement = scenarioSignalAgreement(expectedSuppressed, score.suppressedTerms);
+    const replayResults = item.replayTraces ? replayTraces(item.replayTraces) : [];
+    const driftDetected = !labelAgreement || !confidenceAgreement || !governanceAgreement || !contradictionAgreement || !matchedSignalAgreement || !suppressedSignalAgreement || replayResults.some((replay) => replay.replayAgreementState === "drift");
+    const severity = scenarioSeverity({ labelAgreement, confidenceAgreement, governanceAgreement, contradictionAgreement });
+
+    return {
+      scenarioId: item.scenarioId || item.id || item.name || "unnamed-scenario",
+      name: item.name || item.id || "Unnamed scenario",
+      category: SCENARIO_CATEGORIES.includes(item.category) ? item.category : "edge-case",
+      description: item.description || "",
+      expectedLabel: item.expectedLabel,
+      actualLabel: score.label,
+      confidenceDelta,
+      governanceAgreement,
+      contradictionAgreement,
+      matchedSignalAgreement,
+      suppressedSignalAgreement,
+      driftDetected,
+      severity,
+      pipelineVersion: PIPELINE_VERSION,
+      pass: !driftDetected,
+      labelAgreement,
+      confidenceAgreement,
+      replayResults,
+      score
+    };
+  }
+
+  function runScenarioPack(pack) {
+    const scenarioPack = pack || defaultScenarioPack();
+    const scenarios = scenarioPack.scenarios || [];
+    const results = scenarios.map(runScenario);
+    const failed = results.filter((result) => !result.pass);
+
+    return {
+      name: scenarioPack.name || "Unnamed scenario pack",
+      category: scenarioPack.category || "mixed",
+      description: scenarioPack.description || "",
+      pipelineVersion: PIPELINE_VERSION,
+      generatedAt: new Date().toISOString(),
+      total: results.length,
+      passed: results.length - failed.length,
+      failed: failed.length,
+      driftDetected: failed.length > 0,
+      severity: failed.some((result) => result.severity === "high")
+        ? "high"
+        : failed.some((result) => result.severity === "medium")
+          ? "medium"
+          : failed.some((result) => result.severity === "low")
+            ? "low"
+            : "none",
+      results
+    };
+  }
+
+  function runGoldenRegressionPack(pack) {
+    const report = runScenarioPack(pack || defaultGoldenRegressionPack());
+    const failedResults = report.results.filter((result) => !result.pass);
+    return {
+      ...report,
+      golden: true,
+      driftCount: failedResults.length,
+      failedScenarioIds: failedResults.map((result) => result.scenarioId),
+      confidenceDeltas: report.results.map((result) => ({
+        scenarioId: result.scenarioId,
+        confidenceDelta: result.confidenceDelta
+      })),
+      governanceMismatches: report.results
+        .filter((result) => !result.governanceAgreement)
+        .map((result) => result.scenarioId),
+      contradictionMismatches: report.results
+        .filter((result) => !result.contradictionAgreement)
+        .map((result) => result.scenarioId),
+      matchedSignalMismatches: report.results
+        .filter((result) => !result.matchedSignalAgreement || !result.suppressedSignalAgreement)
+        .map((result) => result.scenarioId)
+    };
+  }
+
+  function scoreCandidate(candidate, anchorOrTitle, explorationPath) {
+    return scoreContent(candidate, anchorOrTitle, explorationPath);
   }
 
   function hasStrongExplanatoryValue(scoring) {
@@ -1117,7 +2001,7 @@
   }
 
   function isAllowedByLens(scoring, explorationPath) {
-    const color = scoring.classification.color;
+    const color = scoring.label || (scoring.classification && scoring.classification.color);
     const policy = (explorationPath && explorationPath.filterPolicy) || "green-or-explanatory-yellow";
 
     if (color === "RED") {
@@ -1155,7 +2039,12 @@
     return (candidates || [])
       .map((candidate) => ({
         ...candidate,
-        scoring: scoreCandidate(candidate, anchorOrTitle, explorationPath)
+        scoring: scoreContent({
+          candidate,
+          anchor: anchorOrTitle,
+          lens: explorationPath,
+          scoringPath: "retrieval-ranking"
+        })
       }))
       .filter((candidate) => candidate.title)
       .sort((a, b) => {
@@ -1171,7 +2060,12 @@
     return (candidates || [])
       .map((candidate) => ({
         ...candidate,
-        scoring: scoreCandidate(candidate, anchorOrTitle, explorationPath)
+        scoring: scoreContent({
+          candidate,
+          anchor: anchorOrTitle,
+          lens: explorationPath,
+          scoringPath: "retrieval-panel"
+        })
       }))
       .filter((candidate) => candidate.title);
   }
@@ -1209,6 +2103,7 @@
     CALM_NATURE_ANIMAL_SIGNALS,
     CALM_POSITIVE_TERMS,
     HARMLESS_ENERGETIC_TERMS,
+    SCENARIO_CATEGORIES,
     STYLE_TAXONOMY,
     EXPLORATION_STYLES,
     analyzeAnchor,
@@ -1216,12 +2111,20 @@
     buildExplorationPaths,
     classifyStyleTerms,
     detectObservabilitySignals,
+    defaultScenarioPack,
+    defaultGoldenRegressionPack,
     extractNamedEntities,
     extractSubjectAnchor,
     filterCandidatesByLens,
     isAllowedByLens,
     rankCandidates,
     removeSensationalTerms,
+    replayTrace,
+    replayTraces,
+    runScenario,
+    runScenarioPack,
+    runGoldenRegressionPack,
+    scoreContent,
     scoreCandidate,
     scoreCandidates,
     tokenize
