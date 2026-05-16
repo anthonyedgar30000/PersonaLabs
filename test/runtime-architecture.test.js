@@ -27,11 +27,45 @@ test("semantic trace inspector exposes debug-only inspection utilities", () => {
   const contentRuntime = fs.readFileSync(path.join(root, "src", "content.js"), "utf8");
 
   assert.match(contentRuntime, /Semantic Trace Inspector/);
+  assert.match(contentRuntime, /<summary>/);
+  assert.match(contentRuntime, /renderPipelineHealth/);
+  assert.match(contentRuntime, /Pipeline Health/);
   assert.match(contentRuntime, /data-action='clear-traces'/);
   assert.match(contentRuntime, /data-action='toggle-verbose'/);
   assert.match(contentRuntime, /data-action='filter-traces'/);
+  assert.match(contentRuntime, /value='retrieval'/);
+  assert.match(contentRuntime, /value='governance'/);
   assert.match(contentRuntime, /renderInspectorSection\("Input"/);
-  assert.match(contentRuntime, /renderInspectorListSection\("Governance"/);
+  assert.match(contentRuntime, /renderInspectorListSection\("Extracted Terms"/);
+  assert.match(contentRuntime, /renderInspectorListSection\("Detected Signals"/);
+  assert.match(contentRuntime, /renderInspectorSection\("Confidence Deltas"/);
+  assert.match(contentRuntime, /renderInspectorListSection\("Governance Decisions"/);
+  assert.match(contentRuntime, /renderInspectorListSection\("Contradictions"/);
   assert.match(contentRuntime, /renderInspectorEvents\("Trace Events"/);
+});
+
+test("overlays stay compact while detailed debugging stays in the inspector", () => {
+  const contentRuntime = fs.readFileSync(path.join(root, "src", "content.js"), "utf8");
+  const overlayFunction = contentRuntime.match(/function renderCanonicalOverlay[\s\S]*?function upsertTitleBadge/)[0];
+
+  assert.match(overlayFunction, /personalabs-overlay-label/);
+  assert.match(overlayFunction, /personalabs-overlay-confidence/);
+  assert.match(overlayFunction, /personalabs-overlay-reason/);
+  assert(!/personalabs-overlay-breakdown/.test(overlayFunction));
+  assert(!/personalabs-overlay-terms/.test(overlayFunction));
+  assert(!/matchedTerms/.test(overlayFunction));
+  assert.match(contentRuntime, /Canonical Trace JSON/);
+});
+
+test("inspector observes traces without participating in scoring", () => {
+  const contentRuntime = fs.readFileSync(path.join(root, "src", "content.js"), "utf8");
+  const inspectorFunction = contentRuntime.match(/function renderDebugTraces[\s\S]*?function filteredDebugTraces/)[0];
+  const pipelineHealthFunction = contentRuntime.match(/function renderPipelineHealth[\s\S]*?function healthItem/)[0];
+
+  assert(!/scoreContent|scoreCandidate|scoreCandidates/.test(inspectorFunction));
+  assert(!/scoreContent|scoreCandidate|scoreCandidates/.test(pipelineHealthFunction));
+  assert.match(pipelineHealthFunction, /Overlay\/panel agreement/);
+  assert.match(pipelineHealthFunction, /Retrieval agreement/);
+  assert.match(pipelineHealthFunction, /Semantic drift warning/);
 });
 

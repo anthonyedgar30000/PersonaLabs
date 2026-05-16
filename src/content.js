@@ -1047,22 +1047,11 @@
 
   function formatCanonicalTooltip(scoring) {
     const confidence = classificationConfidence(scoring);
-    const matched = [
-      scoring.matchedTerms && scoring.matchedTerms.positive.length ? `positive: ${scoring.matchedTerms.positive.join(", ")}` : "",
-      scoring.matchedTerms && scoring.matchedTerms.friction.length ? `friction: ${scoring.matchedTerms.friction.join(", ")}` : ""
-    ].filter(Boolean).join(" | ");
 
     return [
-      `Visible overlay: ${scoring.label} (${formatConfidence(confidence.confidence)}).`,
+      `Canonical label: ${scoring.label}.`,
       `Confidence: ${formatConfidence(confidence.confidence)}.`,
-      `Domain confidence: ${formatConfidence(confidence.domainConfidence)}.`,
-      `Friction confidence: ${formatConfidence(confidence.frictionConfidence)}.`,
-      `Positive-signal confidence: ${formatConfidence(confidence.positiveSignalConfidence)}.`,
-      confidence.finalReason ? `Final reason: ${confidence.finalReason}.` : "",
-      `Canonical score: ${scoring.score}.`,
-      matched ? `Matched terms: ${matched}.` : "Matched terms: none.",
-      scoring.suppressedTerms && scoring.suppressedTerms.length ? `Suppressed terms: ${scoring.suppressedTerms.join(", ")}.` : "",
-      scoring.contradictions && scoring.contradictions.length ? `Contradictions: ${scoring.contradictions.join(" | ")}.` : ""
+      scoring.explanation || confidence.finalReason || ""
     ]
       .filter(Boolean)
       .join("\n");
@@ -1070,19 +1059,11 @@
 
   function renderCanonicalOverlay(label, scoring) {
     const confidence = classificationConfidence(scoring);
-    const matched = [
-      ...((scoring.matchedTerms && scoring.matchedTerms.positive) || []),
-      ...((scoring.matchedTerms && scoring.matchedTerms.friction) || [])
-    ].slice(0, 4).join(", ") || "no matched terms";
-    const confidenceDetails = `Domain ${formatConfidence(confidence.domainConfidence)} / Friction ${formatConfidence(confidence.frictionConfidence)} / Positive ${formatConfidence(confidence.positiveSignalConfidence)}`;
 
     return [
       `<span class="personalabs-overlay-label">${escapeHtml(label)}</span>`,
       `<span class="personalabs-overlay-confidence">Confidence ${escapeHtml(formatConfidence(confidence.confidence))}</span>`,
-      `<span class="personalabs-overlay-confidence">${escapeHtml(confidenceDetails)}</span>`,
-      `<span class="personalabs-overlay-breakdown">Score ${scoring.score} / ${escapeHtml(scoring.domain)}</span>`,
-      `<span class="personalabs-overlay-reason">${escapeHtml(scoring.explanation || scoring.finalReason)}</span>`,
-      `<span class="personalabs-overlay-terms">${escapeHtml(matched)}</span>`
+      `<span class="personalabs-overlay-reason">${escapeHtml(scoring.explanation || scoring.finalReason)}</span>`
     ].filter(Boolean).join("");
   }
 
@@ -1177,6 +1158,7 @@
     if (!anchor) {
       panel.appendChild(renderEmptyState());
       if (personaLabsDebugEnabled()) {
+        panel.appendChild(renderPipelineHealth());
         panel.appendChild(renderDebugTraces());
       }
       return;
@@ -1187,6 +1169,7 @@
     panel.appendChild(renderSuggestions());
     panel.appendChild(renderPrinciples());
     if (personaLabsDebugEnabled()) {
+      panel.appendChild(renderPipelineHealth());
       panel.appendChild(renderDebugTraces());
     }
   }
@@ -1369,9 +1352,50 @@
     return section;
   }
 
-  function renderDebugTraces() {
+  function renderPipelineHealth() {
     const section = document.createElement("section");
+    section.className = "personalabs-section personalabs-pipeline-health";
+    const latest = state.traces[0];
+    const labels = state.traces.reduce((groups, trace) => {
+      const key = trace.renderingTarget || trace.scoringPath || "unknown";
+      groups[key] = trace.label || "";
+      return groups;
+    }, {});
+    const overlayLabel = labels.overlay || "";
+    const panelLabel = labels.panel || "";
+    const retrievalLabel = state.traces.find((trace) => /^retrieval/.test(trace.scoringPath || ""))?.label || panelLabel;
+    const overlayPanelAgreement = overlayLabel && panelLabel ? (overlayLabel === panelLabel ? "agree" : "drift") : "pending";
+    const retrievalAgreement = retrievalLabel && panelLabel ? (retrievalLabel === panelLabel ? "agree" : "drift") : "pending";
+    const fallbackActive = state.traces.some((trace) => /legacy|fallback|headline/i.test(`${trace.scoringPath || ""} ${trace.reasoning && trace.reasoning.finalReason || ""}`));
+    const contradictionCount = state.traces.reduce((total, trace) => total + ((trace.contradictions && trace.contradictions.length) || 0), 0);
+    const traceEventCount = state.traces.reduce((total, trace) => total + ((trace.traceEvents && trace.traceEvents.length) || 0), 0);
+    const driftWarning = contradictionCount > 0 || overlayPanelAgreement === "drift" || retrievalAgreement === "drift";
+
+    section.innerHTML = [
+      "<p class='personalabs-eyebrow'>Pipeline Health</p>",
+      "<div class='personalabs-health-grid'>",
+      healthItem("Canonical label", latest && latest.label || "pending"),
+      healthItem("Final confidence", latest ? formatConfidence(latest.confidence) : "pending"),
+      healthItem("Contradictions", String(contradictionCount)),
+      healthItem("Overlay/panel agreement", overlayPanelAgreement),
+      healthItem("Retrieval agreement", retrievalAgreement),
+      healthItem("Fallback active", fallbackActive ? "yes" : "no"),
+      healthItem("Trace events", String(traceEventCount)),
+      healthItem("Semantic drift warning", driftWarning ? "warning" : "clear"),
+      "</div>"
+    ].join("");
+
+    return section;
+  }
+
+  function healthItem(label, value) {
+    return `<div class='personalabs-health-item'><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`;
+  }
+
+  function renderDebugTraces() {
+    const section = document.createElement("details");
     section.className = "personalabs-section personalabs-debug-traces";
+    section.open = false;
     const traces = filteredDebugTraces();
     const json = JSON.stringify(traces, null, 2);
     const latest = traces[0] || state.traces[0];
@@ -1388,8 +1412,7 @@
       : ["No contradiction warnings for selected trace."];
 
     section.innerHTML = [
-      "<p class='personalabs-eyebrow'>Debug Traces</p>",
-      "<h3>Semantic Trace Inspector</h3>",
+      "<summary><span class='personalabs-eyebrow'>Semantic Trace Inspector</span><strong>Trace details</strong></summary>",
       `<p class='personalabs-muted'>${escapeHtml(summary)}</p>`,
       "<div class='personalabs-debug-actions'>",
       "<button type='button' data-action='copy-traces'>Copy JSON</button>",
@@ -1399,8 +1422,9 @@
       "<label>Filter <select data-action='filter-traces'>",
       `<option value='all'${state.debugTraceFilter === "all" ? " selected" : ""}>All</option>`,
       `<option value='overlay'${state.debugTraceFilter === "overlay" ? " selected" : ""}>Overlay</option>`,
-      `<option value='panel'${state.debugTraceFilter === "panel" ? " selected" : ""}>Panel</option>`,
+      `<option value='retrieval'${state.debugTraceFilter === "retrieval" ? " selected" : ""}>Retrieval</option>`,
       `<option value='contradictions'${state.debugTraceFilter === "contradictions" ? " selected" : ""}>Contradictions</option>`,
+      `<option value='governance'${state.debugTraceFilter === "governance" ? " selected" : ""}>Governance</option>`,
       "</select></label>",
       "</div>",
       latest ? renderInspectorSection("Input", [
@@ -1415,33 +1439,49 @@
         ["Inferred domain", latest.domain || "unknown"],
         ["Matched semantic domains", latest.domainContext && latest.domainContext.boosts ? latest.domainContext.boosts.join(", ") || "none" : "none"]
       ]) : "",
-      latest ? renderInspectorListSection("Term Analysis", {
+      latest ? renderInspectorListSection("Extracted Terms", {
         "Matched positive terms": latest.matchedTerms && latest.matchedTerms.positive,
         "Matched friction terms": latest.matchedTerms && latest.matchedTerms.friction,
         "Removed/suppressed terms": latest.suppressedTerms,
         "Ignored terms": [],
         "Override terms": latest.semanticSignals && latest.semanticSignals.semanticOverrides ? [latest.semanticSignals.semanticOverrides] : []
       }) : "",
+      latest ? renderInspectorListSection("Detected Signals", {
+        "Semantic domain boosts": latest.semanticSignals && latest.semanticSignals.domainBoosts,
+        "Observability groups": latest.observabilitySignals ? Object.keys(latest.observabilitySignals) : [],
+        "Friction signals": latest.matchedTerms && latest.matchedTerms.friction,
+        "Positive signals": latest.matchedTerms && latest.matchedTerms.positive
+      }) : "",
+      latest ? renderInspectorSection("Confidence Deltas", [
+        ["Domain", formatConfidence(confidenceDeltas.domain)],
+        ["Friction", formatConfidence(confidenceDeltas.friction)],
+        ["Positive signal", formatConfidence(confidenceDeltas.positiveSignal)],
+        ["Final", formatConfidence(latest.confidence)]
+      ]) : "",
       latest ? renderInspectorSection("Scoring Flow", [
         ["Stages", (latest.pipelineStages || []).join(" -> ") || "none"],
         ["Confidence evolution", `domain ${formatConfidence(confidenceDeltas.domain)} | friction ${formatConfidence(confidenceDeltas.friction)} | positive ${formatConfidence(confidenceDeltas.positiveSignal)} | final ${formatConfidence(latest.confidence)}`],
         ["Applied modifiers", latest.reasoning && latest.reasoning.reasons ? latest.reasoning.reasons.join(" | ") : "none"],
         ["Final canonical label", latest.label || "none"]
       ]) : "",
-      latest ? renderInspectorListSection("Governance", {
+      latest ? renderInspectorListSection("Governance Decisions", {
         "Contradictions detected": warnings,
         "Override reasons": latest.reasoning && latest.reasoning.downgradeReasons,
         "Canonical agreement validation": latest.confidenceValidation ? [`confidence valid: ${latest.confidenceValidation.valid}`] : ["not available"],
         "Semantic path validation": [latest.scoringPath || "unknown"]
       }) : "",
-      renderInspectorListSection("Retrieval Transformation", {
+      renderInspectorListSection("Retrieval Transformations", {
         "Selected lens": [activePath() && (activePath().lensLabel || activePath().label) || "none"],
         "Transformed exploration paths": transformedPaths,
         "Retrieval filters applied": retrievalFilters,
         "Retrieval exclusions": ["RED excluded by filter policy"]
       }),
+      latest ? renderInspectorListSection("Contradictions", {
+        "Warnings": warnings
+      }) : "",
       latest ? renderInspectorEvents("Trace Events", traceEvents, state.debugVerboseTraces) : "",
       latest ? renderInspectorEvents("Runtime Events", runtimeStages, state.debugVerboseTraces) : "",
+      "<div class='personalabs-inspector-block'><h4>Canonical Trace JSON</h4></div>",
       `<pre>${escapeHtml(json || "[]")}</pre>`
     ].join("");
 
@@ -1494,8 +1534,14 @@
     if (state.debugTraceFilter === "panel") {
       return state.traces.filter((trace) => trace.renderingTarget === "panel");
     }
+    if (state.debugTraceFilter === "retrieval") {
+      return state.traces.filter((trace) => /^retrieval|panel/.test(`${trace.scoringPath || ""} ${trace.renderingTarget || ""}`));
+    }
     if (state.debugTraceFilter === "contradictions") {
       return state.traces.filter((trace) => trace.contradictions && trace.contradictions.length);
+    }
+    if (state.debugTraceFilter === "governance") {
+      return state.traces.filter((trace) => (trace.confidenceValidation && !trace.confidenceValidation.valid) || (trace.reasoning && trace.reasoning.downgradeReasons && trace.reasoning.downgradeReasons.length));
     }
     return state.traces;
   }
