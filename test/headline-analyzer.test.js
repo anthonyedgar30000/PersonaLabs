@@ -50,6 +50,8 @@ test("safe-domain animal YELLOW is reserved for unresolved uncertainty, not weak
   assert.equal(analysis.governance.safeDomain.isSafeAnimalDomain, true);
   assert(analysis.governance.unresolvedYellowScore >= analysis.governance.thresholds.safeDomainYellowStrong);
   assert.match(analysis.explanation, /uncertain/i);
+  assert.match(analysis.reasons.join(" "), /controversy \(title\)/);
+  assert.match(analysis.reasons.join(" "), /investigation \(title\)/);
 });
 
 test("classifies controversy and allegation language as YELLOW or RED based on score", () => {
@@ -60,6 +62,10 @@ test("classifies controversy and allegation language as YELLOW or RED based on s
   assert(analysis.matchedTerms.yellow.some((match) => match.term === "allegations"));
   assert(analysis.matchedTerms.red.some((match) => match.term === "shocking"));
   assert.match(analysis.reasons[0], /Marked (yellow|red)/);
+  if (analysis.label === "YELLOW") {
+    assert.match(analysis.reasons[0], /denies \(title\)/);
+    assert.match(analysis.reasons[0], /allegations \(title\)/);
+  }
 });
 
 test("classifies high-intensity distress headlines as RED", () => {

@@ -4,7 +4,7 @@
   "private": true,
   "description": "Intentional semantic navigation layer for YouTube exploration.",
   "scripts": {
-    "check": "node --check src/semantic-core.js && node --check src/retrieval-pipeline.js && node --check lib/headlineAnalyzer.js && node --check src/content.js",
+    "check": "node --check src/semantic-core.js && node --check src/test-harness-api.js && node --check src/retrieval-pipeline.js && node --check lib/headlineAnalyzer.js && node --check src/content.js && node --check harness/test-harness.js",
     "test": "node --test"
   },
   "devDependencies": {}

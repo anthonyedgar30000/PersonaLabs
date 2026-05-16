@@ -1053,7 +1053,7 @@
 
     return [
       `Canonical label: ${scoring.label}.`,
-      `Confidence: ${formatConfidence(confidence.confidence)}.`,
+      `Match strength: ${formatConfidence(confidence.confidence)}.`,
       scoring.explanation || confidence.finalReason || ""
     ]
       .filter(Boolean)
@@ -1065,7 +1065,7 @@
 
     return [
       `<span class="personalabs-overlay-label">${escapeHtml(label)}</span>`,
-      `<span class="personalabs-overlay-confidence">Confidence ${escapeHtml(formatConfidence(confidence.confidence))}</span>`,
+      `<span class="personalabs-overlay-confidence">Match ${escapeHtml(formatConfidence(confidence.confidence))}</span>`,
       `<span class="personalabs-overlay-reason">${escapeHtml(scoring.explanation || scoring.finalReason)}</span>`
     ].filter(Boolean).join("");
   }
@@ -1316,7 +1316,7 @@
       item.innerHTML = [
         `<div class='personalabs-score' data-classification='${color}'>${suggestion.scoring.score}</div>`,
         "<div>",
-        `<div class='personalabs-classification' data-classification='${color}'>${escapeHtml(suggestion.scoring.label)} | ${escapeHtml(suggestion.scoring.classification.label)} | Confidence ${escapeHtml(formatConfidence(confidence.confidence))}</div>`,
+        `<div class='personalabs-classification' data-classification='${color}'>${escapeHtml(suggestion.scoring.label)} | ${escapeHtml(suggestion.scoring.classification.label)} | Match strength ${escapeHtml(formatConfidence(confidence.confidence))}</div>`,
         `<h4>${link}</h4>`,
         `<p>${escapeHtml(suggestion.channel || "Visible YouTube result")}</p>`,
         `<div class='personalabs-confidence-details'>Domain ${escapeHtml(formatConfidence(confidence.domainConfidence))} | Friction ${escapeHtml(formatConfidence(confidence.frictionConfidence))} | Positive ${escapeHtml(formatConfidence(confidence.positiveSignalConfidence))}</div>`,
@@ -1346,9 +1346,9 @@
       "<li>Deterministic-first and local-first.</li>",
       "<li>No truth, ideology ranking, censorship, or YouTube replacement judgments.</li>",
       "<li>Score first; filter second by the selected exploration lens.</li>",
-      "<li>GREEN is allowed for calmer/lower-friction exploration.</li>",
-      "<li>YELLOW is mixed but can support educational or deeper exploration.</li>",
-      "<li>RED is high-friction/escalatory and excluded from suggestions.</li>",
+      "<li>GREEN summarizes calm or straightforward title framing.</li>",
+      "<li>YELLOW summarizes mixed or unclear title framing.</li>",
+      "<li>RED summarizes intense or attention-grabbing title framing.</li>",
       "<li>Contextual observability badges support guided exploration.</li>",
       "</ul>"
     ].join("");

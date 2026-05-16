@@ -206,6 +206,132 @@ test("does not treat neutral claim-response verbs as high-friction by default", 
   assert(score.reasons.includes("neutral reporting language"));
 });
 
+test("educational and guidance framing soften single intense title terms", () => {
+  const cases = [
+    {
+      title: "Shocking New Study Reveals How Sleep Affects Memory",
+      channel: "Science Classroom"
+    },
+    {
+      title: "Emergency Preparedness Checklist for Families",
+      channel: "Safety Guide"
+    }
+  ];
+
+  cases.forEach((item) => {
+    const anchor = semantic.analyzeAnchor(item.title);
+    const path = semantic.buildExplorationPaths(anchor).find((lens) => lens.id === "educational");
+    const score = semantic.scoreCandidate(
+      {
+        title: item.title,
+        channel: item.channel,
+        duration: "10:00"
+      },
+      anchor,
+      path
+    );
+
+    assert.notEqual(score.label, "RED", item.title);
+    assert(score.reasons.includes("educational or guidance framing reduced single-signal intensity"), item.title);
+  });
+});
+
+test("science sleep titles do not trigger animal distress handling", () => {
+  const title = "Shocking New Study Reveals How Sleep Affects Memory";
+  const score = semantic.scoreContent({
+    candidate: { title, channel: "Science Classroom", duration: "9:00" },
+    anchor: title,
+    scoringPath: "test-contextual-framing"
+  });
+
+  assert.notEqual(score.explanation, "explicit animal distress or danger framing detected");
+  assert.equal(score.debug.calm_animal_score >= 1, true);
+  assert.equal(score.debug.final_classification_reason.includes("animal distress"), false);
+});
+
+test("trust-stress title pack stays calibrated around ambiguous framing", () => {
+  const cases = [
+    ["BREAKING: NASA Confirms New Evidence of Water on Mars", ["YELLOW"]],
+    ["Shocking Study Finds Walking 20 Minutes a Day Improves Memory", ["YELLOW"]],
+    ["How Propaganda Works: Emotional Manipulation Explained", ["YELLOW"]],
+    ["Emergency Preparedness Checklist for Families", ["YELLOW"]],
+    ["This Simple Trick Fixed My Back Pain", ["YELLOW"]],
+    ["The Truth About Seed Oils", ["YELLOW"]],
+    ["Everything You Know About Nutrition Is a Lie", ["YELLOW"]],
+    ["Cute Kitten ATTACKS Owner During Playtime", ["YELLOW"]],
+    ["He DESTROYED the Final Boss in 10 Seconds", ["YELLOW"]],
+    ["Satire: Senator DESTROYS Himself in Fake Debate", ["YELLOW"]],
+    ["Calm Explanation of the Most Disturbing Court Case", ["YELLOW"]],
+    ["Relaxing Rain Sounds — Black Screen — No Ads", ["GREEN"]],
+    ["Peaceful Focus Hypnosis to Reprogram Your Brain", ["YELLOW"]],
+    ["Banks Don't Want You to Know This Savings Trick", ["YELLOW"]],
+    ["Beginner Python Tutorial: Avoid These 5 Common Mistakes", ["GREEN"]],
+    ["I Tried Waking Up at 5AM for 30 Days", ["GREEN", "YELLOW"]],
+    ["Why Everyone Is Wrong About AI", ["YELLOW"]],
+    ["Public Radio Explains the Immigration Court Backlog", ["GREEN", "YELLOW"]],
+    ["LIVE: Hurricane Evacuation Updates and Shelter Locations", ["YELLOW"]],
+    ["They Lied to You About Retirement", ["YELLOW"]],
+    ["¿Por qué todos hablan de esta película?", ["GREEN", "YELLOW"]],
+    ["Cette vidéo va changer ta vie", ["GREEN", "YELLOW"]],
+    ["Ukraine War Explained: Timeline, Context, and Maps", ["YELLOW"]],
+    ["The Dark Side of Minimalism", ["GREEN", "YELLOW"]],
+    ["You Won't Believe How Calm This Aquarium Is", ["YELLOW"]],
+    ["Calm Explanation of Why Everything You Know Is a Lie", ["YELLOW"]],
+    ["Funny Puppy ATTACKS Toy During Playtime", ["YELLOW"]],
+    ["How Outrage Media Works: A Calm Analysis", ["YELLOW"]],
+    ["Emergency Safety Guide: What to Do During a Hurricane", ["YELLOW"]],
+    ["He DESTROYED the World Record in Mario Kart", ["YELLOW"]],
+    ["Satire: Fake Senator Meltdown Sketch", ["YELLOW"]],
+    ["This Natural Trick Cured My Anxiety", ["YELLOW"]],
+    ["Official Study: Shocking Results Explained", ["YELLOW"]]
+  ];
+
+  cases.forEach(([title, expectedLabels]) => {
+    const score = semantic.scoreContent({
+      candidate: { title, channel: "Trust QA", duration: "10:00" },
+      anchor: title,
+      scoringPath: "trust-stress-pack"
+    });
+
+    assert(expectedLabels.includes(score.label), `${title} classified ${score.label}`);
+  });
+});
+
+test("ambiguous title evidence separates topic framing intensity conflict and uncertainty", () => {
+  const cases = [
+    "How Outrage Media Works: A Calm Analysis",
+    "You Won't Believe How Calm This Aquarium Is",
+    "Cute Kitten ATTACKS Owner During Playtime",
+    "Everything You Know About Nutrition Is a Lie",
+    "Satire: Senator DESTROYS Himself in Fake Debate",
+    "Emergency Safety Guide: What to Do During a Hurricane",
+    "Calm Explanation of Why Everything You Know Is a Lie",
+    "He DESTROYED the World Record in Mario Kart",
+    "This Natural Trick Cured My Anxiety",
+    "Official Study: Shocking Results Explained",
+    "The Truth About Seed Oils",
+    "Why Everyone Is Wrong About AI",
+    "LIVE: Hurricane Evacuation Updates and Shelter Locations",
+    "Shocking Study Finds Walking 20 Minutes a Day Improves Memory",
+    "Banks Don't Want You to Know This Savings Trick"
+  ];
+
+  cases.forEach((title) => {
+    const score = semantic.scoreContent({
+      candidate: { title, channel: "Evidence QA", duration: "10:00" },
+      anchor: title,
+      scoringPath: "ambiguous-evidence-pack"
+    });
+
+    assert.equal(score.label, "YELLOW", title);
+    assert.equal(typeof score.evidenceSummary.topicDetection.summary, "string", title);
+    assert.equal(typeof score.evidenceSummary.framingDetection.summary, "string", title);
+    assert(["low", "medium", "high"].includes(score.evidenceSummary.emotionalIntensity.level), title);
+    assert(["medium", "high"].includes(score.evidenceSummary.uncertainty.level), title);
+    assert.match(score.evidenceSummary.boundedClaim, /title wording patterns only/i);
+  });
+});
+
 test("boosts discussion of sensitive topics on lower-friction source formats", () => {
   const anchor = semantic.analyzeAnchor("Thomas Massie Iran vote");
   const path = semantic.buildExplorationPaths(anchor).find((item) => item.id === "educational");

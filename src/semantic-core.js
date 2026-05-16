@@ -126,7 +126,85 @@
     "long-form",
     "documentary",
     "primer",
-    "guide"
+    "guide",
+    "explanation",
+    "study",
+    "research",
+    "checklist"
+  ];
+
+  const CONTEXTUAL_DOWNWEIGHT_TERMS = [
+    "study",
+    "research",
+    "researchers",
+    "published",
+    "guide",
+    "checklist",
+    "preparedness",
+    "safety",
+    "planning",
+    "tutorial",
+    "explained",
+    "explanation",
+    "analysis"
+  ];
+
+  const DOMAIN_SOFTENING_TERMS = [
+    "satire",
+    "parody",
+    "comedy",
+    "sketch",
+    "fake debate",
+    "boss",
+    "final boss",
+    "speedrun",
+    "gameplay",
+    "gaming",
+    "match",
+    "tournament",
+    "goal",
+    "knockout",
+    "highlights"
+  ];
+
+  const PET_PLAY_CONTEXT_TERMS = [
+    "playtime",
+    "playing",
+    "play",
+    "funny",
+    "cute",
+    "zoomies"
+  ];
+
+  const CAUTIONARY_CLAIM_TERMS = [
+    "hypnosis",
+    "reprogram",
+    "reprogram your brain",
+    "brainwash",
+    "manipulation",
+    "propaganda",
+    "control your mind",
+    "guaranteed",
+    "secret cure",
+    "natural trick",
+    "simple trick",
+    "savings trick",
+    "fixed my",
+    "cured",
+    "cured my",
+    "don't want you to know",
+    "banks don't want",
+    "is a lie",
+    "lied to you",
+    "everyone is wrong"
+  ];
+
+  const SENSITIVE_GUIDANCE_TERMS = [
+    "hurricane",
+    "evacuation",
+    "shelter",
+    "war",
+    "court case"
   ];
 
   const NEUTRAL_REPORTING_TERMS = [
@@ -247,6 +325,28 @@
 
   const CALM_POSITIVE_TERMS = CALM_NATURE_ANIMAL_SIGNALS;
 
+  const ANIMAL_SUBJECT_TERMS = [
+    "animal",
+    "animals",
+    "pet",
+    "pets",
+    "cat",
+    "cats",
+    "kitten",
+    "kittens",
+    "dog",
+    "dogs",
+    "puppy",
+    "puppies",
+    "bunny",
+    "bunnies",
+    "rabbit",
+    "rabbits",
+    "bird",
+    "birds",
+    "wildlife"
+  ];
+
   const HARMLESS_ENERGETIC_TERMS = [
     "hyper",
     "loud",
@@ -266,6 +366,7 @@
     "shocking",
     "panic",
     "attack",
+    "attacks",
     "attacked",
     "injury",
     "injured",
@@ -883,10 +984,16 @@
   }
 
   function classifyScoredCandidate(metrics) {
+    const contextSoftensFriction =
+      (metrics.contextualDownweight >= 1 || metrics.domainSoftening >= 1) &&
+      metrics.styleTermCount <= 2 &&
+      metrics.animalDistressScore === 0;
     const severeFriction =
-      metrics.styleTermCount >= 2 ||
-      (metrics.styleTermCount >= 1 && metrics.capitalizationRatio > 0.5) ||
-      (metrics.styleTermCount >= 1 && metrics.penalty >= 16);
+      !contextSoftensFriction && (
+        metrics.styleTermCount >= 2 ||
+        (metrics.styleTermCount >= 1 && metrics.capitalizationRatio > 0.5) ||
+        (metrics.styleTermCount >= 1 && metrics.penalty >= 16)
+      );
     const hasContinuity = metrics.topicRelevance >= 14 || metrics.continuity >= 4;
     const strongExplanatory = metrics.educationalFraming >= 8;
     const hasFormatTrust = metrics.informationalTone >= 6 || metrics.sourceFormat >= 5;
@@ -900,11 +1007,20 @@
       metrics.styleTermCount === 0 &&
       metrics.capitalizationRatio <= 0.36;
 
-    if (clearCalmAnimalSubject && metrics.animalDistressScore > 0) {
+    if (metrics.animalSubjectScore > 0 && metrics.animalDistressScore > 0 && metrics.petPlayContext > 0) {
+      return {
+        color: "YELLOW",
+        label: "mixed or unclear framing",
+        meaning: "Pet/play context includes aggression wording, so the title remains mixed rather than high-intensity.",
+        reason: "pet/play context softened aggression wording"
+      };
+    }
+
+    if (metrics.animalSubjectScore > 0 && metrics.animalDistressScore > 0) {
       return {
         color: "RED",
-        label: "high-friction/escalatory",
-        meaning: "Animal/pet/nature content with explicit distress or danger framing.",
+        label: "intense/attention-grabbing framing",
+        meaning: "Animal/pet/nature title with explicit distress or danger wording.",
         reason: "explicit animal distress or danger framing detected"
       };
     }
@@ -912,16 +1028,25 @@
     if (clearCalmAnimalSubject && harmlessEnergyWithoutCompression) {
       return {
         color: "YELLOW",
-        label: "mixed but useful",
+        label: "mixed or unclear framing",
         meaning: "Chaotic but non-dangerous animal/pet energy without true distress.",
         reason: "chaotic animal/pet pacing without distress"
+      };
+    }
+
+    if (clearCalmAnimalSubject && noAnimalDistress && (metrics.styleTermCount > 0 || metrics.cautionaryClaim > 0)) {
+      return {
+        color: "YELLOW",
+        label: "mixed or unclear framing",
+        meaning: "Calm subject contains attention-grabbing or cautionary wording.",
+        reason: "calm subject with attention-grabbing framing"
       };
     }
 
     if (clearCalmAnimalSubject && noAnimalDistress) {
       return {
         color: "GREEN",
-        label: "safe candidate",
+        label: "calm/straightforward framing",
         meaning: "Calm/pet content detected; no distress or escalation signals found.",
         reason: "Calm/pet content detected; no distress or escalation signals found."
       };
@@ -930,16 +1055,25 @@
     if (severeFriction || (metrics.styleTermCount >= 1 && metrics.score < 34)) {
       return {
         color: "RED",
-        label: "high-friction/escalatory",
-        meaning: "High-friction or escalatory framing; filtered out of guided exploration.",
+        label: "intense/attention-grabbing framing",
+        meaning: "Intense or attention-grabbing title wording pattern.",
         reason: "explicit escalation or distress framing detected"
+      };
+    }
+
+    if (metrics.cautionaryClaim > 0 || metrics.sensitiveGuidance > 0) {
+      return {
+        color: "YELLOW",
+        label: "mixed or unclear framing",
+        meaning: "Cautionary, sensitive, or strong-claim wording needs context beyond the title.",
+        reason: "cautionary or sensitive framing needs context"
       };
     }
 
     if (metrics.score >= 50 && hasContinuity && lowFriction && strongCalmPositive) {
       return {
         color: "GREEN",
-        label: "safe candidate",
+        label: "calm/straightforward framing",
         meaning: "Calm, relaxing, or low-friction subject presentation.",
         reason: "strong calm/relaxing positive signals"
       };
@@ -948,8 +1082,8 @@
     if (metrics.score >= 62 && hasContinuity && lowFriction && (hasFormatTrust || strongExplanatory || metrics.topicRelevance >= 24)) {
       return {
         color: "GREEN",
-        label: "safe candidate",
-        meaning: "Safe candidate for calmer and lower-friction exploration.",
+        label: "calm/straightforward framing",
+        meaning: "Calm or explanatory title wording with topic continuity.",
         reason: "low-friction candidate with continuity and trusted explanatory/format signals"
       };
     }
@@ -957,17 +1091,84 @@
     if (metrics.score >= 56 && hasContinuity && (strongExplanatory || hasFormatTrust) && metrics.styleTermCount === 0) {
       return {
         color: "GREEN",
-        label: "safe candidate",
-        meaning: "Relevant explanatory result with low-friction wording.",
+        label: "calm/straightforward framing",
+        meaning: "Relevant explanatory title wording without intense framing.",
         reason: "explanatory or trusted source format with no escalation"
       };
     }
 
     return {
       color: "YELLOW",
-      label: "mixed but useful",
-      meaning: "Neutral or mixed result that can be useful for educational, deeper, or structured exploration lenses.",
+      label: "mixed or unclear framing",
+      meaning: "Neutral, mixed, or unclear title wording pattern.",
       reason: "neutral default: no explicit escalation, but not enough GREEN evidence"
+    };
+  }
+
+  function termsForEvidence(signals, categories) {
+    const allowed = new Set(categories || []);
+    return (signals || [])
+      .filter((signal) => allowed.has(signal.category))
+      .map((signal) => signal.normalizedTerm || signal.term)
+      .filter(Boolean);
+  }
+
+  function evidenceSummaryForCanonical({ titleTokens, anchorTerms, matchedTerms, styleTerms, reasons, classification, metrics }) {
+    const positive = (matchedTerms && matchedTerms.positive) || [];
+    const friction = (matchedTerms && matchedTerms.friction) || [];
+    const hasCompetingSignals = positive.length > 0 && friction.length > 0;
+    const softened = (reasons || []).some((reason) => /softened|reduced single-signal intensity/i.test(reason));
+    const needsContext = (reasons || []).some((reason) => /needs context/i.test(reason));
+    const topicOverlap = titleTokens.filter((token) => (anchorTerms || []).includes(token));
+    const amplificationTerms = termsForEvidence(styleTerms, ["clickbait"]);
+    const conflictTerms = termsForEvidence(styleTerms, ["domination", "outrage"]);
+    const escalationTerms = termsForEvidence(styleTerms, ["escalation"]);
+    const intensityLevel = classification.color === "RED" || friction.length >= 2
+      ? "high"
+      : friction.length === 1
+        ? "medium"
+        : "low";
+    const uncertaintyLevel = classification.color === "YELLOW"
+      ? (hasCompetingSignals || softened || needsContext ? "high" : "medium")
+      : "low";
+
+    return {
+      topicDetection: {
+        summary: topicOverlap.length ? "Topic terms were detected from the title text." : "No stable topic terms were inferred beyond the title text.",
+        terms: unique(topicOverlap)
+      },
+      framingDetection: {
+        summary: classification.meaning,
+        label: classification.color,
+        labelMeaning: classification.label
+      },
+      emotionalIntensity: {
+        level: intensityLevel,
+        summary: intensityLevel === "low" ? "No strong intense wording pattern was detected." : "Intense wording pattern detected from title terms.",
+        terms: unique([...friction, ...escalationTerms])
+      },
+      amplificationLanguage: {
+        detected: amplificationTerms.length > 0,
+        summary: amplificationTerms.length ? "Strong certainty or attention-grabbing wording detected." : "No strong amplification wording detected.",
+        terms: unique(amplificationTerms)
+      },
+      conflictLanguage: {
+        detected: conflictTerms.length > 0,
+        summary: conflictTerms.length ? "Conflict-oriented wording detected." : "No conflict-oriented wording detected.",
+        terms: unique(conflictTerms)
+      },
+      uncertainty: {
+        level: uncertaintyLevel,
+        summary: uncertaintyLevel === "low"
+          ? "Low ambiguity in the deterministic framing interpretation."
+          : hasCompetingSignals
+            ? "Multiple competing framing signals detected."
+            : needsContext
+              ? "The title needs context beyond wording alone."
+              : "Mixed or unclear framing patterns detected.",
+        competingSignals: hasCompetingSignals
+      },
+      boundedClaim: "This summarizes observable title wording patterns only; it does not assess truth, intent, or content quality."
     };
   }
 
@@ -1153,7 +1354,7 @@
       contradictions.push("explanation claims matched terms while matchedTerms is empty");
     }
 
-    if (result.label === "GREEN" && /(marked yellow|marked red|explicit escalation|high-friction|controversy terms)/i.test(explanation)) {
+    if (result.label === "GREEN" && /(marked yellow|marked red|explicit escalation|high-friction|mixed\/context title terms)/i.test(explanation)) {
       contradictions.push("GREEN label conflicts with escalation/yellow/red explanation language");
     }
 
@@ -1284,7 +1485,8 @@
         label: result.label,
         confidence: result.confidence,
         explanation: result.explanation,
-        finalDecisionSource: result.semanticSignals.finalDecisionSource
+        finalDecisionSource: result.semanticSignals.finalDecisionSource,
+        evidenceSummary: result.evidenceSummary
       })
     ];
   }
@@ -1311,10 +1513,18 @@
     const lowFrictionMatches = countMatches(tokens, CALM_LOW_FRICTION_TERMS);
     const calmPositiveMatches = countMatches(tokens, CALM_POSITIVE_TERMS);
     const calmNatureAnimalMatches = countMatches(tokens, CALM_NATURE_ANIMAL_SIGNALS);
+    const animalSubjectMatches = countMatches(titleTokens, ANIMAL_SUBJECT_TERMS);
     const harmlessEnergeticMatches = countMatches(titleTokens, HARMLESS_ENERGETIC_TERMS);
     const animalDistressMatches = countMatches(titleTokens, ANIMAL_DISTRESS_TERMS);
     const beginnerMatches = countMatches(tokens, BEGINNER_TERMS);
     const neutralReportingMatches = countMatches(tokens, NEUTRAL_REPORTING_TERMS);
+    const domainSofteningMatches = countMatches(tokens, DOMAIN_SOFTENING_TERMS);
+    const petPlayContextMatches = countMatches(tokens, PET_PLAY_CONTEXT_TERMS);
+    const cautionaryClaimMatches = countMatches(tokens, CAUTIONARY_CLAIM_TERMS);
+    const sensitiveGuidanceMatches = countMatches(tokens, SENSITIVE_GUIDANCE_TERMS);
+    const contextualDownweightMatches =
+      countMatches(tokens, CONTEXTUAL_DOWNWEIGHT_TERMS) +
+      (titleTokens.includes("how") && titleTokens.includes("works") ? 2 : 0);
     const interviewDiscussionMatches = countMatches(tokens, INTERVIEW_DISCUSSION_TERMS);
     const lowerFrictionSourceMatches = countMatches(tokens, LOWER_FRICTION_SOURCE_TERMS);
     const mixedSourceMatches = countMatches(tokens, MIXED_SOURCE_TERMS);
@@ -1356,11 +1566,17 @@
       sourceFormat,
       calmPositive: calmPositiveMatches,
       calmAnimalScore: calmNatureAnimalMatches,
+      animalSubjectScore: animalSubjectMatches,
       escalationScore: styleTerms.length,
       harmlessEnergy: harmlessEnergeticMatches,
       animalDistressScore: animalDistressMatches,
       penalty,
       styleTermCount: styleTerms.length,
+      contextualDownweight: contextualDownweightMatches,
+      domainSoftening: domainSofteningMatches,
+      petPlayContext: petPlayContextMatches,
+      cautionaryClaim: cautionaryClaimMatches,
+      sensitiveGuidance: sensitiveGuidanceMatches,
       capitalizationRatio: capRatio
     };
     const classification = classifyScoredCandidate(classificationMetrics);
@@ -1409,9 +1625,33 @@
     if (styleTerms.length > 0) {
       reasons.push("escalation signals detected; ranked lower");
     }
+    if (styleTerms.length > 0 && contextualDownweightMatches >= 1) {
+      reasons.push("educational or guidance framing reduced single-signal intensity");
+    }
+    if (styleTerms.length > 0 && domainSofteningMatches > 0) {
+      reasons.push("domain context softened creator-style intense wording");
+    }
+    if (petPlayContextMatches > 0 && animalDistressMatches > 0) {
+      reasons.push("pet/play context softened aggression wording");
+    }
+    if (cautionaryClaimMatches > 0) {
+      reasons.push("cautionary claim wording needs context");
+    }
+    if (sensitiveGuidanceMatches > 0) {
+      reasons.push("sensitive guidance topic needs context");
+    }
     if (reasons.length === 0) {
       reasons.push("visible result with partial subject overlap");
     }
+    const evidenceSummary = evidenceSummaryForCanonical({
+      titleTokens,
+      anchorTerms,
+      matchedTerms,
+      styleTerms,
+      reasons,
+      classification,
+      metrics: classificationMetrics
+    });
 
     const result = {
       traceId: traceIdForCandidate(candidate, scoringPath),
@@ -1458,6 +1698,7 @@
         semanticOverrides: classification.reason,
         finalDecisionSource: "canonical.semantic.classifyScoredCandidate"
       },
+      evidenceSummary,
       reasoning: {
         reasons,
         finalReason: confidence.finalReason,
@@ -1487,6 +1728,7 @@
         calm_animal_score: calmNatureAnimalMatches,
         escalation_score: animalDistressMatches || styleTerms.length,
         final_classification_reason: classification.reason,
+        evidence_summary: evidenceSummary,
         confidence: confidence.confidence,
         domain_confidence: confidence.domainConfidence,
         friction_confidence: confidence.frictionConfidence,
@@ -1956,6 +2198,23 @@
     };
   }
 
+  function getPipelineHealth() {
+    return {
+      pipelineVersion: PIPELINE_VERSION,
+      canonicalScoringFunction: "scoreContent",
+      canonicalScenarioRunner: "runScenario",
+      canonicalScenarioPackRunner: "runScenarioPack",
+      activeScoringEntrypoints: ["scoreContent"],
+      governanceBypassAllowed: false,
+      scoringRuleMutationAllowed: false,
+      dictionaryMutationAllowed: false,
+      directLabelMutationAllowed: false,
+      runtimeStateMutationAllowed: ["test results", "test traces"],
+      evidenceExportsIncludeDomDump: false,
+      evidenceExportsIncludeCookiesTokensOrAccountData: false
+    };
+  }
+
   function runGoldenRegressionPack(pack) {
     const report = runScenarioPack(pack || defaultGoldenRegressionPack());
     const failedResults = report.results.filter((result) => !result.pass);
@@ -2103,6 +2362,7 @@
     CALM_NATURE_ANIMAL_SIGNALS,
     CALM_POSITIVE_TERMS,
     HARMLESS_ENERGETIC_TERMS,
+    PIPELINE_VERSION,
     SCENARIO_CATEGORIES,
     STYLE_TAXONOMY,
     EXPLORATION_STYLES,
@@ -2116,6 +2376,7 @@
     extractNamedEntities,
     extractSubjectAnchor,
     filterCandidatesByLens,
+    getPipelineHealth,
     isAllowedByLens,
     rankCandidates,
     removeSensationalTerms,

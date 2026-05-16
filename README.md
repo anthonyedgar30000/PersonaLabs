@@ -119,11 +119,11 @@ It deprioritizes:
 
 ### Lens Filtering Rules
 
-The color system has operational meaning:
+The color system summarizes title framing only:
 
-- GREEN: safe candidate for calmer/lower-friction exploration
-- YELLOW: mixed but potentially useful for educational/deeper exploration
-- RED: high-friction/escalatory
+- GREEN: calm or straightforward title framing
+- YELLOW: mixed or unclear title framing
+- RED: intense or attention-grabbing title framing
 
 Lens behavior:
 
