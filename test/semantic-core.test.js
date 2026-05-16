@@ -84,6 +84,35 @@ test("classifies scored candidates into operational observability colors", () =>
   assert.equal(red.classification.color, "RED");
 });
 
+test("exposes numeric confidence fields with final classification reason", () => {
+  const anchor = semantic.analyzeAnchor("Thomas Massie Iran vote");
+  const path = semantic.buildExplorationPaths(anchor).find((item) => item.id === "educational");
+  const score = semantic.scoreCandidate(
+    {
+      title: "Thomas Massie Iran vote explained: calm context and analysis",
+      channel: "Policy Classroom",
+      duration: "18:24"
+    },
+    anchor,
+    path
+  );
+
+  [
+    score.confidence,
+    score.domainConfidence,
+    score.frictionConfidence,
+    score.positiveSignalConfidence
+  ].forEach((value) => {
+    assert.equal(Number.isInteger(value), true);
+    assert(value >= 0 && value <= 100);
+  });
+  assert.equal(score.finalReason, score.classification.reason);
+  assert.equal(score.debug.confidence, score.confidence);
+  assert.equal(score.debug.domain_confidence, score.domainConfidence);
+  assert.equal(score.debug.friction_confidence, score.frictionConfidence);
+  assert.equal(score.debug.positive_signal_confidence, score.positiveSignalConfidence);
+});
+
 test("scores first, then filters according to the selected exploration lens", () => {
   const anchor = semantic.analyzeAnchor("Thomas Massie Iran vote");
   const paths = semantic.buildExplorationPaths(anchor);

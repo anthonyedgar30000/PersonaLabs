@@ -641,8 +641,45 @@
     };
   }
 
+  function confidenceNumber(value) {
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) {
+      return Math.max(0, Math.min(100, Math.round(numeric)));
+    }
+
+    const label = String(value || "").toLowerCase();
+    if (label === "high") {
+      return 85;
+    }
+    if (label === "medium") {
+      return 60;
+    }
+    if (label === "low") {
+      return 30;
+    }
+    if (label === "uncertain") {
+      return 40;
+    }
+    return 0;
+  }
+
+  function formatConfidence(value) {
+    return `${confidenceNumber(value)}/100`;
+  }
+
+  function classificationConfidence(scoring, visibleOverlay) {
+    return {
+      confidence: scoring ? scoring.confidence : confidenceNumber(visibleOverlay && visibleOverlay.confidence),
+      domainConfidence: scoring ? scoring.domainConfidence : "",
+      frictionConfidence: scoring ? scoring.frictionConfidence : "",
+      positiveSignalConfidence: scoring ? scoring.positiveSignalConfidence : "",
+      finalReason: scoring && scoring.finalReason ? scoring.finalReason : (visibleOverlay && visibleOverlay.reason) || ""
+    };
+  }
+
   function formatHeadlineTooltip(headline, scoring, visibleOverlay) {
     const terms = summarizeHeadlineTerms(headline);
+    const confidence = classificationConfidence(scoring, visibleOverlay);
     const matched = [
       terms.green.length ? `green: ${terms.green.join(", ")}` : "",
       terms.yellow.length ? `yellow: ${terms.yellow.join(", ")}` : "",
@@ -653,6 +690,11 @@
 
     return [
       `Visible overlay: ${visibleOverlay.label} (${visibleOverlay.confidence}).`,
+      `Confidence: ${formatConfidence(confidence.confidence)}.`,
+      scoring ? `Domain confidence: ${formatConfidence(confidence.domainConfidence)}.` : "",
+      scoring ? `Friction confidence: ${formatConfidence(confidence.frictionConfidence)}.` : "",
+      scoring ? `Positive-signal confidence: ${formatConfidence(confidence.positiveSignalConfidence)}.` : "",
+      confidence.finalReason ? `Final reason: ${confidence.finalReason}.` : "",
       visibleOverlay.reason,
       headline.explanation,
       `Headline scores: green ${headline.scores.green_score}, yellow ${headline.scores.yellow_score}, red ${headline.scores.red_score}.`,
@@ -666,16 +708,22 @@
       .join("\n");
   }
 
-  function renderHeadlineOverlay(label, headline, visibleOverlay) {
+  function renderHeadlineOverlay(label, headline, visibleOverlay, scoring) {
     const terms = summarizeHeadlineTerms(headline);
+    const confidence = classificationConfidence(scoring, visibleOverlay);
     const matched = [...terms.green, ...terms.yellow, ...terms.red].slice(0, 4).join(", ") || "no matched terms";
+    const confidenceDetails = scoring
+      ? `Domain ${formatConfidence(confidence.domainConfidence)} / Friction ${formatConfidence(confidence.frictionConfidence)} / Positive ${formatConfidence(confidence.positiveSignalConfidence)}`
+      : "";
 
     return [
       `<span class="personalabs-overlay-label">${escapeHtml(label)}</span>`,
+      `<span class="personalabs-overlay-confidence">Confidence ${escapeHtml(formatConfidence(confidence.confidence))}</span>`,
+      confidenceDetails ? `<span class="personalabs-overlay-confidence">${escapeHtml(confidenceDetails)}</span>` : "",
       `<span class="personalabs-overlay-breakdown">G ${headline.scores.green_score} / Y ${headline.scores.yellow_score} / R ${headline.scores.red_score}</span>`,
       `<span class="personalabs-overlay-reason">${escapeHtml(visibleOverlay.reason || headline.explanation)}</span>`,
       `<span class="personalabs-overlay-terms">${escapeHtml(matched)}</span>`
-    ].join("");
+    ].filter(Boolean).join("");
   }
 
   function upsertTitleBadge(card, label, category, scoring, headline, visibleOverlay) {
@@ -733,7 +781,7 @@
       host.appendChild(overlay);
     }
 
-    overlay.innerHTML = renderHeadlineOverlay(label, headline, visibleOverlay);
+    overlay.innerHTML = renderHeadlineOverlay(label, headline, visibleOverlay, scoring);
     overlay.dataset.signal = category;
     overlay.title = formatHeadlineTooltip(headline, scoring, visibleOverlay);
 
@@ -904,6 +952,7 @@
     state.suggestions.forEach((suggestion) => {
       const item = document.createElement("li");
       const link = suggestion.url ? `<a href='${escapeAttribute(suggestion.url)}'>${escapeHtml(suggestion.title)}</a>` : escapeHtml(suggestion.title);
+      const confidence = classificationConfidence(suggestion.scoring);
       const reasons = suggestion.scoring.reasons
         .slice(0, 3)
         .map((reason) => `<span>${escapeHtml(reason)}</span>`)
@@ -914,9 +963,11 @@
       item.innerHTML = [
         `<div class='personalabs-score' data-classification='${color}'>${suggestion.scoring.score}</div>`,
         "<div>",
-        `<div class='personalabs-classification' data-classification='${color}'>${escapeHtml(suggestion.scoring.classification.color)} | ${escapeHtml(suggestion.scoring.classification.label)}</div>`,
+        `<div class='personalabs-classification' data-classification='${color}'>${escapeHtml(suggestion.scoring.classification.color)} | ${escapeHtml(suggestion.scoring.classification.label)} | Confidence ${escapeHtml(formatConfidence(confidence.confidence))}</div>`,
         `<h4>${link}</h4>`,
         `<p>${escapeHtml(suggestion.channel || "Visible YouTube result")}</p>`,
+        `<div class='personalabs-confidence-details'>Domain ${escapeHtml(formatConfidence(confidence.domainConfidence))} | Friction ${escapeHtml(formatConfidence(confidence.frictionConfidence))} | Positive ${escapeHtml(formatConfidence(confidence.positiveSignalConfidence))}</div>`,
+        `<p class='personalabs-final-reason'>Final reason: ${escapeHtml(confidence.finalReason || suggestion.scoring.classification.reason || "classification reason unavailable")}</p>`,
         `<div class='personalabs-reasons'>${reasons}</div>`,
         "</div>"
       ].join("");

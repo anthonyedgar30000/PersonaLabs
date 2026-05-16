@@ -308,6 +308,13 @@
   margin-top: 2px;
 }
 
+.personalabs-confidence-details {
+  color: var(--pl-muted);
+  font-size: 10px;
+  font-weight: 800;
+  margin-top: 4px;
+}
+
 .personalabs-reasons {
   display: flex;
   flex-wrap: wrap;
@@ -385,6 +392,7 @@
 }
 
 .personalabs-overlay-breakdown,
+.personalabs-overlay-confidence,
 .personalabs-overlay-reason,
 .personalabs-overlay-terms {
   max-width: 100%;
@@ -392,6 +400,7 @@
   text-overflow: ellipsis;
 }
 
+.personalabs-overlay-confidence,
 .personalabs-overlay-reason,
 .personalabs-overlay-terms {
   opacity: 0.9;

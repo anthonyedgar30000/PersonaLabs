@@ -955,6 +955,42 @@
     };
   }
 
+  function confidenceForScoredCandidate(metrics, classification) {
+    const domainConfidence = clampScore(Math.max(
+      metrics.topicRelevance * 2.5,
+      metrics.continuity * 8,
+      metrics.calmAnimalScore > 0 ? 70 + metrics.calmAnimalScore * 10 : 0
+    ));
+    const frictionConfidence = clampScore(Math.max(
+      metrics.styleTermCount * 30 + metrics.penalty * 2,
+      metrics.animalDistressScore * 45,
+      metrics.harmlessEnergy * 25,
+      metrics.capitalizationRatio > 0.5 ? 35 : 0
+    ));
+    const positiveSignalConfidence = clampScore(Math.max(
+      metrics.calmPositive * 25 + metrics.calmAnimalScore * 20,
+      metrics.educationalFraming * 4,
+      metrics.informationalTone * 7 + metrics.sourceFormat * 7,
+      metrics.format * 6,
+      Math.max(0, metrics.calmLanguage - 10) * 4
+    ));
+    const confidence = clampScore(
+      classification.color === "RED"
+        ? Math.max(frictionConfidence, 45)
+        : classification.color === "GREEN"
+          ? Math.max(domainConfidence, positiveSignalConfidence)
+          : Math.max(45, Math.round((domainConfidence + frictionConfidence + positiveSignalConfidence) / 3))
+    );
+
+    return {
+      confidence,
+      domainConfidence,
+      frictionConfidence,
+      positiveSignalConfidence,
+      finalReason: classification.reason
+    };
+  }
+
   function scoreCandidate(candidate, anchorOrTitle, explorationPath) {
     const anchor = typeof anchorOrTitle === "string" ? analyzeAnchor(anchorOrTitle) : anchorOrTitle;
     const title = candidate.title || "";
@@ -1006,7 +1042,7 @@
     const neutralOffset = styleTerms.length > 0 ? 0 : Math.min(8, neutralReportingMatches * 2 + interviewDiscussionMatches * 2 + lowerFrictionSourceMatches * 2);
     const penalty = Math.max(0, Math.min(28, styleTerms.length * 6 + mixedSourceMatches * 2 + (capRatio > 0.5 ? 8 : 0) - neutralOffset));
     const score = clampScore(topicRelevance + educationalFraming + calmLanguage + continuity + format + informationalTone + sourceFormat - penalty);
-    const classification = classifyScoredCandidate({
+    const classificationMetrics = {
       score,
       topicRelevance,
       educationalFraming,
@@ -1023,7 +1059,9 @@
       penalty,
       styleTermCount: styleTerms.length,
       capitalizationRatio: capRatio
-    });
+    };
+    const classification = classifyScoredCandidate(classificationMetrics);
+    const confidence = confidenceForScoredCandidate(classificationMetrics, classification);
 
     const reasons = [];
     if (topicMatches > 0 || continuityMatches > 0) {
@@ -1072,10 +1110,19 @@
     return {
       score,
       classification,
+      confidence: confidence.confidence,
+      domainConfidence: confidence.domainConfidence,
+      frictionConfidence: confidence.frictionConfidence,
+      positiveSignalConfidence: confidence.positiveSignalConfidence,
+      finalReason: confidence.finalReason,
       debug: {
         calm_animal_score: calmNatureAnimalMatches,
         escalation_score: animalDistressMatches || styleTerms.length,
-        final_classification_reason: classification.reason
+        final_classification_reason: classification.reason,
+        confidence: confidence.confidence,
+        domain_confidence: confidence.domainConfidence,
+        friction_confidence: confidence.frictionConfidence,
+        positive_signal_confidence: confidence.positiveSignalConfidence
       },
       breakdown: {
         topicRelevance,
