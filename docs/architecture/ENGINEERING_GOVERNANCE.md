@@ -76,6 +76,7 @@ Before changing scoring weights, thresholds, dictionaries, or override rules:
 - The inspector must render only existing canonical results, `traceEvents`, and runtime stages.
 - Inspector utilities may copy, export, clear, filter, or expand traces.
 - Inspector utilities must not mutate scoring state or semantic labels.
+- Replay utilities may call canonical replay helpers only; replay helpers must call `scoreContent(...)` and must not implement separate scoring.
 
 ### Regression tests are required for scoring changes
 

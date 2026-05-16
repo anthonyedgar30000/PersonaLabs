@@ -583,3 +583,91 @@ test("canonical score validates confidence consistency", () => {
   assert.equal(score.semanticSignals.confidenceDeltas.friction, score.frictionConfidence);
   assert.equal(score.semanticSignals.confidenceDeltas.positiveSignal, score.positiveSignalConfidence);
 });
+
+test("replay detects no drift for exported canonical traces", () => {
+  const candidate = {
+    title: "Cute Baby Bunny Compilation",
+    channel: "Wholesome Pets",
+    duration: "12:00"
+  };
+  const anchor = semantic.analyzeAnchor(candidate.title);
+  const lens = semantic.buildExplorationPaths(anchor).find((item) => item.id === "calmer");
+  const score = semantic.scoreContent({ candidate, anchor, lens, scoringPath: "test-export" });
+  const exported = JSON.parse(JSON.stringify([score]));
+  const [replay] = semantic.replayTraces(exported);
+
+  assert.equal(replay.sourceTraceId, score.traceId);
+  assert.equal(replay.originalLabel, score.label);
+  assert.equal(replay.currentLabel, score.label);
+  assert.equal(replay.confidenceDelta, 0);
+  assert.equal(replay.driftClassification, "none");
+  assert.equal(replay.replayAgreementState, "agreement");
+  assert.equal(replay.pipelineVersionComparison.changed, false);
+});
+
+test("replay detects confidence drift", () => {
+  const trace = semantic.scoreContent({
+    candidate: {
+      title: "Thomas Massie Iran vote explained: calm context and analysis",
+      channel: "Policy Classroom",
+      duration: "18:24"
+    },
+    anchor: semantic.analyzeAnchor("Thomas Massie Iran vote"),
+    lens: semantic.buildExplorationPaths(semantic.analyzeAnchor("Thomas Massie Iran vote")).find((item) => item.id === "educational"),
+    scoringPath: "test-confidence-export"
+  });
+  const historical = { ...trace, confidence: Math.max(0, trace.confidence - 12) };
+  const replay = semantic.replayTrace(historical);
+
+  assert.equal(replay.confidenceDrift, true);
+  assert.equal(replay.confidenceDelta, trace.confidence - historical.confidence);
+  assert.equal(replay.driftClassification, "medium");
+});
+
+test("replay detects label and governance drift", () => {
+  const trace = semantic.scoreContent({
+    candidate: {
+      title: "Cute Baby Bunny Compilation",
+      channel: "Wholesome Pets",
+      duration: "12:00"
+    },
+    anchor: semantic.analyzeAnchor("Cute Baby Bunny Compilation"),
+    lens: semantic.buildExplorationPaths(semantic.analyzeAnchor("Cute Baby Bunny Compilation")).find((item) => item.id === "calmer"),
+    scoringPath: "test-label-export"
+  });
+  const historical = {
+    ...trace,
+    label: "RED",
+    reasoning: {
+      ...trace.reasoning,
+      downgradeReasons: ["historical governance reason"]
+    }
+  };
+  const replay = semantic.replayTrace(historical);
+
+  assert.equal(replay.labelDrift, true);
+  assert.equal(replay.driftClassification, "high");
+  assert(replay.governanceDecisionChanges.length > 0);
+  assert.equal(replay.replayAgreementState, "drift");
+});
+
+test("replay detects contradiction drift", () => {
+  const trace = semantic.scoreContent({
+    candidate: {
+      title: "Obscure Segment 17",
+      channel: "Channel 42",
+      duration: "9:00"
+    },
+    anchor: semantic.analyzeAnchor("Obscure Segment 17"),
+    lens: semantic.buildExplorationPaths(semantic.analyzeAnchor("Obscure Segment 17")).find((item) => item.id === "educational"),
+    scoringPath: "test-contradiction-export"
+  });
+  const historical = {
+    ...trace,
+    contradictions: ["historical contradiction"]
+  };
+  const replay = semantic.replayTrace(historical);
+
+  assert.equal(replay.contradictionDrift, true);
+  assert(["medium", "high"].includes(replay.driftClassification));
+});

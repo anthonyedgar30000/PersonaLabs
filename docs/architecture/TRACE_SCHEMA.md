@@ -101,6 +101,31 @@ Inspector utilities:
 - clear trace history;
 - toggle verbose trace rendering;
 - filter traces by all, overlay, panel, or contradictions.
+- replay visible traces;
+- load exported replay JSON.
+
+## Replay Analysis
+
+Replay uses exported canonical trace JSON as input and delegates to
+`semantic.replayTraces(...)`. Replay must call canonical `scoreContent(...)`
+only; it must not introduce another scoring system.
+
+Replay telemetry includes:
+
+- `replayId`
+- `sourceTraceId`
+- `replayPipelineVersion`
+- `driftClassification`
+- `replayAgreementState`
+- `originalLabel`
+- `currentLabel`
+- `confidenceDelta`
+- `governanceDecisionChanges`
+- `replayTimestamp`
+- `pipelineVersionComparison`
+
+The inspector shows original/current labels, confidence delta, drift severity,
+changed governance decisions, replay timestamp, and pipeline version comparison.
 
 ## Trace events
 

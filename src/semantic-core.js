@@ -1122,6 +1122,11 @@
     };
   }
 
+  function resolveLensForReplay(anchor, lensId) {
+    const paths = buildExplorationPaths(anchor);
+    return paths.find((path) => [path.id, path.label, path.lensLabel].includes(lensId)) || paths[0] || null;
+  }
+
   function detectContradictions(result) {
     const contradictions = [];
     const explanation = `${result.explanation || ""} ${((result.reasoning && result.reasoning.reasons) || []).join(" ")}`.toLowerCase();
@@ -1207,6 +1212,8 @@
         title: result.title,
         channel: result.channel,
         videoId: result.videoId,
+        duration: result.duration,
+        url: result.url,
         lens: result.lens
       },
       derivedState,
@@ -1399,6 +1406,8 @@
       videoId: videoIdFromCandidate(candidate),
       title,
       channel,
+      duration: candidate.duration || "",
+      url: candidate.url || "",
       lens: activeLens && (activeLens.id || activeLens.lensLabel || activeLens.label) || "none",
       domain: domainContext.domain,
       label: classification.color,
@@ -1500,6 +1509,94 @@
     ];
     result.traceEvents = semanticTraceEventsForResult(result);
     return result;
+  }
+
+  function changedList(left, right) {
+    const leftValues = unique(left || []);
+    const rightValues = unique(right || []);
+    return [
+      ...leftValues.filter((value) => !rightValues.includes(value)).map((value) => `removed: ${value}`),
+      ...rightValues.filter((value) => !leftValues.includes(value)).map((value) => `added: ${value}`)
+    ];
+  }
+
+  function driftClassificationForReplay({ labelDrift, confidenceDelta, contradictionDrift, governanceDecisionChanges }) {
+    if (labelDrift) {
+      return "high";
+    }
+    if (contradictionDrift || governanceDecisionChanges.length > 0 || Math.abs(confidenceDelta) >= 10) {
+      return "medium";
+    }
+    if (confidenceDelta !== 0) {
+      return "low";
+    }
+    return "none";
+  }
+
+  function replayTrace(trace) {
+    const source = trace || {};
+    const candidate = {
+      videoId: source.videoId || (source.input && source.input.videoId) || "",
+      title: source.title || (source.input && source.input.title) || "",
+      channel: source.channel || (source.input && source.input.channel) || "",
+      duration: source.duration || (source.input && source.input.duration) || "",
+      url: source.url || (source.input && source.input.url) || ""
+    };
+    const anchor = analyzeAnchor(candidate.title);
+    const lens = resolveLensForReplay(anchor, source.lens || (source.input && source.input.lens));
+    const current = scoreContent({
+      candidate,
+      anchor,
+      lens,
+      scoringPath: "replay",
+      expectedLabel: source.label || source.canonicalLabel || ""
+    });
+    const originalLabel = source.label || source.canonicalLabel || "";
+    const originalConfidence = Number.isFinite(Number(source.confidence))
+      ? Number(source.confidence)
+      : Number(source.confidence && source.confidence.final) || 0;
+    const confidenceDelta = current.confidence - originalConfidence;
+    const originalContradictions = source.contradictions || [];
+    const contradictionDrift = JSON.stringify(originalContradictions) !== JSON.stringify(current.contradictions);
+    const originalGovernance = (source.reasoning && source.reasoning.downgradeReasons) || source.downgradeReasons || [];
+    const currentGovernance = (current.reasoning && current.reasoning.downgradeReasons) || [];
+    const governanceDecisionChanges = changedList(originalGovernance, currentGovernance);
+    const labelDrift = Boolean(originalLabel && originalLabel !== current.label);
+    const driftClassification = driftClassificationForReplay({
+      labelDrift,
+      confidenceDelta,
+      contradictionDrift,
+      governanceDecisionChanges
+    });
+
+    return {
+      replayId: traceIdForCandidate(candidate, "replay-analysis"),
+      sourceTraceId: source.traceId || "",
+      replayPipelineVersion: PIPELINE_VERSION,
+      driftClassification,
+      replayAgreementState: driftClassification === "none" ? "agreement" : "drift",
+      replayTimestamp: new Date().toISOString(),
+      originalLabel,
+      currentLabel: current.label,
+      confidenceDelta,
+      labelDrift,
+      confidenceDrift: confidenceDelta !== 0,
+      contradictionDrift,
+      retrievalAgreementChanged: /^retrieval/.test(source.scoringPath || "") && labelDrift,
+      governanceDecisionChanges,
+      pipelineVersionComparison: {
+        original: source.pipelineVersion || "unknown",
+        current: PIPELINE_VERSION,
+        changed: Boolean(source.pipelineVersion && source.pipelineVersion !== PIPELINE_VERSION)
+      },
+      current,
+      sourceTrace: source
+    };
+  }
+
+  function replayTraces(traces) {
+    const items = Array.isArray(traces) ? traces : [traces];
+    return items.filter(Boolean).map(replayTrace);
   }
 
   function scoreCandidate(candidate, anchorOrTitle, explorationPath) {
@@ -1638,6 +1735,8 @@
     isAllowedByLens,
     rankCandidates,
     removeSensationalTerms,
+    replayTrace,
+    replayTraces,
     scoreContent,
     scoreCandidate,
     scoreCandidates,

@@ -84,6 +84,21 @@ semantic.scoreContent({
 `semantic.scoreCandidate(...)` and `semantic.scoreCandidates(...)` are
 compatibility adapters that delegate to `scoreContent(...)`.
 
+## Replay contract
+
+Semantic replay is provided by:
+
+```js
+semantic.replayTrace(trace)
+semantic.replayTraces(traces)
+```
+
+Replay accepts exported canonical trace JSON, reconstructs canonical scoring
+input, calls `scoreContent(...)`, and compares the current canonical result to
+the historical trace. Replay reports label drift, confidence drift,
+contradiction drift, governance decision changes, retrieval agreement changes,
+and pipeline version changes.
+
 ## Current scoring path audit
 
 The active runtime now routes overlay, retrieval, and panel decisions through

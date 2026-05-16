@@ -94,6 +94,7 @@
     traces: [],
     debugTraceFilter: "all",
     debugVerboseTraces: false,
+    replayAnalyses: [],
     mutationCount: 0
   };
 
@@ -1419,6 +1420,8 @@
       "<button type='button' data-action='export-traces'>Export JSON</button>",
       "<button type='button' data-action='clear-traces'>Clear</button>",
       `<button type='button' data-action='toggle-verbose'>${state.debugVerboseTraces ? "Compact traces" : "Verbose traces"}</button>`,
+      "<button type='button' data-action='replay-visible-traces'>Replay visible</button>",
+      "<label>Load Replay JSON <input type='file' accept='application/json' data-action='load-replay-json'></label>",
       "<label>Filter <select data-action='filter-traces'>",
       `<option value='all'${state.debugTraceFilter === "all" ? " selected" : ""}>All</option>`,
       `<option value='overlay'${state.debugTraceFilter === "overlay" ? " selected" : ""}>Overlay</option>`,
@@ -1470,6 +1473,7 @@
         "Canonical agreement validation": latest.confidenceValidation ? [`confidence valid: ${latest.confidenceValidation.valid}`] : ["not available"],
         "Semantic path validation": [latest.scoringPath || "unknown"]
       }) : "",
+      renderReplayAnalysis(),
       renderInspectorListSection("Retrieval Transformations", {
         "Selected lens": [activePath() && (activePath().lensLabel || activePath().label) || "none"],
         "Transformed exploration paths": transformedPaths,
@@ -1490,6 +1494,8 @@
     const clearButton = section.querySelector("[data-action='clear-traces']");
     const verboseButton = section.querySelector("[data-action='toggle-verbose']");
     const filterSelect = section.querySelector("[data-action='filter-traces']");
+    const replayButton = section.querySelector("[data-action='replay-visible-traces']");
+    const replayInput = section.querySelector("[data-action='load-replay-json']");
 
     copyButton.addEventListener("click", () => {
       const payload = JSON.stringify(filteredDebugTraces(), null, 2);
@@ -1524,7 +1530,57 @@
       scheduleRender();
     });
 
+    replayButton.addEventListener("click", () => {
+      state.replayAnalyses = semantic.replayTraces(filteredDebugTraces());
+      scheduleRender();
+    });
+
+    replayInput.addEventListener("change", () => {
+      const file = replayInput.files && replayInput.files[0];
+      if (!file) {
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.addEventListener("load", () => {
+        try {
+          const parsed = JSON.parse(String(reader.result || "[]"));
+          state.replayAnalyses = semantic.replayTraces(parsed);
+          scheduleRender();
+        } catch (error) {
+          warnLog("replay JSON load failed", { message: error && error.message });
+        }
+      });
+      reader.readAsText(file);
+    });
+
     return section;
+  }
+
+  function renderReplayAnalysis() {
+    const latest = state.replayAnalyses[0];
+    if (!latest) {
+      return renderInspectorSection("Replay Analysis", [
+        ["Original label", "not loaded"],
+        ["Current label", "not replayed"],
+        ["Confidence delta", "0"],
+        ["Drift severity", "none"],
+        ["Changed governance", "none"],
+        ["Replay timestamp", "none"],
+        ["Pipeline versions", "not compared"]
+      ]);
+    }
+
+    return renderInspectorSection("Replay Analysis", [
+      ["Original label", latest.originalLabel || "none"],
+      ["Current label", latest.currentLabel || "none"],
+      ["Confidence delta", String(latest.confidenceDelta)],
+      ["Drift severity", latest.driftClassification],
+      ["Changed governance", latest.governanceDecisionChanges.length ? latest.governanceDecisionChanges.join(" | ") : "none"],
+      ["Replay timestamp", latest.replayTimestamp],
+      ["Pipeline versions", `${latest.pipelineVersionComparison.original} -> ${latest.pipelineVersionComparison.current}`],
+      ["Replay agreement", latest.replayAgreementState]
+    ]);
   }
 
   function filteredDebugTraces() {

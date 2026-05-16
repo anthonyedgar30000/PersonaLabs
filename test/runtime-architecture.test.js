@@ -33,6 +33,9 @@ test("semantic trace inspector exposes debug-only inspection utilities", () => {
   assert.match(contentRuntime, /data-action='clear-traces'/);
   assert.match(contentRuntime, /data-action='toggle-verbose'/);
   assert.match(contentRuntime, /data-action='filter-traces'/);
+  assert.match(contentRuntime, /data-action='replay-visible-traces'/);
+  assert.match(contentRuntime, /data-action='load-replay-json'/);
+  assert.match(contentRuntime, /Replay Analysis/);
   assert.match(contentRuntime, /value='retrieval'/);
   assert.match(contentRuntime, /value='governance'/);
   assert.match(contentRuntime, /renderInspectorSection\("Input"/);
@@ -67,5 +70,13 @@ test("inspector observes traces without participating in scoring", () => {
   assert.match(pipelineHealthFunction, /Overlay\/panel agreement/);
   assert.match(pipelineHealthFunction, /Retrieval agreement/);
   assert.match(pipelineHealthFunction, /Semantic drift warning/);
+});
+
+test("replay UI delegates to canonical replay helpers", () => {
+  const contentRuntime = fs.readFileSync(path.join(root, "src", "content.js"), "utf8");
+  const inspectorFunction = contentRuntime.match(/function renderDebugTraces[\s\S]*?function renderReplayAnalysis/)[0];
+
+  assert.match(inspectorFunction, /semantic\.replayTraces/);
+  assert(!/scoreContent|scoreCandidate|scoreCandidates/.test(inspectorFunction));
 });
 
