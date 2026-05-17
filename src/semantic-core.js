@@ -2390,7 +2390,10 @@
 
   function isAllowedByDemoStyle(scoring, policy, color) {
     if (policy === "demo-neutral-explainer") {
-      return color === "GREEN" || (color === "YELLOW" && hasStrongExplanatoryValue(scoring));
+      return color === "GREEN" || (
+        color === "YELLOW" &&
+        (hasStrongExplanatoryValue(scoring) || ((scoring.observabilitySignals && scoring.observabilitySignals.educational) || []).length > 0)
+      );
     }
 
     if (policy === "demo-urgency-risk") {
