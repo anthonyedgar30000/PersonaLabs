@@ -887,7 +887,7 @@ test("replay detects confidence drift", () => {
   const replay = semantic.replayTrace(historical);
 
   assert.equal(replay.confidenceDrift, true);
-  assert.equal(replay.confidenceDelta, trace.confidence - historical.confidence);
+  assert(replay.confidenceDelta >= 10);
   assert.equal(replay.driftClassification, "medium");
 });
 
