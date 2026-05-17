@@ -24,15 +24,15 @@
   display: flex;
   flex-direction: column;
   font-family: Inter, Roboto, Arial, sans-serif;
-  gap: 10px;
+  gap: 12px;
   line-height: 1.35;
-  max-height: calc(100vh - 96px);
+  max-height: calc(100vh - 64px);
   overflow: auto;
-  padding: 12px;
+  padding: 14px;
   position: fixed;
   right: 16px;
-  top: 72px;
-  width: 360px;
+  top: 48px;
+  width: min(520px, calc(100vw - 32px));
   z-index: 2147483647;
 }
 
@@ -195,7 +195,7 @@
 .personalabs-demo-grid {
   display: grid;
   gap: 8px;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .personalabs-demo-button {
@@ -595,6 +595,10 @@
     right: 10px;
     top: auto;
     bottom: 10px;
-    width: min(360px, calc(100vw - 20px));
+    width: min(520px, calc(100vw - 20px));
+  }
+
+  .personalabs-demo-grid {
+    grid-template-columns: 1fr;
   }
 }

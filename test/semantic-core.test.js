@@ -123,10 +123,11 @@ test("builds transformed exploration paths that preserve the contextual subject"
   const anchor = semantic.analyzeAnchor("Thomas Massie DESTROYS Iran vote");
   const paths = semantic.buildExplorationPaths(anchor);
 
-  assert.equal(paths.length, 5);
+  assert(paths.length >= 10);
   assert(paths.every((path) => path.query.includes("Thomas Massie Iran vote")));
   assert(paths.find((path) => path.id === "educational").query.includes("explained educational analysis"));
   assert(paths.find((path) => path.id === "longform").query.includes("long-form discussion analysis"));
+  assert.equal(paths.find((path) => path.id === "demo-urgency-risk").filterPolicy, "demo-urgency-risk");
 });
 
 test("ranks explanatory, lower-sensational candidates above ragebait with same topic", () => {
@@ -253,6 +254,40 @@ test("scores first, then filters according to the selected exploration lens", ()
   );
   assert(calmerSet.pipeline.includes("score results"));
   assert(calmerSet.pipeline.indexOf("score results") < calmerSet.pipeline.indexOf("apply exploration lens filtering"));
+});
+
+test("demo framing-style filters allow titles that match the selected style", () => {
+  const anchor = semantic.analyzeAnchor("AI job scams phishing awareness");
+  const paths = semantic.buildExplorationPaths(anchor);
+  const urgencyRisk = paths.find((item) => item.id === "demo-urgency-risk");
+  const futureRisk = paths.find((item) => item.id === "demo-future-risk");
+  const neutralExplainer = paths.find((item) => item.id === "demo-neutral-explainer");
+  const candidates = [
+    {
+      title: "What is phishing? Cybersecurity explained for beginners",
+      channel: "Security Classroom",
+      duration: "8:31"
+    },
+    {
+      title: "Before you answer another scam call... watch this warning",
+      channel: "Scam Awareness",
+      duration: "12:00"
+    },
+    {
+      title: "AI job apocalypse: shocking warning about replacement risk",
+      channel: "Future Tech",
+      duration: "9:00"
+    }
+  ];
+
+  const urgencySet = semantic.buildIntentionalExplorationSet(candidates, anchor, urgencyRisk);
+  const futureSet = semantic.buildIntentionalExplorationSet(candidates, anchor, futureRisk);
+  const neutralSet = semantic.buildIntentionalExplorationSet(candidates, anchor, neutralExplainer);
+
+  assert(urgencySet.suggestions.some((item) => /scam call/i.test(item.title)));
+  assert(futureSet.suggestions.some((item) => /AI job apocalypse/i.test(item.title)));
+  assert(neutralSet.suggestions.some((item) => /phishing\? Cybersecurity explained/i.test(item.title)));
+  assert(!neutralSet.suggestions.some((item) => item.scoring.label === "RED"));
 });
 
 test("does not require cloud, embeddings, or opaque recommendation inputs", () => {

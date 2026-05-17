@@ -132,7 +132,7 @@
       cue: "calm / educational",
       description: "Baseline wording for comparison against more intense titles.",
       query: "what is phishing explained cybersecurity",
-      lensId: "educational"
+      lensId: "demo-neutral-explainer"
     },
     {
       id: "urgency-risk",
@@ -140,7 +140,7 @@
       cue: "before / warning / scam",
       description: "Shows protective urgency and risk-oriented wording.",
       query: "before you answer another scam call watch this",
-      lensId: "calmer"
+      lensId: "demo-urgency-risk"
     },
     {
       id: "conflict-investigation",
@@ -148,7 +148,7 @@
       cue: "infiltrating / exposing / caught",
       description: "Shows action-oriented investigation framing.",
       query: "Jim Browning infiltrating bank scammers",
-      lensId: "deeper"
+      lensId: "demo-conflict-investigation"
     },
     {
       id: "curiosity-gap",
@@ -156,7 +156,7 @@
       cue: "hidden / watch this / secret",
       description: "Shows withheld-information wording designed to invite a click.",
       query: "hidden danger explained YouTube video",
-      lensId: "beginner"
+      lensId: "demo-curiosity-gap"
     },
     {
       id: "future-fear",
@@ -164,7 +164,7 @@
       cue: "apocalypse / replace / shocking",
       description: "Shows high-intensity future-risk language for contrast.",
       query: "AI job apocalypse replace your job shocking",
-      lensId: "longform"
+      lensId: "demo-future-risk"
     }
   ];
 
@@ -189,7 +189,8 @@
     replayAnalyses: [],
     scenarioReport: null,
     goldenReport: null,
-    mutationCount: 0
+    mutationCount: 0,
+    activeDemoStyleId: null
   };
 
   function debugLog(message, payload) {
@@ -231,6 +232,7 @@
       anchor: state.anchor,
       paths: state.paths,
       activePathId: state.activePathId,
+      activeDemoStyleId: state.activeDemoStyleId,
       savedAt: new Date().toISOString()
     };
 
@@ -249,6 +251,7 @@
     state.anchor = null;
     state.paths = [];
     state.activePathId = null;
+    state.activeDemoStyleId = null;
     state.suggestions = [];
     state.scoredResultCount = 0;
     state.lastRetrievalSource = "";
@@ -297,6 +300,7 @@
     state.anchor = payload.anchor;
     state.paths = semantic.buildExplorationPaths(payload.anchor);
     state.activePathId = payload.activePathId || (state.paths[0] && state.paths[0].id);
+    state.activeDemoStyleId = payload.activeDemoStyleId || null;
   }
 
   function scheduleRender() {
@@ -919,6 +923,7 @@
     state.anchor = anchor;
     state.paths = semantic.buildExplorationPaths(anchor);
     state.activePathId = state.paths[0] && state.paths[0].id;
+    state.activeDemoStyleId = null;
     state.suggestions = [];
     state.scoredResultCount = 0;
 
@@ -937,6 +942,10 @@
 
   function activePath() {
     return state.paths.find((path) => path.id === state.activePathId) || state.paths[0] || null;
+  }
+
+  function activeDemoStyle() {
+    return DEMO_FRAMING_STYLES.find((style) => style.id === state.activeDemoStyleId) || null;
   }
 
   function handleDocumentClick(event) {
@@ -969,8 +978,15 @@
     }
 
     const matchingPath = state.paths.find((item) => item.id === style.lensId);
-    if (matchingPath) {
-      state.activePathId = matchingPath.id;
+    if (!state.anchor) {
+      state.anchor = semantic.analyzeAnchor(style.query);
+      state.paths = semantic.buildExplorationPaths(state.anchor);
+    }
+
+    const refreshedPath = state.paths.find((item) => item.id === style.lensId);
+    if (refreshedPath || matchingPath) {
+      state.activePathId = (refreshedPath || matchingPath).id;
+      state.activeDemoStyleId = style.id;
       state.suggestions = [];
       state.scoredResultCount = 0;
       persistState();
@@ -1477,7 +1493,7 @@
       const button = document.createElement("button");
       button.type = "button";
       button.className = "personalabs-demo-button";
-      button.dataset.active = path && path.id === style.lensId ? "true" : "false";
+      button.dataset.active = state.activeDemoStyleId === style.id || (path && path.id === style.lensId) ? "true" : "false";
       button.innerHTML = [
         `<strong>${escapeHtml(style.label)}</strong>`,
         `<span>${escapeHtml(style.cue)}</span>`,
@@ -1494,11 +1510,12 @@
   function renderSuggestions() {
     const section = document.createElement("section");
     section.className = "personalabs-section";
+    const demoStyle = activeDemoStyle();
 
     const intro = document.createElement("div");
     intro.innerHTML = [
       "<p class='personalabs-eyebrow'>Visible title filtering</p>",
-      "<h3>Titles matched by this wording lens</h3>",
+      `<h3>${demoStyle ? `Titles matched to ${escapeHtml(demoStyle.label)}` : "Titles matched by this wording lens"}</h3>`,
       `<p class='personalabs-muted'>${escapeHtml(renderFilteringSummary())}</p>`
     ].join("");
     section.appendChild(intro);
@@ -1559,7 +1576,7 @@
       "<li>Deterministic-first and local-first: visible title context is kept in browser storage for continuity.</li>",
       "<li>Use Clear saved context or browser controls when you want the overlay to forget the current anchor.</li>",
       "<li>No truth, ideology ranking, censorship, or YouTube replacement judgments.</li>",
-      "<li>Score visible wording first; filter second by the selected wording lens.</li>",
+      "<li>Score visible wording first; filter second by the selected framing-style rule.</li>",
       "<li>GREEN summarizes calm or straightforward title framing.</li>",
       "<li>YELLOW summarizes mixed or unclear title framing.</li>",
       "<li>RED summarizes intense or attention-grabbing title framing.</li>",
@@ -1961,6 +1978,21 @@
     if (policy === "green-or-longform-yellow") {
       return "GREEN plus relevant long-form YELLOW";
     }
+    if (policy === "demo-neutral-explainer") {
+      return "GREEN or explanatory YELLOW";
+    }
+    if (policy === "demo-urgency-risk") {
+      return "YELLOW/RED with urgency, warning, scam, or risk cues";
+    }
+    if (policy === "demo-conflict-investigation") {
+      return "YELLOW/RED with investigation, exposing, caught, or conflict cues";
+    }
+    if (policy === "demo-curiosity-gap") {
+      return "YELLOW/RED with hidden, secret, watch-this, or curiosity-gap cues";
+    }
+    if (policy === "demo-future-risk") {
+      return "YELLOW/RED with AI, job replacement, future-risk, or high-intensity cues";
+    }
     return "GREEN only";
   }
 
@@ -1971,10 +2003,10 @@
     }
 
     if (!state.scoredResultCount) {
-      return `Lens: ${path.lensLabel || path.label}. Inspect visible title metadata, score wording cues first, then filter.`;
+      return `Framing style: ${path.lensLabel || path.label}. Inspect visible title metadata, score wording cues first, then filter.`;
     }
 
-    return `Lens: ${path.lensLabel || path.label}. ${state.lastRetrievalSource || "visible metadata"} scored ${state.scoredResultCount} titles; showing ${state.suggestions.length} allowed by ${describeFilterPolicy(path.filterPolicy)}.`;
+    return `Framing style: ${path.lensLabel || path.label}. ${state.lastRetrievalSource || "visible metadata"} scored ${state.scoredResultCount} titles; showing ${state.suggestions.length} allowed by ${describeFilterPolicy(path.filterPolicy)}.`;
   }
 
   function escapeHtml(value) {

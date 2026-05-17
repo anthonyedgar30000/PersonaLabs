@@ -582,6 +582,61 @@
       preferredTerms: ["long-form", "discussion", "interview"],
       filterPolicy: "green-or-longform-yellow",
       explanation: "Long-form structure with topic continuity preserved"
+    },
+    {
+      id: "demo-neutral-explainer",
+      label: "Neutral explainer",
+      buttonLabel: "neutral explainer",
+      lensLabel: "NEUTRAL EXPLAINER",
+      description: "Demo: neutral explainer framing",
+      suffix: "explained cybersecurity overview",
+      preferredTerms: ["explained", "overview", "educational"],
+      filterPolicy: "demo-neutral-explainer",
+      explanation: "Demo lens for calm or explanatory title framing"
+    },
+    {
+      id: "demo-urgency-risk",
+      label: "Urgency + risk",
+      buttonLabel: "urgency + risk",
+      lensLabel: "URGENCY + RISK",
+      description: "Demo: urgency and risk framing",
+      suffix: "warning scam risk watch this",
+      preferredTerms: ["warning", "scam", "risk"],
+      filterPolicy: "demo-urgency-risk",
+      explanation: "Demo lens for urgency, warning, scam, or risk wording"
+    },
+    {
+      id: "demo-conflict-investigation",
+      label: "Conflict / investigation",
+      buttonLabel: "conflict / investigation",
+      lensLabel: "CONFLICT / INVESTIGATION",
+      description: "Demo: conflict or investigation framing",
+      suffix: "infiltrating exposing caught investigation",
+      preferredTerms: ["infiltrating", "exposing", "caught"],
+      filterPolicy: "demo-conflict-investigation",
+      explanation: "Demo lens for investigation, conflict, exposing, or caught wording"
+    },
+    {
+      id: "demo-curiosity-gap",
+      label: "Curiosity gap",
+      buttonLabel: "curiosity gap",
+      lensLabel: "CURIOSITY GAP",
+      description: "Demo: curiosity-gap framing",
+      suffix: "hidden secret watch this",
+      preferredTerms: ["hidden", "secret", "watch this"],
+      filterPolicy: "demo-curiosity-gap",
+      explanation: "Demo lens for withheld-information or curiosity-gap wording"
+    },
+    {
+      id: "demo-future-risk",
+      label: "Future-risk framing",
+      buttonLabel: "future-risk framing",
+      lensLabel: "FUTURE-RISK FRAMING",
+      description: "Demo: future-risk framing",
+      suffix: "AI job apocalypse replace shocking",
+      preferredTerms: ["apocalypse", "replace", "shocking"],
+      filterPolicy: "demo-future-risk",
+      explanation: "Demo lens for future-risk, AI replacement, or high-intensity warning wording"
     }
   ];
 
@@ -2316,9 +2371,63 @@
     return scoring.breakdown.topicRelevance >= 14 && scoring.breakdown.format >= 3;
   }
 
+  function scoringText(scoring) {
+    return [
+      scoring && scoring.title,
+      scoring && scoring.channel,
+      scoring && scoring.finalReason,
+      scoring && scoring.explanation,
+      ...(((scoring && scoring.matchedTerms && scoring.matchedTerms.friction) || [])),
+      ...(((scoring && scoring.matchedTerms && scoring.matchedTerms.positive) || [])),
+      ...(((scoring && scoring.detectedStyleTerms) || []).map((item) => `${item.category} ${item.normalizedTerm || item.term}`))
+    ].filter(Boolean).join(" ").toLowerCase();
+  }
+
+  function hasAnyCue(scoring, cues) {
+    const text = scoringText(scoring);
+    return cues.some((cue) => cue.test(text));
+  }
+
+  function isAllowedByDemoStyle(scoring, policy, color) {
+    if (policy === "demo-neutral-explainer") {
+      return color === "GREEN" || (color === "YELLOW" && hasStrongExplanatoryValue(scoring));
+    }
+
+    if (policy === "demo-urgency-risk") {
+      return (color === "YELLOW" || color === "RED") && hasAnyCue(scoring, [
+        /urgent|urgency|warning|warn|alert|before|risk|danger|scam|scammer|phishing|hack|hacked|threat/
+      ]);
+    }
+
+    if (policy === "demo-conflict-investigation") {
+      return (color === "YELLOW" || color === "RED") && hasAnyCue(scoring, [
+        /infiltrat|expos|caught|investigat|disrupt|confront|scammer|scammers|bank scammers|domination|outrage|takes down|shuts down/
+      ]);
+    }
+
+    if (policy === "demo-curiosity-gap") {
+      return (color === "YELLOW" || color === "RED") && hasAnyCue(scoring, [
+        /hidden|secret|watch this|you won't believe|what happens next|truth about|don't want you to know|nobody tells|clickbait|this changes everything/
+      ]);
+    }
+
+    if (policy === "demo-future-risk") {
+      return (color === "YELLOW" || color === "RED") && hasAnyCue(scoring, [
+        /ai|artificial intelligence|future|job|jobs|replace|replacement|apocalypse|disruption|unemployment|shocking|coming|crisis/
+      ]);
+    }
+
+    return null;
+  }
+
   function isAllowedByLens(scoring, explorationPath) {
     const color = scoring.label || (scoring.classification && scoring.classification.color);
     const policy = (explorationPath && explorationPath.filterPolicy) || "green-or-explanatory-yellow";
+    const demoStyleDecision = isAllowedByDemoStyle(scoring, policy, color);
+
+    if (demoStyleDecision !== null) {
+      return demoStyleDecision;
+    }
 
     if (color === "RED") {
       return false;
