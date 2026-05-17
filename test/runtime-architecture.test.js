@@ -99,8 +99,22 @@ test("overlay candidates are scoped to video surfaces only", () => {
   assert.match(getCandidateCardsFunction, /\.filter\(isEligibleVideoAnnotationTarget\)/);
   assert(!/querySelectorAll\("a\[href\*='watch'\], a\[href\*='\/shorts\/'\]"\)/.test(getCandidateCardsFunction));
   assert.match(clickFunction, /resolveVideoAnnotationTarget\(target\)/);
+  assert.match(clickFunction, /isPrimaryUnmodifiedClick\(event\)/);
+  assert.match(clickFunction, /event\.preventDefault\(\)/);
+  assert.match(clickFunction, /event\.stopImmediatePropagation\(\)/);
   assert.match(titleBadgeFunction, /isEligibleVideoAnnotationTarget\(card\)/);
   assert.match(thumbnailOverlayFunction, /isEligibleVideoAnnotationTarget\(card\)/);
+});
+
+test("primary left clicks select video context without hijacking modified navigation", () => {
+  const contentRuntime = fs.readFileSync(path.join(root, "src", "content.js"), "utf8");
+  const primaryClickFunction = contentRuntime.match(/function isPrimaryUnmodifiedClick[\s\S]*?function handleDocumentClick/)[0];
+
+  assert.match(primaryClickFunction, /event\.button === 0/);
+  assert.match(primaryClickFunction, /!event\.metaKey/);
+  assert.match(primaryClickFunction, /!event\.ctrlKey/);
+  assert.match(primaryClickFunction, /!event\.shiftKey/);
+  assert.match(primaryClickFunction, /!event\.altKey/);
 });
 
 test("inspector observes traces without participating in scoring", () => {

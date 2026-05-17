@@ -948,6 +948,17 @@
     return DEMO_FRAMING_STYLES.find((style) => style.id === state.activeDemoStyleId) || null;
   }
 
+  function isPrimaryUnmodifiedClick(event) {
+    return (
+      event &&
+      event.button === 0 &&
+      !event.metaKey &&
+      !event.ctrlKey &&
+      !event.shiftKey &&
+      !event.altKey
+    );
+  }
+
   function handleDocumentClick(event) {
     const target = event.target;
     if (!(target instanceof Element)) {
@@ -961,6 +972,14 @@
     const card = resolveVideoAnnotationTarget(target);
     const candidate = extractCandidateFromCard(card);
     if (candidate) {
+      if (isPrimaryUnmodifiedClick(event)) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (typeof event.stopImmediatePropagation === "function") {
+          event.stopImmediatePropagation();
+        }
+      }
+
       debugLog("youtube click captured as contextual anchor", describeCard(card, candidate));
       setAnchor(candidate, "youtube-click");
     } else if (card) {
