@@ -91,6 +91,19 @@
       "what happens next",
       "this changes everything"
     ],
+    investigation: [
+      "infiltrating",
+      "infiltrates",
+      "infiltrated",
+      "investigation",
+      "investigating",
+      "investigates",
+      "disrupting",
+      "disrupts",
+      "confronting",
+      "confronts",
+      "caught"
+    ],
     outrage: [
       "outrage",
       "outraged",
@@ -1200,7 +1213,7 @@
     const needsContext = (reasons || []).some((reason) => /needs context/i.test(reason));
     const topicOverlap = titleTokens.filter((token) => (anchorTerms || []).includes(token));
     const amplificationTerms = termsForEvidence(styleTerms, ["clickbait"]);
-    const conflictTerms = termsForEvidence(styleTerms, ["domination", "outrage"]);
+    const conflictTerms = termsForEvidence(styleTerms, ["domination", "outrage", "investigation"]);
     const escalationTerms = termsForEvidence(styleTerms, ["escalation"]);
     const intensityLevel = classification.color === "RED" || friction.length >= 2
       ? "high"
@@ -1233,7 +1246,7 @@
       },
       conflictLanguage: {
         detected: conflictTerms.length > 0,
-        summary: conflictTerms.length ? "Conflict-oriented wording detected." : "No conflict-oriented wording detected.",
+        summary: conflictTerms.length ? "Conflict or investigation-oriented wording detected." : "No conflict or investigation-oriented wording detected.",
         terms: unique(conflictTerms)
       },
       uncertainty: {

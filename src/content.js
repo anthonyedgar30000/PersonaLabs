@@ -2050,7 +2050,24 @@
     const signals = semantic.detectObservabilitySignals(anchor.originalTitle || "");
     const parts = [];
     if (signals.friction.length) {
-      parts.push(`${signals.friction.length} attention cue`);
+      const byCategory = signals.friction.reduce((groups, signal) => {
+        const category = signal.category || "attention";
+        groups[category] = groups[category] || [];
+        groups[category].push(signal.term || signal.normalizedTerm);
+        return groups;
+      }, {});
+      Object.entries(byCategory).forEach(([category, terms]) => {
+        const label = category === "investigation"
+          ? "investigation framing"
+          : category === "clickbait"
+            ? "curiosity-gap/amplification framing"
+            : category === "domination" || category === "outrage"
+              ? "conflict framing"
+              : category === "escalation"
+                ? "urgency/escalation framing"
+                : "attention cue";
+        parts.push(`${label}: ${uniqueStrings(terms).slice(0, 3).join(", ")}`);
+      });
     }
     if (signals.educational.length) {
       parts.push(`${signals.educational.length} educational`);

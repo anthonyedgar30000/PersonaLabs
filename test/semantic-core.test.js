@@ -38,6 +38,28 @@ test("flags roast cook and slam slang as escalatory style terms", () => {
   assert(score.debug.escalation_score >= normalizedTerms.length);
 });
 
+test("detects investigation framing in scam-awareness titles", () => {
+  const styleTerms = semantic.classifyStyleTerms("Infiltrating BANK SCAMMERS");
+
+  assert.deepEqual(styleTerms.map((item) => item.normalizedTerm), ["infiltrating"]);
+  assert.deepEqual(styleTerms.map((item) => item.category), ["investigation"]);
+
+  const anchor = semantic.analyzeAnchor("Infiltrating BANK SCAMMERS");
+  const path = semantic.buildExplorationPaths(anchor).find((lens) => lens.id === "demo-conflict-investigation");
+  const score = semantic.scoreCandidate(
+    {
+      title: "Infiltrating BANK SCAMMERS",
+      channel: "Scam Awareness",
+      duration: "12:00"
+    },
+    anchor,
+    path
+  );
+
+  assert(score.matchedTerms.friction.includes("infiltrating"));
+  assert.equal(semantic.isAllowedByLens(score, path), true);
+});
+
 test("sports and roast/cook escalation variants surface evidence before final labeling", () => {
   const cases = [
     {

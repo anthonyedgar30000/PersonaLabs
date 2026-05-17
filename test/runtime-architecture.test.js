@@ -129,6 +129,16 @@ test("primary left clicks select video context without hijacking modified naviga
   assert.match(primaryClickFunction, /!event\.altKey/);
 });
 
+test("selected anchor summary names concrete framing cue categories", () => {
+  const contentRuntime = fs.readFileSync(path.join(root, "src", "content.js"), "utf8");
+  const signalSummaryFunction = contentRuntime.match(/function renderSignalSummary[\s\S]*?function describeFilterPolicy/)[0];
+
+  assert.match(signalSummaryFunction, /investigation framing/);
+  assert.match(signalSummaryFunction, /curiosity-gap\/amplification framing/);
+  assert.match(signalSummaryFunction, /conflict framing/);
+  assert.match(signalSummaryFunction, /urgency\/escalation framing/);
+});
+
 test("inspector observes traces without participating in scoring", () => {
   const contentRuntime = fs.readFileSync(path.join(root, "src", "content.js"), "utf8");
   const inspectorFunction = contentRuntime.match(/function renderDebugTraces[\s\S]*?function filteredDebugTraces/)[0];
