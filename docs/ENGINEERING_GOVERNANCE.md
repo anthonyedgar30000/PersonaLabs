@@ -25,7 +25,7 @@ the YouTube proof-of-concept scope unless explicitly approved.
 
 Every classification pipeline must produce or derive the canonical semantic result object defined in `docs/SCORING_CONTRACT.md`.
 
-The canonical result is the source of truth for:
+The canonical result is the single decision record for:
 
 - overlay display
 - panel recommendation display

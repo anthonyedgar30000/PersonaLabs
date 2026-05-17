@@ -7,8 +7,8 @@ with guided demo searches for framing-style comparison.
 
 This project is currently a Chrome extension runtime composed of:
 
-- `src/semantic-core.js`: deterministic title-framing analysis, generated search paths, scoring, filtering, and classification contracts.
-- `src/retrieval-pipeline.js`: structured retrieval adapter and score-first/filter-second exploration pipeline.
+- `src/semantic-core.js`: deterministic title-framing analysis, generated search paths, scoring, lens rules, and classification contracts.
+- `src/retrieval-pipeline.js`: structured retrieval adapter and score-first/lens-constrained exploration pipeline.
 - `src/content.js`: YouTube DOM extraction, overlay rendering, side panel rendering, debug trace collection, and optional trace persistence attempts.
 - `src/content.css`: overlay and panel styling.
 - `lib/headlineAnalyzer.js`: legacy isolated headline analyzer retained for tests, not loaded by the extension runtime.
@@ -46,8 +46,8 @@ All active UI decisions must consume the deterministic result produced by `seman
 1. Build a generated query from the active anchor/lens or selected demo style.
 2. Retrieve structured metadata from the visible-page adapter or configured provider.
 3. Score each candidate through `semantic.scoreCandidates(...)`.
-4. Filter using deterministic labels and score components.
-5. Return scored titles and allowed suggestions.
+4. Apply lens rules using deterministic labels and score components.
+5. Return scored titles and lens-matched suggestions.
 
 ### Overlay flow
 
@@ -84,7 +84,7 @@ The deterministic title-framing result is the single source for:
 - overlay label and explanation;
 - overlay rule-match score and matched terms;
 - panel label and rule-match score;
-- retrieval filtering;
+- retrieval lens-rule application;
 - contradiction reporting;
 - debug trace display;
 - optional persistence attempts.

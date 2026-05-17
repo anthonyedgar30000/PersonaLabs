@@ -36,7 +36,7 @@ test("capstone demo controls preserve privacy and user agency", () => {
   assert.match(contentRuntime, /function handleLoadDemoStyle\(styleId\)/);
   assert.match(contentRuntime, /Guided demo videos/);
   assert.match(contentRuntime, /Neutral explainer/);
-  assert.match(contentRuntime, /Urgency \+ risk/);
+  assert.match(contentRuntime, /Urgency \/ vigilance/);
   assert(!/Optional rewritten searches/.test(contentRuntime));
   assert.match(contentRuntime, /window\.open\(url, "_blank", "noopener,noreferrer"\)/);
   assert.match(contentRuntime, /window\.location\.assign\(url\)/);

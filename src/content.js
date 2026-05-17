@@ -136,9 +136,9 @@
     },
     {
       id: "urgency-risk",
-      label: "Urgency + risk",
-      cue: "before / warning / scam",
-      description: "Shows protective urgency and risk-oriented wording.",
+      label: "Urgency / vigilance",
+      cue: "before / warning / caution",
+      description: "Shows protective urgency and vigilance-oriented wording.",
       query: "before you answer another scam call watch this",
       lensId: "demo-urgency-risk"
     },
@@ -160,10 +160,10 @@
     },
     {
       id: "future-fear",
-      label: "Future-risk framing",
-      cue: "apocalypse / replace / shocking",
-      description: "Shows high-intensity future-risk language for contrast.",
-      query: "AI job apocalypse replace your job shocking",
+      label: "Future-impact framing",
+      cue: "future / replace / major change",
+      description: "Shows future-impact and disruption-oriented wording for contrast.",
+      query: "AI job disruption replace your job",
       lensId: "demo-future-risk"
     }
   ];
@@ -1189,7 +1189,7 @@
 
     state.suggestions = explorationSet.suggestions;
     state.scoredResultCount = explorationSet.scored.length;
-    debugLog("score-first/filter-second pipeline completed", {
+    debugLog("score-first/lens-constrained presentation pipeline completed", {
       scored: explorationSet.scored.map((item) => ({
         title: item.title,
         score: item.scoring.score,
@@ -1374,7 +1374,7 @@
     return [
       `Rule-based label: ${formatFramingLabel(scoring)}.`,
       `Rule-match score: ${formatConfidence(confidence.confidence)}.`,
-      "Title wording only; not truth, intent, creator motive, or quality.",
+      "Surface wording only; not claim, viewpoint, creator-goal, or quality assessment.",
       scoring.explanation || confidence.finalReason || ""
     ]
       .filter(Boolean)
@@ -1517,7 +1517,7 @@
       "<p class='personalabs-eyebrow'>PersonaLabs</p>",
       "<h2>Rule-based title framing cues</h2>",
       "</div>",
-      "<p class='personalabs-muted'>Observable wording patterns only. Not truth, intent, creator motive, or quality.</p>",
+      "<p class='personalabs-muted'>Observable wording patterns only. Not claim, viewpoint, creator-goal, or quality assessment.</p>",
       "<div class='personalabs-header-actions'>",
       "<button type='button' data-action='clear-local-context'>Clear saved context</button>",
       "</div>"
@@ -1531,7 +1531,7 @@
     section.className = "personalabs-section personalabs-empty";
     section.innerHTML = [
       "<h3>No contextual anchor yet</h3>",
-      "<p>Click a YouTube video or card to inspect title wording cues, or load a guided demo style below. PersonaLabs matches escalation, amplification, calm, and explanatory phrasing without judging truth or quality.</p>"
+      "<p>Click a YouTube video or card to inspect title wording cues, or load a guided demo style below. PersonaLabs matches escalation, amplification, calm, and explanatory phrasing while leaving interpretation to the user.</p>"
     ].join("");
     return section;
   }
@@ -1610,7 +1610,7 @@
 
     const intro = document.createElement("div");
     intro.innerHTML = [
-      "<p class='personalabs-eyebrow'>Visible title filtering</p>",
+      "<p class='personalabs-eyebrow'>Visible title lens results</p>",
       `<h3>${demoStyle ? `Titles matched to ${escapeHtml(demoStyle.label)}` : "Titles matched by this wording lens"}</h3>`,
       `<p class='personalabs-muted'>${escapeHtml(renderFilteringSummary())}</p>`
     ].join("");
@@ -1671,8 +1671,8 @@
       "<ul>",
       "<li>Deterministic-first and local-first: visible title context is kept in browser storage for continuity.</li>",
       "<li>Use Clear saved context or browser controls when you want the overlay to forget the current anchor.</li>",
-      "<li>No truth, ideology ranking, censorship, or YouTube replacement judgments.</li>",
-      "<li>Score visible wording first; filter second by the selected framing-style rule.</li>",
+      "<li>Surface-wording analysis only: no claim, viewpoint, platform-policy, or editorial-value assessment.</li>",
+      "<li>Score visible wording first; present lens-constrained examples second.</li>",
       "<li>GREEN summarizes calm or straightforward title framing.</li>",
       "<li>YELLOW summarizes mixed or unclear title framing.</li>",
       "<li>RED summarizes intense or attention-grabbing title framing.</li>",
@@ -1753,7 +1753,7 @@
       "<button type='button' data-action='run-scenarios'>Run scenarios</button>",
       "<button type='button' data-action='run-golden-pack'>Run golden pack</button>",
       "<label>Load Replay JSON <input type='file' accept='application/json' data-action='load-replay-json'></label>",
-      "<label>Filter <select data-action='filter-traces'>",
+      "<label>Trace view <select data-action='filter-traces'>",
       `<option value='all'${state.debugTraceFilter === "all" ? " selected" : ""}>All</option>`,
       `<option value='overlay'${state.debugTraceFilter === "overlay" ? " selected" : ""}>Overlay</option>`,
       `<option value='retrieval'${state.debugTraceFilter === "retrieval" ? " selected" : ""}>Retrieval</option>`,
@@ -1810,8 +1810,8 @@
       renderInspectorListSection("Lens/Search Details", {
         "Selected lens": [activePath() && (activePath().lensLabel || activePath().label) || "none"],
         "Generated search paths": transformedPaths,
-        "Rule filters applied": retrievalFilters,
-        "Filter exclusions": ["RED excluded by filter policy"]
+        "Lens rules applied": retrievalFilters,
+        "Lens exclusions": ["RED excluded by lens policy"]
       }),
       latest ? renderInspectorListSection("Contradictions", {
         "Warnings": warnings
@@ -2095,7 +2095,7 @@
       return "GREEN or explanatory YELLOW";
     }
     if (policy === "demo-urgency-risk") {
-      return "YELLOW/RED with urgency, warning, scam, or risk cues";
+      return "YELLOW/RED with urgency, warning, vigilance, or risk cues";
     }
     if (policy === "demo-conflict-investigation") {
       return "YELLOW/RED with investigation, exposing, caught, or conflict cues";
@@ -2104,7 +2104,7 @@
       return "YELLOW/RED with hidden, secret, watch-this, or curiosity-gap cues";
     }
     if (policy === "demo-future-risk") {
-      return "YELLOW/RED with AI, job replacement, future-risk, or high-intensity cues";
+      return "YELLOW/RED with AI, job replacement, future-impact, or high-intensity cues";
     }
     return "GREEN only";
   }
@@ -2116,7 +2116,7 @@
     }
 
     if (!state.scoredResultCount) {
-      return `Framing style: ${path.lensLabel || path.label}. Inspect visible title metadata, score wording cues first, then filter.`;
+      return `Framing style: ${path.lensLabel || path.label}. Inspect visible title metadata, score wording cues first, then apply the lens rule.`;
     }
 
     return `Framing style: ${path.lensLabel || path.label}. ${state.lastRetrievalSource || "visible metadata"} scored ${state.scoredResultCount} titles; showing ${state.suggestions.length} allowed by ${describeFilterPolicy(path.filterPolicy)}.`;

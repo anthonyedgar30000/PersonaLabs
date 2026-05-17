@@ -8,23 +8,23 @@ helps users observe how visible title and headline wording can influence
 attention, emotional salience, click behavior, and perception. Analysis focuses
 on visible title/channel text and deterministic rule matches.
 
-PersonaLabs does not determine truth, classify ideology, censor content, or
-replace YouTube. It does not assess creator intent, morality, misinformation,
-user mental state, or content quality. It gives users transparent, local-first
-cues for noticing escalation, amplification, calm/neutral, and explanatory
-wording.
+PersonaLabs provides non-epistemic, metadata-bounded analysis: it describes
+observable surface wording cues and leaves interpretation to the user. It does
+not assess claim veracity, viewpoint correctness, creator goals, user state, or
+editorial quality. It gives users transparent, local-first cues for noticing
+escalation, amplification, calm/neutral, and explanatory wording.
 
 ## Core Principles
 
-- Flag, do not block
+- Surface, do not block
 - User agency first
 - Deterministic-first scoring and transformations
 - Local-first runtime with no cloud AI APIs
 - Explainable outputs and transparent scoring summaries
 - Calm, non-judgmental interaction design
 - Privacy-aware architecture
-- Bounded wording analysis over coercive filtering
-- Score first; filter second
+- Bounded wording analysis over coercive control
+- Score first; present lens-constrained examples second
 - Traceable and auditable scoring behavior
 
 ## Current Chrome Extension UX
@@ -38,18 +38,18 @@ wording.
    - named people, organizations, and events
 4. PersonaLabs detects style signals:
    - escalation language
-   - outrage framing
-   - domination framing
-   - clickbait signals
+   - conflict/escalation framing
+   - domination-style wording
+   - curiosity-gap/amplification signals
    - educational signals
    - calm/neutral signals
 5. PersonaLabs offers guided demo buttons that load YouTube searches selected for
    visible framing-style contrast:
    - neutral explainer
-   - urgency + risk
+   - urgency / vigilance
    - conflict / investigation
    - curiosity gap
-   - future-risk framing
+   - future-impact framing
 
 The demo buttons are intentionally presentation-friendly. They help evaluators
 see several wording styles quickly without requiring a presenter to invent
@@ -65,16 +65,16 @@ shows:
 - framing style employed
 - removed escalation terms
 - guided demo framing-style buttons
-- selected scoring/filter lens
-- visible title-filtering results after a demo style is opened
+- selected scoring/lens rule
+- visible title results after a demo style is opened
 
 The demo buttons open YouTube searches in a new tab when the browser allows it:
 
 - neutral explainer
-- urgency + risk
+- urgency / vigilance
 - conflict / investigation
 - curiosity gap
-- future-risk framing
+- future-impact framing
 
 The panel includes a Clear saved context control so a presenter or user can
 remove the locally stored anchor/search state without changing browser-level
@@ -98,7 +98,7 @@ Pipeline:
 2. Guided demo style selection
 3. Structured metadata retrieval
 4. Deterministic wording-cue scoring
-5. Lens-aware filtering
+5. Lens-constrained presentation
 6. Title framing presentation
 
 It surfaces:
@@ -111,13 +111,13 @@ It surfaces:
 
 It surfaces attention-cue patterns:
 
-- conflict or outrage-style wording
+- conflict/escalation-style wording
 - excessive capitalization
 - high-attention curiosity-gap wording
-- domination/conflict language
+- domination-style language
 - panic/escalation wording
 
-### Lens Filtering Rules
+### Lens Presentation Rules
 
 The color system summarizes title framing only:
 
@@ -146,11 +146,11 @@ plain-language wording-cue explanations such as:
 ## Overlay Badges
 
 PersonaLabs badges are contextual title-framing cues. They do not block, approve,
-censor, fact-check, or assess video quality. They help users notice when a visible
-card title contains escalation language, which GREEN/YELLOW/RED wording label a
-result falls into, and which deterministic rule matches contributed. On-card
-badges use readable framing labels, such as "Framing: calm/straightforward
-framing (GREEN)", instead of requiring reviewers to decode a color alone.
+moderate, or assess editorial value. They help users notice when a visible card
+title contains escalation language, which GREEN/YELLOW/RED wording label a result
+falls into, and which deterministic rule matches contributed. On-card badges use
+readable framing labels, such as "Framing: calm/straightforward framing (GREEN)",
+instead of requiring reviewers to decode a color alone.
 
 ## Architecture
 
@@ -179,9 +179,9 @@ Layer boundaries:
   long-form signals.
 - Demo Search Layer: guided searches for framing-style examples in the controlled
   YouTube proof-of-concept.
-- Filtering Layer: GREEN/YELLOW/RED label filtering by the selected wording lens.
+- Lens Presentation Layer: GREEN/YELLOW/RED label constraints by the selected wording lens.
 - Presentation Layer: browser extension control panel, contextual anchor
-  selection, and visible classification UI.
+  selection, and visible framing-label UI.
 - Headline Labeling Layer: deterministic `analyzeHeadline(title, source, mode)`
   labels card titles Green/Yellow/Red for ContextOS/PersonaLabs modes using
   weighted dictionaries, phrase matching, source-format adjustment, and

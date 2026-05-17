@@ -7,7 +7,7 @@ This file tracks known semantic architecture risks so future changes do not redi
 Current active runtime state:
 
 - Overlay scoring uses `semantic.scoreContent(...)`.
-- Retrieval filtering uses `semantic.scoreCandidates(...)`, which delegates to `scoreContent(...)`.
+- Retrieval lens-rule application uses `semantic.scoreCandidates(...)`, which delegates to `scoreContent(...)`.
 - Panel rendering consumes canonical scores returned by retrieval.
 
 Remaining legacy code:

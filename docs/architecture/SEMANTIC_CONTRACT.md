@@ -75,7 +75,7 @@ Compatibility fields must mirror canonical values and must not become alternate 
 
 ## Field meanings
 
-- `label`: final semantic label consumed by overlay, panel, retrieval filtering, and traces.
+- `label`: final semantic label consumed by overlay, panel, retrieval lens rules, and traces.
 - `confidence`: final 0-100 confidence.
 - `scores`: deterministic score components and confidence component values.
 - `matchedTerms`: matched positive/friction terms used for explanations.
@@ -101,7 +101,7 @@ Compatibility fields must mirror canonical values and must not become alternate 
 - If `matchedTerms` is empty, explanations must not claim matched title terms.
 - If `label` is `GREEN`, explanation text must not claim a red/yellow final state.
 - UI must render from `label`, not from compatibility fields.
-- Retrieval filtering must use the canonical result.
+- Retrieval lens-rule application must use the canonical result.
 - Debug traces must include the canonical result fields.
 
 ## Consistency guarantees

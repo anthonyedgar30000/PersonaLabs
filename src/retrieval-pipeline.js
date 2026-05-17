@@ -14,7 +14,7 @@
     "transformation query generation",
     "structured metadata retrieval",
     "deterministic observability scoring",
-    "lens-aware reranking/filtering",
+    "lens-constrained presentation",
     "intentional exploration presentation"
   ];
 

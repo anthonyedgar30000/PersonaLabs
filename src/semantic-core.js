@@ -609,14 +609,14 @@
     },
     {
       id: "demo-urgency-risk",
-      label: "Urgency + risk",
-      buttonLabel: "urgency + risk",
-      lensLabel: "URGENCY + RISK",
-      description: "Demo: urgency and risk framing",
+      label: "Urgency / vigilance",
+      buttonLabel: "urgency / vigilance",
+      lensLabel: "URGENCY / VIGILANCE",
+      description: "Demo: urgency and vigilance framing",
       suffix: "warning scam risk watch this",
-      preferredTerms: ["warning", "scam", "risk"],
+      preferredTerms: ["warning", "caution", "risk"],
       filterPolicy: "demo-urgency-risk",
-      explanation: "Demo lens for urgency, warning, scam, or risk wording"
+      explanation: "Demo lens for urgency, warning, vigilance, or risk wording"
     },
     {
       id: "demo-conflict-investigation",
@@ -642,14 +642,14 @@
     },
     {
       id: "demo-future-risk",
-      label: "Future-risk framing",
-      buttonLabel: "future-risk framing",
-      lensLabel: "FUTURE-RISK FRAMING",
-      description: "Demo: future-risk framing",
+      label: "Future-impact framing",
+      buttonLabel: "future-impact framing",
+      lensLabel: "FUTURE-IMPACT FRAMING",
+      description: "Demo: future-impact framing",
       suffix: "AI job apocalypse replace shocking",
       preferredTerms: ["apocalypse", "replace", "shocking"],
       filterPolicy: "demo-future-risk",
-      explanation: "Demo lens for future-risk, AI replacement, or high-intensity warning wording"
+      explanation: "Demo lens for future-impact, AI replacement, or high-intensity warning wording"
     }
   ];
 
@@ -1260,7 +1260,7 @@
               : "Mixed or unclear framing patterns detected.",
         competingSignals: hasCompetingSignals
       },
-      boundedClaim: "This summarizes observable title wording patterns only; it does not assess truth, intent, or content quality."
+      boundedClaim: "This summarizes observable title wording patterns only; it does not assess claim veracity, creator goals, or editorial quality."
     };
   }
 
@@ -2531,7 +2531,7 @@
     const filtered = filterCandidatesByLens(scored, explorationPath, limit);
 
     return {
-      pipeline: ["generate transformed search", "scan visible results", "score results", "apply exploration lens filtering", "display intentional exploration set"],
+      pipeline: ["generate transformed search", "scan visible results", "score results", "apply exploration lens rule", "display intentional exploration set"],
       lens: explorationPath || null,
       scored: sortScoredCandidates(scored),
       suggestions: filtered

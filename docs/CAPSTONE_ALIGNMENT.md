@@ -54,17 +54,10 @@ Information assurance concepts represented in the project include:
 
 ## Non-goals
 
-PersonaLabs does not:
-
-- determine whether content is true or false;
-- classify ideological correctness or viewpoint;
-- censor, block, approve, or rank content quality;
-- infer creator intent or morality;
-- profile users;
-- replace human interpretation;
-- act as a misinformation detector.
-
-The system flags and explains observable framing patterns only.
+PersonaLabs is non-epistemic and metadata-bounded. It is designed to describe
+observable surface wording patterns, not to assess claim veracity, viewpoint
+correctness, platform-policy compliance, creator goals, user traits, or
+editorial quality. Human interpretation remains primary.
 
 ## Privacy model
 
@@ -82,7 +75,7 @@ kept locally in memory and can be copied or exported by the user.
 
 Primary risks:
 
-- Over-trust: users may treat framing labels as truth or quality judgments.
+- Over-trust: users may treat framing labels as broader content judgments.
 - False positives/negatives: deterministic wording rules can miss context.
 - Privacy leakage during demos: debug traces can include visible title/channel
   metadata if debug mode is enabled.
@@ -92,13 +85,13 @@ Primary risks:
 
 Mitigations:
 
-- repeated non-goal language in UI and docs;
+- positive scope language in UI and docs;
 - local-first deterministic scoring;
 - limited host permissions for the YouTube proof-of-concept;
 - debug-gated tracing;
 - Clear saved context control;
 - regression tests and golden scenario validation;
-- score-first/filter-second architecture with no UI-only label logic.
+- score-first/lens-constrained presentation architecture with no UI-only label logic.
 
 ## Explainability and traceability
 
@@ -135,7 +128,7 @@ npm test
 The tests validate:
 
 - deterministic title-framing classifications;
-- score-first/filter-second behavior;
+- score-first/lens-constrained presentation behavior;
 - runtime architecture boundaries;
 - no legacy analyzer usage in the extension runtime;
 - debug-only test API exposure;
@@ -147,8 +140,8 @@ The tests validate:
 
 PersonaLabs analyzes wording patterns in visible titles and metadata. It does not
 read full video content, validate claims, measure actual user emotions, or infer
-intent. Deterministic rules are intentionally transparent, but they are not a
-complete model of language, persuasion, culture, or context.
+creator goals. Deterministic rules are intentionally transparent, but they are
+not a complete model of language, persuasion, culture, or context.
 
 The YouTube implementation should be presented as a controlled capstone demo, not
 as a finished cross-platform media analysis product.

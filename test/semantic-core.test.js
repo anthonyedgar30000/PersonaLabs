@@ -275,7 +275,7 @@ test("scores first, then filters according to the selected exploration lens", ()
     ["GREEN", "YELLOW"]
   );
   assert(calmerSet.pipeline.includes("score results"));
-  assert(calmerSet.pipeline.indexOf("score results") < calmerSet.pipeline.indexOf("apply exploration lens filtering"));
+  assert(calmerSet.pipeline.indexOf("score results") < calmerSet.pipeline.indexOf("apply exploration lens rule"));
 });
 
 test("demo framing-style filters allow titles that match the selected style", () => {
@@ -985,7 +985,7 @@ test("scenario runner detects governance and contradiction mismatches", () => {
       {
         id: "governance-mismatch",
         category: "semantic-drift",
-        description: "Expected governance text is intentionally absent.",
+        description: "Expected rule-check text is intentionally absent.",
         expectedLabel: "GREEN",
         expectedConfidenceRange: [0, 100],
         expectedGovernanceOutcomes: ["missing governance marker"],
@@ -1158,7 +1158,7 @@ test("golden runner detects label governance and contradiction mismatches", () =
       {
         scenarioId: "golden-governance-mismatch",
         category: "semantic-drift",
-        description: "Governance intentionally mismatches.",
+        description: "Rule-check expectation intentionally mismatches.",
         expectedLabel: "GREEN",
         expectedConfidenceRange: [0, 100],
         expectedGovernanceOutcomes: ["not-present-governance-marker"],

@@ -172,7 +172,7 @@ decision source.
 
 ## Required convergence rule
 
-New code must not add another label source. Overlay, retrieval filtering, panel
-recommendations, trace logging, and persistence attempts must consume the
-canonical semantic result object.
+New code must not add another label source. Overlay rendering, retrieval lens
+rules, panel recommendations, trace logging, and persistence attempts must
+consume the canonical semantic result object.
 
