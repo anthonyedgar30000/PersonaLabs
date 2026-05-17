@@ -4,10 +4,10 @@ const test = require("node:test");
 const semantic = require("../src/semantic-core");
 
 test("extracts subject-preserving anchors while removing escalation style terms", () => {
-  const anchor = semantic.analyzeAnchor("BREAKING: Thomas Massie DESTROYS Iran vote - SHOCKING analysis");
+  const anchor = semantic.analyzeAnchor("BREAKING: Senator Lane DESTROYS budget vote - SHOCKING analysis");
 
-  assert.equal(anchor.subjectAnchor, "Thomas Massie Iran vote");
-  assert.deepEqual(anchor.namedEntities, ["Thomas Massie", "Iran"]);
+  assert.equal(anchor.subjectAnchor, "Senator Lane budget vote");
+  assert.deepEqual(anchor.namedEntities, ["Senator Lane"]);
   assert(anchor.removedEscalationTerms.some((item) => item.normalizedTerm === "breaking"));
   assert(anchor.removedEscalationTerms.some((item) => item.normalizedTerm === "destroys"));
   assert(anchor.removedEscalationTerms.some((item) => item.normalizedTerm === "shocking"));
@@ -120,28 +120,28 @@ test("detects cooked destroyed and targeted cooking as escalation without flaggi
 });
 
 test("builds transformed exploration paths that preserve the contextual subject", () => {
-  const anchor = semantic.analyzeAnchor("Thomas Massie DESTROYS Iran vote");
+  const anchor = semantic.analyzeAnchor("Senator Lane DESTROYS budget vote");
   const paths = semantic.buildExplorationPaths(anchor);
 
   assert(paths.length >= 10);
-  assert(paths.every((path) => path.query.includes("Thomas Massie Iran vote")));
+  assert(paths.every((path) => path.query.includes("Senator Lane budget vote")));
   assert(paths.find((path) => path.id === "educational").query.includes("explained educational analysis"));
   assert(paths.find((path) => path.id === "longform").query.includes("long-form discussion analysis"));
   assert.equal(paths.find((path) => path.id === "demo-urgency-risk").filterPolicy, "demo-urgency-risk");
 });
 
 test("ranks explanatory, lower-sensational candidates above ragebait with same topic", () => {
-  const anchor = semantic.analyzeAnchor("Thomas Massie DESTROYS Iran vote");
+  const anchor = semantic.analyzeAnchor("Senator Lane DESTROYS budget vote");
   const path = semantic.buildExplorationPaths(anchor).find((item) => item.id === "educational");
   const ranked = semantic.rankCandidates(
     [
       {
-        title: "Thomas Massie Iran vote explained: context and analysis",
+        title: "Senator Lane budget vote explained: context and analysis",
         channel: "Policy Classroom",
         duration: "18:24"
       },
       {
-        title: "MASSIE OBLITERATES opponents in insane Iran vote meltdown",
+        title: "SENATOR OBLITERATES opponents in insane budget vote meltdown",
         channel: "Outrage Daily",
         duration: "4:10"
       }
@@ -156,11 +156,11 @@ test("ranks explanatory, lower-sensational candidates above ragebait with same t
 });
 
 test("classifies scored candidates into operational observability colors", () => {
-  const anchor = semantic.analyzeAnchor("Thomas Massie Iran vote");
+  const anchor = semantic.analyzeAnchor("Senator Lane budget vote");
   const path = semantic.buildExplorationPaths(anchor).find((item) => item.id === "educational");
   const green = semantic.scoreCandidate(
     {
-      title: "Thomas Massie Iran vote explained: calm context and analysis",
+      title: "Senator Lane budget vote explained: calm context and analysis",
       channel: "Policy Classroom",
       duration: "18:24"
     },
@@ -169,7 +169,7 @@ test("classifies scored candidates into operational observability colors", () =>
   );
   const yellow = semantic.scoreCandidate(
     {
-      title: "Thomas Massie Iran vote debate explained after backlash",
+      title: "Senator Lane budget vote debate explained after backlash",
       channel: "Civic Roundtable",
       duration: "24:00"
     },
@@ -178,7 +178,7 @@ test("classifies scored candidates into operational observability colors", () =>
   );
   const red = semantic.scoreCandidate(
     {
-      title: "MASSIE OBLITERATES opponents in insane Iran vote meltdown",
+      title: "SENATOR OBLITERATES opponents in insane budget vote meltdown",
       channel: "Outrage Daily",
       duration: "4:10"
     },
@@ -192,11 +192,11 @@ test("classifies scored candidates into operational observability colors", () =>
 });
 
 test("exposes numeric confidence fields with final classification reason", () => {
-  const anchor = semantic.analyzeAnchor("Thomas Massie Iran vote");
+  const anchor = semantic.analyzeAnchor("Senator Lane budget vote");
   const path = semantic.buildExplorationPaths(anchor).find((item) => item.id === "educational");
   const score = semantic.scoreCandidate(
     {
-      title: "Thomas Massie Iran vote explained: calm context and analysis",
+      title: "Senator Lane budget vote explained: calm context and analysis",
       channel: "Policy Classroom",
       duration: "18:24"
     },
@@ -221,23 +221,23 @@ test("exposes numeric confidence fields with final classification reason", () =>
 });
 
 test("scores first, then filters according to the selected exploration lens", () => {
-  const anchor = semantic.analyzeAnchor("Thomas Massie Iran vote");
+  const anchor = semantic.analyzeAnchor("Senator Lane budget vote");
   const paths = semantic.buildExplorationPaths(anchor);
   const calmer = paths.find((item) => item.id === "calmer");
   const educational = paths.find((item) => item.id === "educational");
   const candidates = [
     {
-      title: "Thomas Massie Iran vote explained: calm context and analysis",
+      title: "Senator Lane budget vote explained: calm context and analysis",
       channel: "Policy Classroom",
       duration: "18:24"
     },
     {
-      title: "Thomas Massie Iran vote debate explained after backlash",
+      title: "Senator Lane budget vote debate explained after backlash",
       channel: "Civic Roundtable",
       duration: "24:00"
     },
     {
-      title: "MASSIE OBLITERATES opponents in insane Iran vote meltdown",
+      title: "SENATOR OBLITERATES opponents in insane budget vote meltdown",
       channel: "Outrage Daily",
       duration: "4:10"
     }
@@ -312,12 +312,12 @@ test("does not require cloud, embeddings, or opaque recommendation inputs", () =
   assert.equal(score.label, "GREEN");
 });
 
-test("treats interview and public radio format as lower-friction despite controversial topic terms", () => {
-  const anchor = semantic.analyzeAnchor("Thomas Massie Trump Big Beautiful Bill Epstein Files");
+test("treats interview and public radio format as lower-friction despite sensitive civic topic terms", () => {
+  const anchor = semantic.analyzeAnchor("Senator Lane administration public records hearing");
   const path = semantic.buildExplorationPaths(anchor).find((item) => item.id === "calmer");
   const score = semantic.scoreCandidate(
     {
-      title: "Rep. Thomas Massie on Trump, the Big Beautiful Bill, and the Epstein Files",
+      title: "Senator Lane on administration records and public hearing files",
       channel: "Cincinnati Public Radio",
       duration: "32:10"
     },
@@ -331,11 +331,11 @@ test("treats interview and public radio format as lower-friction despite controv
 });
 
 test("does not treat neutral claim-response verbs as high-friction by default", () => {
-  const anchor = semantic.analyzeAnchor("Thomas Massie hush money allegations");
+  const anchor = semantic.analyzeAnchor("Senator Lane ethics allegations");
   const path = semantic.buildExplorationPaths(anchor).find((item) => item.id === "educational");
   const score = semantic.scoreCandidate(
     {
-      title: "Thomas Massie denies allegations he offered hush money",
+      title: "Senator Lane denies allegations in ethics complaint",
       channel: "Local News",
       duration: "6:30"
     },
@@ -474,11 +474,11 @@ test("ambiguous title evidence separates topic framing intensity conflict and un
 });
 
 test("boosts discussion of sensitive topics on lower-friction source formats", () => {
-  const anchor = semantic.analyzeAnchor("Thomas Massie Iran vote");
+  const anchor = semantic.analyzeAnchor("Senator Lane budget vote");
   const path = semantic.buildExplorationPaths(anchor).find((item) => item.id === "educational");
   const score = semantic.scoreCandidate(
     {
-      title: "Thomas Massie discusses Iran vote on public radio",
+      title: "Senator Lane discusses budget vote on public radio",
       channel: "Public Radio Forum",
       duration: "24:00"
     },
@@ -495,13 +495,13 @@ test("boosts discussion of sensitive topics on lower-friction source formats", (
 test("requires actual escalation framing for RED classifications", () => {
   const cases = [
     {
-      anchor: "Thomas Massie Epstein",
-      title: "Thomas Massie EXPOSED in Epstein BOMBSHELL",
+      anchor: "Senator Lane public records",
+      title: "Senator Lane EXPOSED in records BOMBSHELL",
       channel: "Breaking Update"
     },
     {
-      anchor: "Trump Admin Iran",
-      title: "Trump Admin HUMILIATED After Iran Backfires BADLY",
+      anchor: "Agency Admin budget",
+      title: "Agency Admin HUMILIATED After Budget Backfires BADLY",
       channel: "Reaction Clips"
     },
     {
@@ -653,7 +653,7 @@ test("classifies animal distress and escalation framing as RED", () => {
 });
 
 test("unknown low-friction content defaults to YELLOW-neutral, not RED", () => {
-  const anchor = semantic.analyzeAnchor("Thomas Massie Iran vote");
+  const anchor = semantic.analyzeAnchor("Senator Lane budget vote");
   const path = semantic.buildExplorationPaths(anchor).find((lens) => lens.id === "educational");
   const score = semantic.scoreCandidate(
     {
@@ -705,11 +705,11 @@ test("governance regressions keep mature scoring expectations stable", () => {
   assert.notEqual(harmlessAnimal.label, "YELLOW");
   assert.equal(animalDistress.label, "RED");
 
-  const civicAnchor = semantic.analyzeAnchor("Thomas Massie Iran vote");
+  const civicAnchor = semantic.analyzeAnchor("Senator Lane budget vote");
   const educational = semantic.buildExplorationPaths(civicAnchor).find((lens) => lens.id === "educational");
   const publicRadioInterview = semantic.scoreCandidate(
     {
-      title: "Thomas Massie discusses Iran vote on public radio",
+      title: "Senator Lane discusses budget vote on public radio",
       channel: "Public Radio Forum",
       duration: "24:00"
     },
@@ -718,7 +718,7 @@ test("governance regressions keep mature scoring expectations stable", () => {
   );
   const outrageTitle = semantic.scoreCandidate(
     {
-      title: "OUTRAGE: Thomas Massie meltdown after Iran vote",
+      title: "OUTRAGE: senator meltdown after budget vote",
       channel: "Outrage Daily",
       duration: "4:10"
     },
@@ -827,11 +827,11 @@ test("canonical score exposes structured semantic trace events", () => {
 
 test("canonical score validates confidence consistency", () => {
   const candidate = {
-    title: "Thomas Massie Iran vote explained: calm context and analysis",
+    title: "Senator Lane budget vote explained: calm context and analysis",
     channel: "Policy Classroom",
     duration: "18:24"
   };
-  const anchor = semantic.analyzeAnchor("Thomas Massie Iran vote");
+  const anchor = semantic.analyzeAnchor("Senator Lane budget vote");
   const lens = semantic.buildExplorationPaths(anchor).find((item) => item.id === "educational");
   const score = semantic.scoreContent({
     candidate,
@@ -875,12 +875,12 @@ test("replay detects no drift for exported canonical traces", () => {
 test("replay detects confidence drift", () => {
   const trace = semantic.scoreContent({
     candidate: {
-      title: "Thomas Massie Iran vote explained: calm context and analysis",
+      title: "Senator Lane budget vote explained: calm context and analysis",
       channel: "Policy Classroom",
       duration: "18:24"
     },
-    anchor: semantic.analyzeAnchor("Thomas Massie Iran vote"),
-    lens: semantic.buildExplorationPaths(semantic.analyzeAnchor("Thomas Massie Iran vote")).find((item) => item.id === "educational"),
+    anchor: semantic.analyzeAnchor("Senator Lane budget vote"),
+    lens: semantic.buildExplorationPaths(semantic.analyzeAnchor("Senator Lane budget vote")).find((item) => item.id === "educational"),
     scoringPath: "test-confidence-export"
   });
   const historical = { ...trace, confidence: Math.max(0, trace.confidence - 12) };
@@ -997,9 +997,9 @@ test("scenario runner detects governance and contradiction mismatches", () => {
   assert(report.results.some((result) => !result.contradictionAgreement));
 });
 
-test("scenario runner covers edge-case and adversarial-title stability", () => {
+test("scenario runner covers edge-case and stress-test title stability", () => {
   const report = semantic.runScenarioPack({
-    name: "Edge and adversarial stability",
+    name: "Edge and stress-test stability",
     scenarios: [
       {
         id: "low-context-edge",
@@ -1016,15 +1016,15 @@ test("scenario runner covers edge-case and adversarial-title stability", () => {
         }
       },
       {
-        id: "adversarial-title",
-        category: "adversarial-title",
+        id: "stress-test-title",
+        category: "stress-test-title",
         description: "Outrage title remains high-friction.",
         expectedLabel: "RED",
         expectedConfidenceRange: [45, 100],
         expectedGovernanceOutcomes: ["explicit escalation or distress framing detected"],
         expectedContradictionState: false,
         input: {
-          title: "OUTRAGE: Thomas Massie meltdown after Iran vote",
+          title: "OUTRAGE: senator meltdown after budget vote",
           channel: "Outrage Daily",
           duration: "4:10"
         }

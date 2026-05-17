@@ -154,11 +154,11 @@ test("local harness exposes no mutation methods in safe API surface", () => {
   assert.deepEqual(
     app.DEFAULT_SCENARIO_PACK.scenarios.map((scenario) => scenario.id),
     [
-      "mvp-calm-animal",
-      "mvp-political-outrage",
-      "mvp-educational-tutorial",
-      "mvp-clickbait-style",
-      "mvp-ambiguous-low-context"
+      "capstone-calm-animal",
+      "capstone-civic-escalation",
+      "capstone-educational-tutorial",
+      "capstone-curiosity-gap-style",
+      "capstone-ambiguous-low-context"
     ]
   );
 });

@@ -1,6 +1,9 @@
 # PersonaLabs System Overview
 
-PersonaLabs is a deterministic, local-first YouTube title-framing helper. It annotates visible video cards with explainable wording labels and provides a side panel with guided demo searches for framing-style comparison.
+PersonaLabs is a deterministic, local-first YouTube title-framing helper for a
+WGU cybersecurity and information assurance capstone prototype. It annotates
+visible video cards with explainable wording labels and provides a side panel
+with guided demo searches for framing-style comparison.
 
 This project is currently a Chrome extension runtime composed of:
 
@@ -40,7 +43,7 @@ All active UI decisions must consume the deterministic result produced by `seman
 
 ### Retrieval flow
 
-1. Build a subject-preserving rewritten query from the active anchor and lens.
+1. Build a generated query from the active anchor/lens or selected demo style.
 2. Retrieve structured metadata from the visible-page adapter or configured provider.
 3. Score each candidate through `semantic.scoreCandidates(...)`.
 4. Filter using deterministic labels and score components.

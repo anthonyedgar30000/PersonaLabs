@@ -1,6 +1,8 @@
-# Engineering Governance
+# Engineering Quality and Traceability
 
-PersonaLabs is now a semantic governance and observability project. Engineering changes must preserve determinism, explainability, and traceability.
+PersonaLabs is a deterministic scoring and observability prototype. Engineering
+changes must preserve determinism, explainability, traceability, privacy-conscious
+scope, and user agency.
 
 ## Required rules
 
@@ -15,7 +17,7 @@ PersonaLabs is now a semantic governance and observability project. Engineering 
 
 - Active runtime semantic decisions must originate from `semantic.scoreContent(...)`.
 - Compatibility functions may delegate to canonical scoring.
-- New scoring functions require explicit architecture approval.
+- New scoring functions require explicit architecture review and contract updates.
 
 ### No hidden overrides
 

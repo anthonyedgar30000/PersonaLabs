@@ -1,6 +1,9 @@
-# PersonaLabs Engineering Governance
+# PersonaLabs Engineering Quality and Traceability
 
-PersonaLabs should be developed as a stable, explainable engineering system. Changes must improve observability, correctness, or maintainability without expanding product scope unless explicitly approved.
+PersonaLabs should be developed as a stable, explainable engineering system for a
+bounded capstone prototype. Changes must improve observability, correctness,
+privacy-conscious behavior, traceability, or maintainability without expanding
+the YouTube proof-of-concept scope unless explicitly approved.
 
 ## Change discipline
 

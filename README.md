@@ -1,16 +1,18 @@
 # PersonaLabs
 
-PersonaLabs is an educational deterministic framing-analysis tool for YouTube
-titles.
+PersonaLabs is a privacy-conscious, deterministic-first semantic observability
+and media framing awareness browser-extension prototype.
 
-The system helps users see how observable wording styles can influence a title's
-emotional feel and attention profile. It focuses on visible title/channel text
-and deterministic rule matches.
+The current prototype uses YouTube as a controlled proof-of-concept environment. It
+helps users observe how visible title and headline wording can influence
+attention, emotional salience, click behavior, and perception. Analysis focuses
+on visible title/channel text and deterministic rule matches.
 
-PersonaLabs does not determine truth, rank ideology, censor content, or replace
-YouTube. It does not assess creator intent, morality, misinformation, user mental
-state, or content quality. It gives users transparent, local-first cues for
-noticing escalation, amplification, calm/neutral, and explanatory wording.
+PersonaLabs does not determine truth, classify ideology, censor content, or
+replace YouTube. It does not assess creator intent, morality, misinformation,
+user mental state, or content quality. It gives users transparent, local-first
+cues for noticing escalation, amplification, calm/neutral, and explanatory
+wording.
 
 ## Core Principles
 
@@ -23,7 +25,7 @@ noticing escalation, amplification, calm/neutral, and explanatory wording.
 - Privacy-aware architecture
 - Bounded wording analysis over coercive filtering
 - Score first; filter second
-- Bare Metal mode always available
+- Traceable and auditable scoring behavior
 
 ## Current Chrome Extension UX
 
@@ -49,9 +51,9 @@ noticing escalation, amplification, calm/neutral, and explanatory wording.
    - curiosity gap
    - future-risk framing
 
-The demo buttons are intentionally presentation-friendly. They help reviewers see
-several wording styles quickly without requiring a presenter to invent searches
-live.
+The demo buttons are intentionally presentation-friendly. They help evaluators
+see several wording styles quickly without requiring a presenter to invent
+searches live.
 
 ## Persistent Side Panel
 
@@ -80,9 +82,9 @@ extension settings.
 
 ## Visible Metadata and Result Filtering
 
-After a guided demo style is opened, PersonaLabs reads visible or provider-supplied
-video metadata, scores title/channel wording with deterministic logic, and applies
-the selected wording lens.
+After a guided demo style is opened, PersonaLabs reads visible or
+provider-supplied video metadata, scores title/channel wording with deterministic
+logic, and applies the selected wording lens.
 
 The current browser extension still includes a temporary visible-page metadata
 provider so the UI works before a YouTube Data API key/configuration exists. The
@@ -107,12 +109,12 @@ It surfaces:
 - explanatory terminology
 - longer-form structure
 
-It flags or filters:
+It surfaces attention-cue patterns:
 
-- outrage framing
+- conflict or outrage-style wording
 - excessive capitalization
-- ragebait
-- domination language
+- high-attention curiosity-gap wording
+- domination/conflict language
 - panic/escalation wording
 
 ### Lens Filtering Rules
@@ -175,8 +177,8 @@ Layer boundaries:
 - Wording Analysis Layer: deterministic scoring, title framing analysis,
   escalation/clickbait detection, educational phrasing, calm/neutral wording, and
   long-form signals.
-- Transformation Layer: subject-preserving "this but calmer/educational/deeper"
-  query generation.
+- Demo Search Layer: guided searches for framing-style examples in the controlled
+  YouTube proof-of-concept.
 - Filtering Layer: GREEN/YELLOW/RED label filtering by the selected wording lens.
 - Presentation Layer: browser extension control panel, contextual anchor
   selection, and visible classification UI.
@@ -213,23 +215,19 @@ Load the extension locally:
 4. Choose this repository directory.
 5. Visit YouTube and click a video/card to create a contextual anchor.
 
-## Development Model
+## Capstone alignment
 
-PersonaLabs is being developed using governed AI-assisted iterative development.
+For WGU Cybersecurity and Information Assurance review, see
+`docs/CAPSTONE_ALIGNMENT.md`. It summarizes the problem statement, scope,
+cybersecurity relevance, privacy model, threat/risk model, testing strategy,
+limitations, and future work.
 
-Agent roles include:
-- Product Architect
-- Frontend Builder
-- AI Scoring Engineer
-- Security/Governance Reviewer
-- QA/Test Agent
-- Documentation Agent
+## Development practices
 
-All AI-generated outputs require:
-- feature validation
-- governance review
-- hallucination mitigation review
-- human approval
+PersonaLabs is developed as a deterministic, explainable engineering prototype.
+Changes should be small, reviewed against architecture contracts, and verified
+with syntax checks and regression tests. AI-assisted drafts or code changes must
+be validated by human review, repository tests, and documented scoring contracts.
 
 ## Vision
 

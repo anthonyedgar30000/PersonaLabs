@@ -5,13 +5,13 @@ const semantic = require("../src/semantic-core");
 const retrieval = require("../src/retrieval-pipeline");
 
 test("generates subject-preserving transformed queries through the transformation layer", () => {
-  const anchor = semantic.analyzeAnchor("BREAKING: Thomas Massie DESTROYS Iran vote");
+  const anchor = semantic.analyzeAnchor("BREAKING: Senator Lane DESTROYS budget vote");
   const queryGenerator = retrieval.createQueryGenerator({ semantic });
   const transformed = queryGenerator.generate(anchor, "educational");
 
   assert.equal(queryGenerator.layer, "Transformation Layer");
   assert.equal(transformed.lens.id, "educational");
-  assert(transformed.query.includes("Thomas Massie Iran vote"));
+  assert(transformed.query.includes("Senator Lane budget vote"));
   assert(transformed.query.includes("explained educational analysis"));
 });
 
@@ -20,7 +20,7 @@ test("normalizes structured YouTube metadata without relying on DOM nodes", () =
     {
       id: { videoId: "abc123" },
       snippet: {
-        title: "Thomas Massie Iran vote explained",
+        title: "Senator Lane budget vote explained",
         channelTitle: "Policy Classroom",
         description: "Context and analysis",
         publishedAt: "2026-05-15T00:00:00Z"
@@ -30,29 +30,29 @@ test("normalizes structured YouTube metadata without relying on DOM nodes", () =
   );
 
   assert.equal(normalized.videoId, "abc123");
-  assert.equal(normalized.title, "Thomas Massie Iran vote explained");
+  assert.equal(normalized.title, "Senator Lane budget vote explained");
   assert.equal(normalized.channel, "Policy Classroom");
   assert.equal(normalized.url, "https://www.youtube.com/watch?v=abc123");
   assert.equal(normalized.source, "youtube-data-api");
 });
 
 test("runs retrieval to deterministic scoring to lens-aware reranking", async () => {
-  const anchor = semantic.analyzeAnchor("Thomas Massie Iran vote");
+  const anchor = semantic.analyzeAnchor("Senator Lane budget vote");
   const pipeline = retrieval.createExplorationPipeline({
     semantic,
     retrievalProvider: retrieval.createMockRetrievalProvider([
       {
-        title: "Thomas Massie Iran vote explained: calm context and analysis",
+        title: "Senator Lane budget vote explained: calm context and analysis",
         channel: "Policy Classroom",
         duration: "18:24"
       },
       {
-        title: "Thomas Massie Iran vote debate explained after backlash",
+        title: "Senator Lane budget vote debate explained after backlash",
         channel: "Civic Roundtable",
         duration: "24:00"
       },
       {
-        title: "MASSIE OBLITERATES opponents in insane Iran vote meltdown",
+        title: "SENATOR OBLITERATES opponents in insane budget vote meltdown",
         channel: "Outrage Daily",
         duration: "4:10"
       }

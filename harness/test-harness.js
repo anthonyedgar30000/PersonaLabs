@@ -29,17 +29,17 @@
     "setLabel",
     "changeLabel",
     "overrideLabel",
-    "bypassGovernance",
-    "disableGovernance"
+    "bypassRuleChecks",
+    "disableRuleChecks"
   ]);
 
   const DEFAULT_SCENARIO_PACK = Object.freeze({
-    name: "PersonaLabs MVP smoke scenarios",
-    category: "mvp-regression",
+    name: "PersonaLabs evaluation smoke scenarios",
+    category: "capstone-regression",
     description: "Small regression pack that exercises the core classification boundaries.",
     scenarios: Object.freeze([
       Object.freeze({
-        id: "mvp-calm-animal",
+        id: "capstone-calm-animal",
         category: "benign",
         description: "Calm animal content should remain GREEN.",
         expectedLabel: "GREEN",
@@ -50,27 +50,27 @@
         input: { title: "Cute Baby Bunny Compilation", channel: "Wholesome Pets", duration: "12:00" }
       }),
       Object.freeze({
-        id: "mvp-political-outrage",
-        category: "inflammatory",
-        description: "Outrage framing should classify as intense / attention-grabbing.",
+        id: "capstone-civic-escalation",
+        category: "attention-framing",
+        description: "Civic/news escalation wording should classify as intense / attention-grabbing.",
         expectedLabel: "RED",
         expectedConfidenceRange: [80, 100],
         expectedGovernanceOutcomes: ["explicit escalation or distress framing detected"],
         expectedContradictionState: false,
         expectedMatchedSignalCategories: { friction: ["shocking", "meltdown", "destroys", "furious"] },
         input: {
-          title: "SHOCKING political meltdown: senator DESTROYS rivals in furious hearing",
+          title: "SHOCKING hearing meltdown: senator DESTROYS rivals in furious exchange",
           channel: "Outrage Daily",
           duration: "8:30"
         }
       }),
       Object.freeze({
-        id: "mvp-educational-tutorial",
+        id: "capstone-educational-tutorial",
         category: "educational",
         description: "Educational tutorial content should remain GREEN.",
         expectedLabel: "GREEN",
         expectedConfidenceRange: [90, 100],
-        expectedGovernanceOutcomes: ["low-friction candidate with continuity and trusted explanatory/format signals"],
+        expectedGovernanceOutcomes: ["low-friction candidate with continuity and lower-friction explanatory/format signals"],
         expectedContradictionState: false,
         expectedMatchedSignalCategories: { positive: ["tutorial", "explained"] },
         input: {
@@ -80,9 +80,9 @@
         }
       }),
       Object.freeze({
-        id: "mvp-clickbait-style",
-        category: "clickbait-style",
-        description: "Clickbait-style framing should classify as RED.",
+        id: "capstone-curiosity-gap-style",
+        category: "curiosity-gap-style",
+        description: "High-attention curiosity-gap framing should classify as RED.",
         expectedLabel: "RED",
         expectedConfidenceRange: [70, 100],
         expectedGovernanceOutcomes: ["explicit escalation or distress framing detected"],
@@ -91,7 +91,7 @@
         input: { title: "You won't believe this secret that changes everything", channel: "Viral Secrets", duration: "6:40" }
       }),
       Object.freeze({
-        id: "mvp-ambiguous-low-context",
+        id: "capstone-ambiguous-low-context",
         category: "low-context",
         description: "Ambiguous low-context content should stay uncertain.",
         expectedLabel: "YELLOW",

@@ -116,7 +116,7 @@ Scenario packs validate deterministic label rules without adding scoring systems
       description,
       expectedLabel,
       expectedConfidenceRange,
-      expectedGovernanceOutcomes,
+      expectedGovernanceOutcomes, // legacy field name for expected rule-check outcomes
       expectedContradictionState,
       input,
       replayTraces
@@ -133,8 +133,11 @@ semantic.runScenarioPack(pack)
 ```
 
 The runner calls `scoreContent(...)` only and reports scenario id, expected
-label, actual label, confidence delta, governance agreement, contradiction
-agreement, drift status, severity, and pipeline version.
+label, actual label, confidence delta, rule-check agreement, contradiction
+agreement, drift status, severity, and pipeline version. Some internal fields
+still use `governance` in their names for compatibility; in capstone
+documentation this means deterministic rule-check agreement, not content
+moderation or policy governance.
 
 ## Golden regression pack
 
@@ -146,7 +149,7 @@ semantic.runGoldenRegressionPack(pack)
 ```
 
 Golden scenarios include scenario id, input metadata, expected canonical label,
-expected confidence range, expected contradiction state, expected governance
+expected confidence range, expected contradiction state, expected rule-check
 outcomes, expected matched/suppressed signal categories, and pipeline version.
 The golden runner is a thin validation layer over the canonical scenario runner
 and therefore calls `scoreContent(...)` only.

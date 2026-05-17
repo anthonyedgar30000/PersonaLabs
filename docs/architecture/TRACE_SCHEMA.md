@@ -120,12 +120,12 @@ Replay telemetry includes:
 - `originalLabel`
 - `currentLabel`
 - `confidenceDelta`
-- `governanceDecisionChanges`
+- `governanceDecisionChanges` (legacy field name for rule-check decision changes)
 - `replayTimestamp`
 - `pipelineVersionComparison`
 
 The inspector shows original/current labels, confidence delta, drift severity,
-changed governance decisions, replay timestamp, and pipeline version comparison.
+changed rule-check decisions, replay timestamp, and pipeline version comparison.
 
 ## Scenario Validation
 
@@ -137,27 +137,28 @@ only and emits scenario telemetry:
 - `expectedLabel`
 - `actualLabel`
 - `confidenceDelta`
-- `governanceAgreement`
+- `governanceAgreement` (legacy field name for rule-check agreement)
 - `contradictionAgreement`
 - `driftDetected`
 - `severity`
 - `pipelineVersion`
 
 The inspector summarizes pass/fail, label agreement, confidence agreement,
-contradiction agreement, governance agreement, drift severity, pipeline version,
+contradiction agreement, rule-check agreement, drift severity, pipeline version,
 and summary stats.
 
 ## Golden Regression Pack
 
 The Golden Regression Pack is a frozen set of canonical scenarios for platform
 stability. It includes calm animal content, harmless pet friction, animal
-distress, educational tutorial, documentary, public radio interview, political
-outrage, clickbait manipulation, ambiguous low-context title, adversarial title,
-contradictory explanation guard, and semantic drift sentinel.
+distress, educational tutorial, documentary, public radio interview, civic/news
+escalation wording, high-attention curiosity-gap wording, ambiguous low-context
+title, stress-test title, contradictory explanation guard, and semantic drift
+sentinel.
 
 Golden validation reports total scenarios, pass/fail, drift count, failed
-scenario ids, confidence deltas, governance mismatches, contradiction
-mismatches, matched/suppressed signal mismatches, and pipeline version.
+scenario ids, confidence deltas, rule-check mismatches, contradiction mismatches,
+matched/suppressed signal mismatches, and pipeline version.
 
 ## Trace events
 

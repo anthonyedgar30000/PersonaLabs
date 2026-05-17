@@ -14,14 +14,14 @@
   const SCENARIO_CATEGORIES = [
     "benign",
     "educational",
-    "political",
+    "civic-topic",
     "inflammatory",
     "ambiguous",
     "contradictory",
-    "manipulation",
+    "attention-framing",
     "edge-case",
     "low-context",
-    "adversarial-title",
+    "stress-test-title",
     "semantic-drift"
   ];
 
@@ -1163,7 +1163,7 @@
         color: "GREEN",
         label: "calm/straightforward framing",
         meaning: "Calm or explanatory title wording with topic continuity.",
-        reason: "low-friction candidate with continuity and trusted explanatory/format signals"
+        reason: "low-friction candidate with continuity and lower-friction explanatory/format signals"
       };
     }
 
@@ -1172,7 +1172,7 @@
         color: "GREEN",
         label: "calm/straightforward framing",
         meaning: "Relevant explanatory title wording without intense framing.",
-        reason: "explanatory or trusted source format with no escalation"
+        reason: "explanatory or lower-friction source format with no escalation"
       };
     }
 
@@ -1996,22 +1996,22 @@
           expectedGovernanceOutcomes: ["lower-friction source format"],
           expectedContradictionState: false,
           input: {
-            title: "Thomas Massie discusses Iran vote on public radio",
+            title: "Senator discusses policy vote on public radio",
             channel: "Public Radio Forum",
             duration: "24:00"
           }
         },
         {
-          id: "adversarial-outrage",
-          name: "Political outrage title",
-          category: "adversarial-title",
+          id: "stress-test-civic-escalation",
+          name: "Civic/news escalation title",
+          category: "stress-test-title",
           description: "Overt outrage framing should be RED.",
           expectedLabel: "RED",
           expectedConfidenceRange: [45, 100],
           expectedGovernanceOutcomes: ["explicit escalation or distress framing detected"],
           expectedContradictionState: false,
           input: {
-            title: "OUTRAGE: Thomas Massie meltdown after Iran vote",
+            title: "OUTRAGE: senator meltdown after policy vote",
             channel: "Outrage Daily",
             duration: "4:10"
           }
@@ -2033,7 +2033,7 @@
     return {
       name: "PersonaLabs Golden Regression Pack",
       category: "golden-regression",
-      description: "Frozen deterministic semantic governance scenarios.",
+      description: "Frozen deterministic scoring and traceability scenarios.",
       pipelineVersion: PIPELINE_VERSION,
       scenarios: [
         goldenScenario({
@@ -2106,20 +2106,20 @@
           id: "golden-public-radio-interview",
           scenarioId: "golden-public-radio-interview",
           name: "Public radio interview",
-          category: "political",
+          category: "civic-topic",
           description: "Public radio interview stays low-friction.",
           expectedLabel: "GREEN",
           expectedConfidenceRange: [70, 100],
           expectedGovernanceOutcomes: ["lower-friction source format"],
           expectedContradictionState: false,
           expectedMatchedSignalCategories: { positive: ["public radio"], friction: [] },
-          input: { title: "Thomas Massie discusses Iran vote on public radio", channel: "Public Radio Forum", duration: "24:00" }
+          input: { title: "Senator discusses policy vote on public radio", channel: "Public Radio Forum", duration: "24:00" }
         }),
         goldenScenario({
-          id: "golden-political-outrage",
-          scenarioId: "golden-political-outrage",
-          name: "Political outrage",
-          category: "political",
+          id: "golden-civic-escalation",
+          scenarioId: "golden-civic-escalation",
+          name: "Civic/news escalation",
+          category: "civic-topic",
           description: "Outrage framing remains RED.",
           expectedLabel: "RED",
           expectedConfidenceRange: [70, 100],
@@ -2127,14 +2127,14 @@
           expectedContradictionState: false,
           expectedMatchedSignalCategories: { positive: [], friction: ["outrage", "meltdown"] },
           expectedSuppressedSignalCategories: ["outrage", "meltdown"],
-          input: { title: "OUTRAGE: Thomas Massie meltdown after Iran vote", channel: "Outrage Daily", duration: "4:10" }
+          input: { title: "OUTRAGE: senator meltdown after policy vote", channel: "Outrage Daily", duration: "4:10" }
         }),
         goldenScenario({
-          id: "golden-clickbait-manipulation",
-          scenarioId: "golden-clickbait-manipulation",
-          name: "Clickbait manipulation",
-          category: "manipulation",
-          description: "Clickbait manipulation terms remain RED.",
+          id: "golden-curiosity-gap-framing",
+          scenarioId: "golden-curiosity-gap-framing",
+          name: "Curiosity-gap framing",
+          category: "attention-framing",
+          description: "High-attention curiosity-gap terms remain RED.",
           expectedLabel: "RED",
           expectedConfidenceRange: [70, 100],
           expectedGovernanceOutcomes: ["explicit escalation or distress framing detected"],
@@ -2157,18 +2157,18 @@
           input: { title: "Obscure Segment 17", channel: "Channel 42", duration: "9:00" }
         }),
         goldenScenario({
-          id: "golden-adversarial-title",
-          scenarioId: "golden-adversarial-title",
-          name: "Adversarial title",
-          category: "adversarial-title",
-          description: "Adversarial domination framing remains RED.",
+          id: "golden-stress-test-title",
+          scenarioId: "golden-stress-test-title",
+          name: "Stress-test title",
+          category: "stress-test-title",
+          description: "Stress-test domination framing remains RED.",
           expectedLabel: "RED",
           expectedConfidenceRange: [70, 100],
           expectedGovernanceOutcomes: ["explicit escalation or distress framing detected"],
           expectedContradictionState: false,
           expectedMatchedSignalCategories: { positive: [], friction: ["obliterates", "insane", "meltdown"] },
           expectedSuppressedSignalCategories: ["obliterates", "insane", "meltdown"],
-          input: { title: "MASSIE OBLITERATES opponents in insane Iran vote meltdown", channel: "Outrage Daily", duration: "4:10" }
+          input: { title: "SENATOR OBLITERATES opponents in insane policy vote meltdown", channel: "Outrage Daily", duration: "4:10" }
         }),
         goldenScenario({
           id: "golden-contradictory-explanation",

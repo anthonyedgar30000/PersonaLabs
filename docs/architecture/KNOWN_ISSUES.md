@@ -80,7 +80,7 @@ Known heuristic areas:
 
 - animal/pet/nature safe-domain handling;
 - harmless energetic pet pacing;
-- political outrage and escalation terms;
+- civic/news escalation terms;
 - public radio/interview lower-friction source handling;
 - neutral reporting verbs;
 - long-form and educational framing weights.
