@@ -72,14 +72,18 @@ shows:
 - selected exploration lens
 - Suggested Exploration Paths after a transformed search is opened
 
-The exploration buttons generate and open transformed YouTube searches while
-preserving event continuity:
+The exploration buttons generate transformed YouTube searches, open them in a
+new tab when the browser allows it, and preserve event continuity:
 
 - calmer
 - educational
 - deeper dive
 - beginner friendly
 - longer-form
+
+The panel includes a Clear saved context control so a presenter or user can
+remove the locally stored anchor/search state without changing browser-level
+extension settings.
 
 ## Visible Metadata and Result Filtering
 
@@ -149,7 +153,9 @@ plain-language wording-cue explanations such as:
 PersonaLabs badges are contextual title-framing cues. They do not block, approve,
 censor, fact-check, or assess video quality. They help users notice when a visible
 card title contains escalation language, which GREEN/YELLOW/RED wording label a
-result falls into, and which deterministic rule matches contributed.
+result falls into, and which deterministic rule matches contributed. On-card
+badges use readable framing labels, such as "Framing: calm/straightforward
+framing (GREEN)", instead of requiring reviewers to decode a color alone.
 
 ## Architecture
 

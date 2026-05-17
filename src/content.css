@@ -87,6 +87,28 @@
   background: linear-gradient(135deg, rgba(143, 199, 255, 0.18), rgba(255, 255, 255, 0.04));
 }
 
+.personalabs-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.personalabs-header-actions button {
+  background: rgba(143, 199, 255, 0.12);
+  border: 1px solid rgba(143, 199, 255, 0.32);
+  border-radius: 999px;
+  color: var(--pl-accent-strong);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 6px 9px;
+}
+
+.personalabs-header-actions button:hover {
+  background: rgba(143, 199, 255, 0.18);
+}
+
 .personalabs-eyebrow {
   color: var(--pl-accent);
   font-size: 10px;
@@ -517,6 +539,9 @@
 .personalabs-overlay-label {
   font-size: 11px;
   font-weight: 950;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .personalabs-overlay-breakdown,

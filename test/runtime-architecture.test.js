@@ -18,9 +18,23 @@ test("debug trace collection is gated by PERSONALABS_DEBUG", () => {
   const contentRuntime = fs.readFileSync(path.join(root, "src", "content.js"), "utf8");
 
   assert.match(contentRuntime, /window\.PERSONALABS_DEBUG = false/);
+  assert.match(contentRuntime, /const DEBUG_RENDERING = false/);
   assert.match(contentRuntime, /function personaLabsDebugEnabled\(\)/);
+  assert.match(contentRuntime, /if \(!DEBUG_RENDERING && !personaLabsDebugEnabled\(\)\)/);
+  assert.match(contentRuntime, /if \(window\.PERSONALABS_DEBUG === true\) \{\s*console\.info\(LOG_PREFIX, "content\.js executing"/);
   assert.match(contentRuntime, /if \(!personaLabsDebugEnabled\(\)\) \{\s*return null;\s*\}/);
   assert.match(contentRuntime, /window\.PersonaLabsDebugTraces = state\.traces/);
+});
+
+test("capstone demo controls preserve privacy and user agency", () => {
+  const contentRuntime = fs.readFileSync(path.join(root, "src", "content.js"), "utf8");
+
+  assert.match(contentRuntime, /function clearStoredState\(\)/);
+  assert.match(contentRuntime, /window\.localStorage\.removeItem\(STORAGE_KEY\)/);
+  assert.match(contentRuntime, /chrome\.storage\.local\.remove\(STORAGE_KEY\)/);
+  assert.match(contentRuntime, /Clear saved context/);
+  assert.match(contentRuntime, /window\.open\(path\.url, "_blank", "noopener,noreferrer"\)/);
+  assert.match(contentRuntime, /window\.location\.assign\(path\.url\)/);
 });
 
 test("semantic trace inspector exposes debug-only inspection utilities", () => {

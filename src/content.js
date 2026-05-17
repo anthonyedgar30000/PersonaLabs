@@ -4,7 +4,7 @@
   const semantic = window.PersonaLabsSemantic;
   const retrieval = window.PersonaLabsRetrieval;
   const LOG_PREFIX = "[PersonaLabs rendering]";
-  const DEBUG_RENDERING = true;
+  const DEBUG_RENDERING = false;
 
   if (typeof window.PERSONALABS_DEBUG === "undefined") {
     window.PERSONALABS_DEBUG = false;
@@ -21,15 +21,19 @@
   }
 
   if (window.__personaLabsSemanticNavigationLoaded) {
-    console.debug(LOG_PREFIX, "content.js skipped because it is already loaded");
+    if (window.PERSONALABS_DEBUG === true) {
+      console.debug(LOG_PREFIX, "content.js skipped because it is already loaded");
+    }
     return;
   }
 
   window.__personaLabsSemanticNavigationLoaded = true;
-  console.info(LOG_PREFIX, "content.js executing", {
-    href: location.href,
-    readyState: document.readyState
-  });
+  if (window.PERSONALABS_DEBUG === true) {
+    console.info(LOG_PREFIX, "content.js executing", {
+      href: location.href,
+      readyState: document.readyState
+    });
+  }
 
   const STORAGE_KEY = "personaLabsSemanticNavigation";
   const CARD_SELECTOR = [
@@ -147,7 +151,7 @@
   };
 
   function debugLog(message, payload) {
-    if (!DEBUG_RENDERING) {
+    if (!DEBUG_RENDERING && !personaLabsDebugEnabled()) {
       return;
     }
 
@@ -197,6 +201,29 @@
     if (storageAvailable()) {
       chrome.storage.local.set({ [STORAGE_KEY]: payload });
     }
+  }
+
+  function clearStoredState() {
+    state.anchor = null;
+    state.paths = [];
+    state.activePathId = null;
+    state.suggestions = [];
+    state.scoredResultCount = 0;
+    state.lastRetrievalSource = "";
+    state.lastPipelineStages = [];
+
+    try {
+      window.localStorage.removeItem(STORAGE_KEY);
+    } catch (error) {
+      // Local storage can be unavailable in restricted contexts; clearing memory is enough.
+    }
+
+    if (storageAvailable()) {
+      chrome.storage.local.remove(STORAGE_KEY);
+    }
+
+    scheduleRender();
+    scheduleAnnotateVisibleCards("clear saved context");
   }
 
   function loadState() {
@@ -904,7 +931,10 @@
     state.scoredResultCount = 0;
     persistState();
     scheduleRender();
-    window.location.assign(path.url);
+    const opened = window.open(path.url, "_blank", "noopener,noreferrer");
+    if (!opened) {
+      window.location.assign(path.url);
+    }
   }
 
   async function scanVisibleResults() {
@@ -1079,7 +1109,7 @@
         confidence: trace && trace.confidence,
         explanation: trace && trace.explanation
       }, { once: true });
-      const label = `PL ${scoring.label}`;
+      const label = formatFramingLabel(scoring);
       const category = scoring.label.toLowerCase();
       const details = {
         ...describeCard(card, candidate),
@@ -1166,13 +1196,22 @@
     };
   }
 
+  function formatFramingLabel(scoring) {
+    const color = scoring && scoring.label ? scoring.label : "YELLOW";
+    const classification = scoring && scoring.classification && scoring.classification.label
+      ? scoring.classification.label
+      : "mixed or unclear framing";
+
+    return `Framing: ${classification} (${color})`;
+  }
+
   function formatCanonicalTooltip(scoring) {
     const confidence = classificationConfidence(scoring);
 
     return [
-      `Heuristic label: ${scoring.label}.`,
+      `Rule-based label: ${formatFramingLabel(scoring)}.`,
       `Rule-match score: ${formatConfidence(confidence.confidence)}.`,
-      "Title wording only; not truth, intent, or quality.",
+      "Title wording only; not truth, intent, creator motive, or quality.",
       scoring.explanation || confidence.finalReason || ""
     ]
       .filter(Boolean)
@@ -1314,8 +1353,12 @@
       "<p class='personalabs-eyebrow'>PersonaLabs</p>",
       "<h2>Rule-based title framing cues</h2>",
       "</div>",
-      "<p class='personalabs-muted'>Observable wording patterns only. Not truth, intent, or quality.</p>"
+      "<p class='personalabs-muted'>Observable wording patterns only. Not truth, intent, creator motive, or quality.</p>",
+      "<div class='personalabs-header-actions'>",
+      "<button type='button' data-action='clear-local-context'>Clear saved context</button>",
+      "</div>"
     ].join("");
+    header.querySelector("[data-action='clear-local-context']").addEventListener("click", clearStoredState);
     return header;
   }
 
@@ -1472,7 +1515,8 @@
     section.innerHTML = [
       "<p class='personalabs-eyebrow'>Operating principles</p>",
       "<ul>",
-      "<li>Deterministic-first and local-first.</li>",
+      "<li>Deterministic-first and local-first: visible title context is kept in browser storage for continuity.</li>",
+      "<li>Use Clear saved context or browser controls when you want the overlay to forget the current anchor.</li>",
       "<li>No truth, ideology ranking, censorship, or YouTube replacement judgments.</li>",
       "<li>Score visible wording first; filter second by the selected wording lens.</li>",
       "<li>GREEN summarizes calm or straightforward title framing.</li>",
