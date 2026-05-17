@@ -99,11 +99,23 @@ test("overlay candidates are scoped to video surfaces only", () => {
   assert.match(getCandidateCardsFunction, /\.filter\(isEligibleVideoAnnotationTarget\)/);
   assert(!/querySelectorAll\("a\[href\*='watch'\], a\[href\*='\/shorts\/'\]"\)/.test(getCandidateCardsFunction));
   assert.match(clickFunction, /resolveVideoAnnotationTarget\(target\)/);
+  assert.match(clickFunction, /extractCandidateFromClickTarget\(target, card\) \|\| extractCandidateFromCard\(card\)/);
   assert.match(clickFunction, /isPrimaryUnmodifiedClick\(event\)/);
   assert.match(clickFunction, /event\.preventDefault\(\)/);
   assert.match(clickFunction, /event\.stopImmediatePropagation\(\)/);
   assert.match(titleBadgeFunction, /isEligibleVideoAnnotationTarget\(card\)/);
   assert.match(thumbnailOverlayFunction, /isEligibleVideoAnnotationTarget\(card\)/);
+});
+
+test("click selection prefers the exact clicked video link before broad card title fallback", () => {
+  const contentRuntime = fs.readFileSync(path.join(root, "src", "content.js"), "utf8");
+  const clickedExtractionFunction = contentRuntime.match(/function extractCandidateFromClickTarget[\s\S]*?function describeCard/)[0];
+
+  assert.match(clickedExtractionFunction, /findVideoLinkFromTarget\(target\)/);
+  assert.match(clickedExtractionFunction, /videoIdFromUrl\(link\)/);
+  assert.match(clickedExtractionFunction, /findTitleElementForVideoId\(card, videoId\)/);
+  assert.match(clickedExtractionFunction, /titleTextFromElement\(titleElement\) \|\|/);
+  assert.match(clickedExtractionFunction, /url: link/);
 });
 
 test("primary left clicks select video context without hijacking modified navigation", () => {

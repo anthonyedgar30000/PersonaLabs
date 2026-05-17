@@ -777,6 +777,87 @@
     return card.querySelector(TITLE_SELECTOR);
   }
 
+  function titleTextFromElement(element) {
+    return normalizeText(
+      element &&
+        (element.getAttribute("title") ||
+          element.getAttribute("aria-label") ||
+          element.textContent)
+    );
+  }
+
+  function findVideoLinkFromTarget(element) {
+    if (!element || !(element instanceof Element) || isInsideNonVideoTextSurface(element)) {
+      return null;
+    }
+
+    const link = element.closest("a[href*='watch'], a[href*='/shorts/']");
+    if (!link || link.closest("#personalabs-panel")) {
+      return null;
+    }
+
+    const href = absoluteUrl(link.getAttribute("href") || "");
+    return videoIdFromUrl(href) ? link : null;
+  }
+
+  function findTitleElementForVideoId(card, videoId) {
+    if (!card || !(card instanceof Element) || !videoId) {
+      return null;
+    }
+
+    if (card.matches(TITLE_LINK_FALLBACK_SELECTOR) && videoIdFromUrl(absoluteUrl(titleLinkHref(card))) === videoId) {
+      return card;
+    }
+
+    const matchingTitleLinks = Array.from(card.querySelectorAll(TITLE_LINK_FALLBACK_SELECTOR));
+    return matchingTitleLinks.find((link) => videoIdFromUrl(absoluteUrl(titleLinkHref(link))) === videoId) || null;
+  }
+
+  function extractCandidateFromClickTarget(target, card) {
+    const clickedLink = findVideoLinkFromTarget(target);
+    if (!clickedLink) {
+      return null;
+    }
+
+    const link = absoluteUrl(clickedLink.getAttribute("href") || "");
+    const videoId = videoIdFromUrl(link);
+    const titleElement = findTitleElementForVideoId(card, videoId);
+    const title =
+      titleTextFromElement(titleElement) ||
+      titleTextFromElement(clickedLink) ||
+      firstText(card, [
+        "#video-title",
+        "#video-title-link",
+        "yt-formatted-string#video-title",
+        "h3",
+        ".yt-lockup-metadata-view-model-wiz__title"
+      ]);
+
+    if (!title || title.toLowerCase() === "home") {
+      return null;
+    }
+
+    return {
+      videoId,
+      title,
+      channel: firstText(card, [
+        "#channel-name a",
+        "ytd-channel-name a",
+        ".ytd-channel-name",
+        "#text.ytd-channel-name",
+        "a[href^='/@']",
+        "a[href^='/channel/']"
+      ]),
+      duration: firstText(card, [
+        "ytd-thumbnail-overlay-time-status-renderer",
+        ".ytd-thumbnail-overlay-time-status-renderer",
+        "span.ytd-thumbnail-overlay-time-status-renderer"
+      ]),
+      url: link,
+      element: card || clickedLink
+    };
+  }
+
   function describeCard(card, candidate) {
     return {
       tag: card && card.tagName ? card.tagName.toLowerCase() : "unknown",
@@ -970,7 +1051,7 @@
     }
 
     const card = resolveVideoAnnotationTarget(target);
-    const candidate = extractCandidateFromCard(card);
+    const candidate = extractCandidateFromClickTarget(target, card) || extractCandidateFromCard(card);
     if (candidate) {
       if (isPrimaryUnmodifiedClick(event)) {
         event.preventDefault();
