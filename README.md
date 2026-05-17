@@ -62,7 +62,7 @@ shows:
 
 - selected contextual anchor
 - original title
-- extracted subject anchor
+- framing style employed
 - removed escalation terms
 - guided demo framing-style buttons
 - selected scoring/filter lens

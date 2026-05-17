@@ -1549,14 +1549,14 @@
 
     const entityHtml = (anchor.namedEntities || []).length
       ? anchor.namedEntities.map((entity) => `<span class='personalabs-chip'>${escapeHtml(entity)}</span>`).join("")
-      : "<span class='personalabs-chip'>Subject terms only</span>";
+      : "<span class='personalabs-chip'>No named entity required</span>";
 
     section.innerHTML = [
       "<p class='personalabs-eyebrow'>Selected contextual anchor</p>",
       `<h3>${escapeHtml(anchor.originalTitle)}</h3>`,
       "<div class='personalabs-field'>",
-      "<span>Extracted subject anchor</span>",
-      `<strong>${escapeHtml(anchor.subjectAnchor)}</strong>`,
+      "<span>Framing style employed</span>",
+      `<strong>${escapeHtml(renderSignalSummary(anchor))}</strong>`,
       "</div>",
       "<div class='personalabs-chip-row'>",
       entityHtml,
@@ -1564,10 +1564,6 @@
       "<div class='personalabs-field'>",
       "<span>Removed escalation terms</span>",
       `<ul class='personalabs-term-list'>${removedHtml}</ul>`,
-      "</div>",
-      "<div class='personalabs-field'>",
-      "<span>Matched style cues</span>",
-      `<strong>${escapeHtml(renderSignalSummary(anchor))}</strong>`,
       "</div>"
     ].join("");
 

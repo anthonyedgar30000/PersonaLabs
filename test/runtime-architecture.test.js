@@ -131,8 +131,12 @@ test("primary left clicks select video context without hijacking modified naviga
 
 test("selected anchor summary names concrete framing cue categories", () => {
   const contentRuntime = fs.readFileSync(path.join(root, "src", "content.js"), "utf8");
+  const anchorFunction = contentRuntime.match(/function renderAnchor[\s\S]*?function renderDemoStyles/)[0];
   const signalSummaryFunction = contentRuntime.match(/function renderSignalSummary[\s\S]*?function describeFilterPolicy/)[0];
 
+  assert.match(anchorFunction, /Framing style employed/);
+  assert(!/Extracted subject anchor/.test(anchorFunction));
+  assert(!/Matched style cues/.test(anchorFunction));
   assert.match(signalSummaryFunction, /investigation framing/);
   assert.match(signalSummaryFunction, /curiosity-gap\/amplification framing/);
   assert.match(signalSummaryFunction, /conflict framing/);
