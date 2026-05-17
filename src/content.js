@@ -125,6 +125,48 @@
     "yt-page-data-updated",
     "yt-rendererstamper-finished"
   ];
+  const DEMO_FRAMING_STYLES = [
+    {
+      id: "neutral-explainer",
+      label: "Neutral explainer",
+      cue: "calm / educational",
+      description: "Baseline wording for comparison against more intense titles.",
+      query: "what is phishing explained cybersecurity",
+      lensId: "educational"
+    },
+    {
+      id: "urgency-risk",
+      label: "Urgency + risk",
+      cue: "before / warning / scam",
+      description: "Shows protective urgency and risk-oriented wording.",
+      query: "before you answer another scam call watch this",
+      lensId: "calmer"
+    },
+    {
+      id: "conflict-investigation",
+      label: "Conflict / investigation",
+      cue: "infiltrating / exposing / caught",
+      description: "Shows action-oriented investigation framing.",
+      query: "Jim Browning infiltrating bank scammers",
+      lensId: "deeper"
+    },
+    {
+      id: "curiosity-gap",
+      label: "Curiosity gap",
+      cue: "hidden / watch this / secret",
+      description: "Shows withheld-information wording designed to invite a click.",
+      query: "hidden danger explained YouTube video",
+      lensId: "beginner"
+    },
+    {
+      id: "future-fear",
+      label: "Future-risk framing",
+      cue: "apocalypse / replace / shocking",
+      description: "Shows high-intensity future-risk language for contrast.",
+      query: "AI job apocalypse replace your job shocking",
+      lensId: "longform"
+    }
+  ];
 
   const state = {
     anchor: null,
@@ -920,20 +962,25 @@
     }
   }
 
-  function handleExplore(pathId) {
-    const path = state.paths.find((item) => item.id === pathId);
-    if (!path) {
+  function handleLoadDemoStyle(styleId) {
+    const style = DEMO_FRAMING_STYLES.find((item) => item.id === styleId);
+    if (!style) {
       return;
     }
 
-    state.activePathId = path.id;
-    state.suggestions = [];
-    state.scoredResultCount = 0;
-    persistState();
-    scheduleRender();
-    const opened = window.open(path.url, "_blank", "noopener,noreferrer");
+    const matchingPath = state.paths.find((item) => item.id === style.lensId);
+    if (matchingPath) {
+      state.activePathId = matchingPath.id;
+      state.suggestions = [];
+      state.scoredResultCount = 0;
+      persistState();
+      scheduleRender();
+    }
+
+    const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(style.query)}`;
+    const opened = window.open(url, "_blank", "noopener,noreferrer");
     if (!opened) {
-      window.location.assign(path.url);
+      window.location.assign(url);
     }
   }
 
@@ -1328,6 +1375,7 @@
 
     if (!anchor) {
       panel.appendChild(renderEmptyState());
+      panel.appendChild(renderDemoStyles());
       if (personaLabsDebugEnabled()) {
         panel.appendChild(renderPipelineHealth());
         panel.appendChild(renderDebugTraces());
@@ -1336,7 +1384,7 @@
     }
 
     panel.appendChild(renderAnchor(anchor));
-    panel.appendChild(renderPaths(path));
+    panel.appendChild(renderDemoStyles(path));
     panel.appendChild(renderSuggestions());
     panel.appendChild(renderPrinciples());
     if (personaLabsDebugEnabled()) {
@@ -1367,7 +1415,7 @@
     section.className = "personalabs-section personalabs-empty";
     section.innerHTML = [
       "<h3>No contextual anchor yet</h3>",
-      "<p>Click a YouTube video or card to inspect title wording cues. PersonaLabs matches escalation, amplification, calm, and explanatory phrasing, then offers optional rewritten searches.</p>"
+      "<p>Click a YouTube video or card to inspect title wording cues, or load a guided demo style below. PersonaLabs matches escalation, amplification, calm, and explanatory phrasing without judging truth or quality.</p>"
     ].join("");
     return section;
   }
@@ -1410,43 +1458,36 @@
     return section;
   }
 
-  function renderPaths(path) {
+  function renderDemoStyles(path) {
     const section = document.createElement("section");
     section.className = "personalabs-section";
 
     const title = document.createElement("div");
     title.innerHTML = [
-      "<p class='personalabs-eyebrow'>Optional rewritten searches</p>",
-      "<h3>Keep the subject. Change the wording style.</h3>"
+      "<p class='personalabs-eyebrow'>Guided demo videos</p>",
+      "<h3>Load examples by framing style.</h3>",
+      "<p class='personalabs-muted'>Each button opens a YouTube search with titles that usually demonstrate the selected wording pattern. PersonaLabs still analyzes the visible titles locally.</p>"
     ].join("");
     section.appendChild(title);
 
     const controls = document.createElement("div");
-    controls.className = "personalabs-controls";
+    controls.className = "personalabs-demo-grid";
 
-    state.paths.forEach((item) => {
+    DEMO_FRAMING_STYLES.forEach((style) => {
       const button = document.createElement("button");
       button.type = "button";
-      button.className = "personalabs-path-button";
-      button.dataset.active = path && path.id === item.id ? "true" : "false";
-      button.textContent = item.buttonLabel;
-      button.addEventListener("click", () => handleExplore(item.id));
+      button.className = "personalabs-demo-button";
+      button.dataset.active = path && path.id === style.lensId ? "true" : "false";
+      button.innerHTML = [
+        `<strong>${escapeHtml(style.label)}</strong>`,
+        `<span>${escapeHtml(style.cue)}</span>`,
+        `<small>${escapeHtml(style.description)}</small>`
+      ].join("");
+      button.addEventListener("click", () => handleLoadDemoStyle(style.id));
       controls.appendChild(button);
     });
 
     section.appendChild(controls);
-
-    if (path) {
-      const query = document.createElement("div");
-      query.className = "personalabs-query";
-      query.innerHTML = [
-        `<span>${escapeHtml(path.description)}</span>`,
-        `<code>${escapeHtml(path.query)}</code>`,
-        `<small>Selected wording lens: ${escapeHtml(path.lensLabel || path.label)} | Rule filter: ${escapeHtml(describeFilterPolicy(path.filterPolicy))}</small>`
-      ].join("");
-      section.appendChild(query);
-    }
-
     return section;
   }
 
@@ -1465,7 +1506,7 @@
     if (!state.suggestions.length) {
       const empty = document.createElement("p");
       empty.className = "personalabs-muted";
-      empty.textContent = "Open a rewritten search to inspect visible title metadata, score wording cues first, then apply the selected wording filter.";
+      empty.textContent = "Load a guided demo style to inspect visible title metadata, score wording cues first, then compare how framing changes across examples.";
       section.appendChild(empty);
       return section;
     }
@@ -1653,9 +1694,9 @@
       renderReplayAnalysis(),
       renderScenarioValidation(),
       renderGoldenRegressionPack(),
-      renderInspectorListSection("Rewritten Search Details", {
+      renderInspectorListSection("Lens/Search Details", {
         "Selected lens": [activePath() && (activePath().lensLabel || activePath().label) || "none"],
-        "Rewritten searches": transformedPaths,
+        "Generated search paths": transformedPaths,
         "Rule filters applied": retrievalFilters,
         "Filter exclusions": ["RED excluded by filter policy"]
       }),

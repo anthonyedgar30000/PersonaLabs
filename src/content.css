@@ -192,60 +192,51 @@
   text-transform: uppercase;
 }
 
-.personalabs-controls {
+.personalabs-demo-grid {
   display: grid;
-  gap: 6px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  grid-template-columns: 1fr;
 }
 
-.personalabs-path-button {
+.personalabs-demo-button {
+  align-items: flex-start;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--pl-border);
-  border-radius: 10px;
+  border-radius: 12px;
   color: var(--pl-text);
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
   font: inherit;
-  font-size: 12px;
-  font-weight: 800;
+  gap: 3px;
   padding: 9px 10px;
   text-align: left;
 }
 
-.personalabs-path-button:hover,
-.personalabs-path-button[data-active="true"] {
+.personalabs-demo-button:hover,
+.personalabs-demo-button[data-active="true"] {
   background: rgba(143, 199, 255, 0.16);
   border-color: rgba(143, 199, 255, 0.46);
+}
+
+.personalabs-demo-button strong {
   color: var(--pl-accent-strong);
+  font-size: 12px;
+  font-weight: 900;
 }
 
-.personalabs-query {
-  background: rgba(0, 0, 0, 0.18);
-  border-radius: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 9px;
+.personalabs-demo-button span {
+  color: var(--pl-warning);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-.personalabs-query span {
+.personalabs-demo-button small {
   color: var(--pl-muted);
   font-size: 11px;
-  font-weight: 700;
-}
-
-.personalabs-query code {
-  color: var(--pl-accent-strong);
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 12px;
-  white-space: normal;
-}
-
-.personalabs-query small {
-  color: var(--pl-muted);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
+  line-height: 1.35;
 }
 
 .personalabs-suggestion-list {

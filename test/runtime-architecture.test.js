@@ -33,8 +33,13 @@ test("capstone demo controls preserve privacy and user agency", () => {
   assert.match(contentRuntime, /window\.localStorage\.removeItem\(STORAGE_KEY\)/);
   assert.match(contentRuntime, /chrome\.storage\.local\.remove\(STORAGE_KEY\)/);
   assert.match(contentRuntime, /Clear saved context/);
-  assert.match(contentRuntime, /window\.open\(path\.url, "_blank", "noopener,noreferrer"\)/);
-  assert.match(contentRuntime, /window\.location\.assign\(path\.url\)/);
+  assert.match(contentRuntime, /function handleLoadDemoStyle\(styleId\)/);
+  assert.match(contentRuntime, /Guided demo videos/);
+  assert.match(contentRuntime, /Neutral explainer/);
+  assert.match(contentRuntime, /Urgency \+ risk/);
+  assert(!/Optional rewritten searches/.test(contentRuntime));
+  assert.match(contentRuntime, /window\.open\(url, "_blank", "noopener,noreferrer"\)/);
+  assert.match(contentRuntime, /window\.location\.assign\(url\)/);
 });
 
 test("semantic trace inspector exposes debug-only inspection utilities", () => {
@@ -81,7 +86,7 @@ test("overlays stay compact while detailed debugging stays in the inspector", ()
 test("overlay candidates are scoped to video surfaces only", () => {
   const contentRuntime = fs.readFileSync(path.join(root, "src", "content.js"), "utf8");
   const getCandidateCardsFunction = contentRuntime.match(/function getCandidateCards[\s\S]*?function findTitleElement/)[0];
-  const clickFunction = contentRuntime.match(/function handleDocumentClick[\s\S]*?function handleExplore/)[0];
+  const clickFunction = contentRuntime.match(/function handleDocumentClick[\s\S]*?function handleLoadDemoStyle/)[0];
   const titleBadgeFunction = contentRuntime.match(/function upsertTitleBadge[\s\S]*?function findThumbnailHost/)[0];
   const thumbnailOverlayFunction = contentRuntime.match(/function upsertThumbnailOverlay[\s\S]*?function createPanel/)[0];
 

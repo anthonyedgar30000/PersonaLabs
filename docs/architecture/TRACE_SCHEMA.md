@@ -90,7 +90,7 @@ Inspector sections:
 - Term Analysis: matched calm/explanatory terms, matched attention cues, suppressed terms, ignored/override terms.
 - Scoring Flow: pipeline stages, rule-score components, scoring modifiers, final label.
 - Rule checks: contradictions, override reasons, score-field consistency, scoring path.
-- Rewritten Search Details: selected lens, rewritten searches, filters, exclusions.
+- Lens/Search Details: selected lens, generated search paths, filters, exclusions.
 - Trace Events: canonical `traceEvents`.
 - Runtime Events: overlay/panel/database `stages`.
 

@@ -41,23 +41,17 @@ noticing escalation, amplification, calm/neutral, and explanatory wording.
    - clickbait signals
    - educational signals
    - calm/neutral signals
-5. PersonaLabs creates optional subject-preserving rewritten searches:
-   - Like this, but calmer
-   - Like this, but educational
-   - Like this, but deeper
-   - Like this, but beginner-friendly
-   - Like this, but longer-form
+5. PersonaLabs offers guided demo buttons that load YouTube searches selected for
+   visible framing-style contrast:
+   - neutral explainer
+   - urgency + risk
+   - conflict / investigation
+   - curiosity gap
+   - future-risk framing
 
-The rewritten query preserves the original topic, event, people, and entities.
-Only the wording lens changes.
-
-Example:
-
-```text
-Original: BREAKING: Thomas Massie DESTROYS Iran vote
-Good:     Thomas Massie Iran vote explained educational analysis
-Bad:      educational politics video
-```
+The demo buttons are intentionally presentation-friendly. They help reviewers see
+several wording styles quickly without requiring a presenter to invent searches
+live.
 
 ## Persistent Side Panel
 
@@ -68,18 +62,17 @@ shows:
 - original title
 - extracted subject anchor
 - removed escalation terms
-- transformed exploration query
-- selected exploration lens
-- Suggested Exploration Paths after a transformed search is opened
+- guided demo framing-style buttons
+- selected scoring/filter lens
+- visible title-filtering results after a demo style is opened
 
-The exploration buttons generate transformed YouTube searches, open them in a
-new tab when the browser allows it, and preserve event continuity:
+The demo buttons open YouTube searches in a new tab when the browser allows it:
 
-- calmer
-- educational
-- deeper dive
-- beginner friendly
-- longer-form
+- neutral explainer
+- urgency + risk
+- conflict / investigation
+- curiosity gap
+- future-risk framing
 
 The panel includes a Clear saved context control so a presenter or user can
 remove the locally stored anchor/search state without changing browser-level
@@ -87,7 +80,7 @@ extension settings.
 
 ## Visible Metadata and Result Filtering
 
-After a rewritten search is opened, PersonaLabs reads visible or provider-supplied
+After a guided demo style is opened, PersonaLabs reads visible or provider-supplied
 video metadata, scores title/channel wording with deterministic logic, and applies
 the selected wording lens.
 
@@ -100,7 +93,7 @@ by YouTube Data API retrieval.
 Pipeline:
 
 1. Contextual anchor
-2. Transformation query generation
+2. Guided demo style selection
 3. Structured metadata retrieval
 4. Deterministic wording-cue scoring
 5. Lens-aware filtering

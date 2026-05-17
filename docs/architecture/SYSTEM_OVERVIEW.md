@@ -1,10 +1,10 @@
 # PersonaLabs System Overview
 
-PersonaLabs is a deterministic, local-first YouTube title-framing helper. It annotates visible video cards with explainable wording labels and provides a side panel for optional subject-preserving rewritten searches.
+PersonaLabs is a deterministic, local-first YouTube title-framing helper. It annotates visible video cards with explainable wording labels and provides a side panel with guided demo searches for framing-style comparison.
 
 This project is currently a Chrome extension runtime composed of:
 
-- `src/semantic-core.js`: deterministic title-framing analysis, rewritten search paths, scoring, filtering, and classification contracts.
+- `src/semantic-core.js`: deterministic title-framing analysis, generated search paths, scoring, filtering, and classification contracts.
 - `src/retrieval-pipeline.js`: structured retrieval adapter and score-first/filter-second exploration pipeline.
 - `src/content.js`: YouTube DOM extraction, overlay rendering, side panel rendering, debug trace collection, and optional trace persistence attempts.
 - `src/content.css`: overlay and panel styling.
@@ -58,7 +58,7 @@ The overlay must not independently rescore content or choose labels from alterna
 
 ### Panel flow
 
-1. Render active anchor and rewritten search paths.
+1. Render active anchor and guided demo framing-style buttons.
 2. Run retrieval pipeline for the selected lens.
 3. Render suggestions from deterministic scoring results.
 4. Render debug traces when debug mode is enabled.
@@ -92,6 +92,6 @@ Compatibility fields may exist, but they must mirror the deterministic result fi
 
 - **Thumbnail overlay**: compact framing label, rule-match score, wording-cue summary, reason, and matched terms.
 - **Title badge**: short label near the title with tooltip details.
-- **Side panel**: anchor context, rewritten search paths, suggestions, principles, and optional debug trace export.
+- **Side panel**: anchor context, guided demo searches, suggestions, principles, and optional debug trace export.
 - **Debug traces panel section**: shown only when `PERSONALABS_DEBUG` is enabled.
 
