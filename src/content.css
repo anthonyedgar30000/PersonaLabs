@@ -1,0 +1,603 @@
+#personalabs-panel,
+:root {
+  --pl-green: #8ef0bd;
+  --pl-yellow: #ffd28f;
+  --pl-red: #ff9a9a;
+}
+
+#personalabs-panel {
+  --pl-bg: #10141f;
+  --pl-panel: #151b29;
+  --pl-border: rgba(255, 255, 255, 0.12);
+  --pl-text: #f6f7fb;
+  --pl-muted: #aeb6c7;
+  --pl-accent: #8fc7ff;
+  --pl-accent-strong: #b9ddff;
+  --pl-chip: rgba(143, 199, 255, 0.14);
+  --pl-warning: #ffd28f;
+  background: var(--pl-bg);
+  border: 1px solid var(--pl-border);
+  border-radius: 18px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.36);
+  box-sizing: border-box;
+  color: var(--pl-text);
+  display: flex;
+  flex-direction: column;
+  font-family: Inter, Roboto, Arial, sans-serif;
+  gap: 12px;
+  line-height: 1.35;
+  max-height: calc(100vh - 64px);
+  overflow: auto;
+  padding: 14px;
+  position: fixed;
+  right: 16px;
+  top: 48px;
+  width: min(520px, calc(100vw - 32px));
+  z-index: 2147483647;
+}
+
+#personalabs-panel * {
+  box-sizing: border-box;
+}
+
+#personalabs-panel h2,
+#personalabs-panel h3,
+#personalabs-panel h4,
+#personalabs-panel p {
+  margin: 0;
+}
+
+#personalabs-panel h2 {
+  font-size: 18px;
+  letter-spacing: -0.02em;
+}
+
+#personalabs-panel h3 {
+  color: var(--pl-text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+#personalabs-panel h4 {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+#personalabs-panel a {
+  color: var(--pl-accent-strong);
+  text-decoration: none;
+}
+
+#personalabs-panel a:hover {
+  text-decoration: underline;
+}
+
+.personalabs-section {
+  background: var(--pl-panel);
+  border: 1px solid var(--pl-border);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+}
+
+.personalabs-header {
+  background: linear-gradient(135deg, rgba(143, 199, 255, 0.18), rgba(255, 255, 255, 0.04));
+}
+
+.personalabs-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.personalabs-header-actions button {
+  background: rgba(143, 199, 255, 0.12);
+  border: 1px solid rgba(143, 199, 255, 0.32);
+  border-radius: 999px;
+  color: var(--pl-accent-strong);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 6px 9px;
+}
+
+.personalabs-header-actions button:hover {
+  background: rgba(143, 199, 255, 0.18);
+}
+
+.personalabs-eyebrow {
+  color: var(--pl-accent);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.personalabs-muted {
+  color: var(--pl-muted);
+  font-size: 12px;
+}
+
+.personalabs-empty p,
+.personalabs-principles li {
+  color: var(--pl-muted);
+  font-size: 12px;
+}
+
+.personalabs-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.personalabs-field > span {
+  color: var(--pl-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.personalabs-field strong {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  color: var(--pl-text);
+  display: block;
+  font-size: 13px;
+  padding: 8px;
+}
+
+.personalabs-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.personalabs-chip {
+  background: var(--pl-chip);
+  border: 1px solid rgba(143, 199, 255, 0.28);
+  border-radius: 999px;
+  color: var(--pl-accent-strong);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 8px;
+}
+
+.personalabs-term-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.personalabs-term-list li {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 9px;
+  display: flex;
+  font-size: 12px;
+  justify-content: space-between;
+  padding: 6px 8px;
+}
+
+.personalabs-term-list em {
+  color: var(--pl-warning);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.personalabs-demo-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.personalabs-demo-button {
+  align-items: flex-start;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--pl-border);
+  border-radius: 12px;
+  color: var(--pl-text);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font: inherit;
+  gap: 3px;
+  padding: 9px 10px;
+  text-align: left;
+}
+
+.personalabs-demo-button:hover,
+.personalabs-demo-button[data-active="true"] {
+  background: rgba(143, 199, 255, 0.16);
+  border-color: rgba(143, 199, 255, 0.46);
+}
+
+.personalabs-demo-button strong {
+  color: var(--pl-accent-strong);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.personalabs-demo-button span {
+  color: var(--pl-warning);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.personalabs-demo-button small {
+  color: var(--pl-muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.personalabs-suggestion-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.personalabs-suggestion-list li {
+  align-items: flex-start;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 38px minmax(0, 1fr);
+  padding: 9px;
+}
+
+.personalabs-suggestion-list li[data-classification="green"] {
+  border-color: rgba(87, 190, 137, 0.34);
+}
+
+.personalabs-suggestion-list li[data-classification="yellow"] {
+  border-color: rgba(255, 210, 143, 0.36);
+}
+
+.personalabs-score {
+  align-items: center;
+  background: var(--pl-chip);
+  border-radius: 999px;
+  color: var(--pl-accent-strong);
+  display: flex;
+  font-size: 13px;
+  font-weight: 900;
+  height: 34px;
+  justify-content: center;
+  width: 34px;
+}
+
+.personalabs-score[data-classification="green"] {
+  background: rgba(87, 190, 137, 0.16);
+  color: var(--pl-green);
+}
+
+.personalabs-score[data-classification="yellow"] {
+  background: rgba(255, 210, 143, 0.16);
+  color: var(--pl-yellow);
+}
+
+.personalabs-score[data-classification="red"] {
+  background: rgba(255, 154, 154, 0.16);
+  color: var(--pl-red);
+}
+
+.personalabs-classification {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.personalabs-classification[data-classification="green"] {
+  color: var(--pl-green);
+}
+
+.personalabs-classification[data-classification="yellow"] {
+  color: var(--pl-yellow);
+}
+
+.personalabs-classification[data-classification="red"] {
+  color: var(--pl-red);
+}
+
+.personalabs-suggestion-list p {
+  color: var(--pl-muted);
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.personalabs-confidence-details {
+  color: var(--pl-muted);
+  font-size: 10px;
+  font-weight: 800;
+  margin-top: 4px;
+}
+
+.personalabs-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 7px;
+}
+
+.personalabs-reasons span {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+  color: var(--pl-muted);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 6px;
+}
+
+.personalabs-debug-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.personalabs-pipeline-health {
+  gap: 8px;
+}
+
+.personalabs-health-grid {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.personalabs-health-item {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  padding: 7px;
+}
+
+.personalabs-health-item span {
+  color: var(--pl-muted);
+  display: block;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.personalabs-health-item strong {
+  color: var(--pl-text);
+  display: block;
+  font-size: 12px;
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+}
+
+.personalabs-debug-traces summary {
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.personalabs-debug-traces summary strong {
+  color: var(--pl-text);
+  font-size: 14px;
+}
+
+.personalabs-debug-actions button,
+.personalabs-debug-actions select {
+  background: rgba(143, 199, 255, 0.12);
+  border: 1px solid rgba(143, 199, 255, 0.32);
+  border-radius: 9px;
+  color: var(--pl-accent-strong);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 6px 8px;
+}
+
+.personalabs-debug-actions label {
+  color: var(--pl-muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.personalabs-inspector-block {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+}
+
+.personalabs-inspector-block dl {
+  display: grid;
+  gap: 4px 8px;
+  grid-template-columns: 105px minmax(0, 1fr);
+  margin: 0;
+}
+
+.personalabs-inspector-block dt,
+.personalabs-inspector-block p {
+  color: var(--pl-muted);
+  font-size: 10px;
+  margin: 0;
+}
+
+.personalabs-inspector-block dd {
+  color: var(--pl-text);
+  font-size: 10px;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.personalabs-inspector-events {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 0;
+  padding-left: 16px;
+}
+
+.personalabs-inspector-events li {
+  color: var(--pl-muted);
+  font-size: 10px;
+}
+
+.personalabs-inspector-events code {
+  color: var(--pl-accent-strong);
+  display: block;
+  white-space: pre-wrap;
+}
+
+.personalabs-debug-traces pre {
+  background: rgba(0, 0, 0, 0.24);
+  border-radius: 10px;
+  color: var(--pl-muted);
+  font-size: 10px;
+  max-height: 260px;
+  overflow: auto;
+  padding: 8px;
+  white-space: pre-wrap;
+}
+
+.personalabs-principles ul {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 0;
+  padding-left: 17px;
+}
+
+.personalabs-observability-badge {
+  align-items: center;
+  border-radius: 999px;
+  display: inline-flex;
+  font-family: Inter, Roboto, Arial, sans-serif;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  margin: 5px 0 0;
+  padding: 3px 7px;
+  text-transform: uppercase;
+  width: fit-content;
+  z-index: 2147483646;
+}
+
+.personalabs-overlay-host {
+  overflow: visible !important;
+  position: relative !important;
+}
+
+.personalabs-classification-overlay {
+  align-items: flex-start;
+  backdrop-filter: blur(6px);
+  border-radius: 12px;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.32);
+  display: flex !important;
+  flex-direction: column;
+  gap: 3px;
+  font-family: Inter, Roboto, Arial, sans-serif;
+  font-size: 10px;
+  font-weight: 800;
+  left: 8px;
+  letter-spacing: 0.04em;
+  line-height: 1.15;
+  max-width: min(280px, calc(100% - 16px));
+  opacity: 1 !important;
+  padding: 7px 9px;
+  pointer-events: none;
+  position: absolute;
+  text-transform: uppercase;
+  top: 8px;
+  transform: translateZ(0);
+  visibility: visible !important;
+  white-space: normal;
+  z-index: 2147483646;
+}
+
+.personalabs-overlay-label {
+  font-size: 11px;
+  font-weight: 950;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.personalabs-overlay-breakdown,
+.personalabs-overlay-confidence,
+.personalabs-overlay-reason,
+.personalabs-overlay-terms {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.personalabs-overlay-confidence,
+.personalabs-overlay-reason,
+.personalabs-overlay-terms {
+  opacity: 0.9;
+  text-transform: none;
+}
+
+.personalabs-classification-overlay[data-signal="green"] {
+  background: rgba(20, 65, 42, 0.92);
+  border: 1px solid rgba(87, 190, 137, 0.8);
+  color: var(--pl-green, #8ef0bd);
+}
+
+.personalabs-classification-overlay[data-signal="yellow"] {
+  background: rgba(71, 50, 16, 0.92);
+  border: 1px solid rgba(255, 210, 143, 0.82);
+  color: var(--pl-yellow, #ffd28f);
+}
+
+.personalabs-classification-overlay[data-signal="red"] {
+  background: rgba(72, 28, 28, 0.92);
+  border: 1px solid rgba(255, 154, 154, 0.84);
+  color: var(--pl-red, #ff9a9a);
+}
+
+.personalabs-observability-badge[data-signal="calm"],
+.personalabs-observability-badge[data-signal="green"] {
+  background: rgba(87, 190, 137, 0.16);
+  border: 1px solid rgba(87, 190, 137, 0.3);
+  color: var(--pl-green);
+}
+
+.personalabs-observability-badge[data-signal="elevated"],
+.personalabs-observability-badge[data-signal="yellow"] {
+  background: rgba(255, 210, 143, 0.16);
+  border: 1px solid rgba(255, 210, 143, 0.34);
+  color: var(--pl-yellow);
+}
+
+.personalabs-observability-badge[data-signal="red"] {
+  background: rgba(255, 154, 154, 0.16);
+  border: 1px solid rgba(255, 154, 154, 0.34);
+  color: var(--pl-red);
+}
+
+@media (max-width: 1100px) {
+  #personalabs-panel {
+    max-height: 45vh;
+    right: 10px;
+    top: auto;
+    bottom: 10px;
+    width: min(520px, calc(100vw - 20px));
+  }
+
+  .personalabs-demo-grid {
+    grid-template-columns: 1fr;
+  }
+}

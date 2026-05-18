@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PersonaLabs Title Framing Explorer</title>
+    <link rel="stylesheet" href="./test-harness.css">
+  </head>
+  <body>
+    <main class="personalabs-harness">
+      <header class="personalabs-harness-header">
+        <p class="eyebrow">PersonaLabs evaluation harness</p>
+        <h1>PersonaLabs Title Framing Explorer</h1>
+        <p>Paste YouTube titles. See rule-based framing labels, rule-match scores, and matched wording cues.</p>
+      </header>
+
+      <section class="harness-section" aria-labelledby="api-status-title">
+        <h2 id="api-status-title">API Status</h2>
+        <div id="api-status"></div>
+      </section>
+
+      <section class="harness-section" aria-labelledby="input-title">
+        <h2 id="input-title">Input</h2>
+        <label>Optional query/context <input id="query-input" type="text" placeholder="e.g. calming animal videos"></label>
+        <label>Titles <textarea id="title-input" spellcheck="false" aria-label="YouTube title lines"></textarea></label>
+        <div class="action-row">
+          <button type="button" id="classify-titles">Classify Titles</button>
+          <button type="button" id="run-scenarios">Run Example Pack</button>
+        </div>
+      </section>
+
+      <section class="harness-section" aria-labelledby="results-title">
+        <h2 id="results-title">Results</h2>
+        <p class="microcopy">GREEN = calm / straightforward framing. YELLOW = mixed or unclear framing. RED = intense / attention-grabbing framing.</p>
+        <p class="microcopy">Colors summarize title framing only. PersonaLabs evaluates surface wording patterns, not claim, viewpoint, creator-goal, or editorial quality.</p>
+        <p class="microcopy">Rule-match score reflects deterministic wording matches, not certainty about the video.</p>
+        <p class="microcopy">Signal coverage is strongest for English-language title wording.</p>
+        <div id="classification-results"></div>
+      </section>
+
+      <section class="harness-section" aria-labelledby="details-title">
+        <h2 id="details-title">Selected Classification</h2>
+        <div id="selected-details"></div>
+      </section>
+
+      <section class="harness-section" aria-labelledby="evidence-title">
+        <h2 id="evidence-title">Evidence JSON</h2>
+        <div class="action-row">
+          <button type="button" id="copy-evidence">Copy JSON</button>
+          <button type="button" id="download-evidence">Download JSON</button>
+        </div>
+        <div id="evidence-viewer"></div>
+      </section>
+    </main>
+
+    <script>
+      window.PERSONALABS_DEBUG = true;
+    </script>
+    <script src="../src/semantic-core.js"></script>
+    <script src="../src/test-harness-api.js"></script>
+    <script src="./test-harness.js"></script>
+  </body>
+</html>
