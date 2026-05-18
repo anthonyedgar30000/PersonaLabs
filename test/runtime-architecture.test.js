@@ -83,6 +83,16 @@ test("overlays stay compact while detailed debugging stays in the inspector", ()
   assert.match(contentRuntime, /Rule-match Trace JSON/);
 });
 
+test("thumbnail overlays wrap framing text instead of truncating labels", () => {
+  const contentStyles = fs.readFileSync(path.join(root, "src", "content.css"), "utf8");
+  const overlayStyles = contentStyles.match(/\.personalabs-classification-overlay \{[\s\S]*?\n\}/)[0];
+  const textStyles = contentStyles.match(/\.personalabs-overlay-breakdown,[\s\S]*?\.personalabs-overlay-terms \{[\s\S]*?\n\}/)[0];
+
+  assert.match(overlayStyles, /white-space:\s*normal/);
+  assert.match(textStyles, /overflow-wrap:\s*anywhere/);
+  assert(!/text-overflow:\s*ellipsis/.test(textStyles));
+});
+
 test("overlay candidates are scoped to video surfaces only", () => {
   const contentRuntime = fs.readFileSync(path.join(root, "src", "content.js"), "utf8");
   const getCandidateCardsFunction = contentRuntime.match(/function getCandidateCards[\s\S]*?function findTitleElement/)[0];
