@@ -33,7 +33,9 @@ The system helps users notice when digital media consumption patterns drift away
 The framing classification window starts in a neutral state until a user or
 classifier selects a more specific framing. This keeps videos such as
 "Infiltrating bank scammers" from receiving an implied frame before there is
-evidence to support it.
+evidence to support it. Trigger words can still be surfaced separately; for
+example, "Infiltrating" is flagged as a trigger for the infiltrating
+classification while the default selection remains neutral.
 
 ## Example Prompt
 
