@@ -32,7 +32,7 @@ The system helps users notice when digital media consumption patterns drift away
 
 The framing classification window starts in a neutral state until a user or
 classifier selects a more specific framing. This keeps videos such as
-"Infiltrating bank scammefs" from receiving an implied frame before there is
+"Infiltrating bank scammers" from receiving an implied frame before there is
 evidence to support it.
 
 ## Example Prompt

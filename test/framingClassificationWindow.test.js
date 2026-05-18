@@ -14,20 +14,20 @@ test("framing classification defaults to neutral", () => {
   assert.equal(getDefaultFramingClassification(), NEUTRAL_FRAMING_ID);
 });
 
-test("bank scammer video framing window starts with neutral selected", () => {
+test("bank scammers video framing window starts with neutral selected", () => {
   const windowState = buildFramingClassificationWindow({
-    title: "Infiltrating bank scammefs"
+    title: "Infiltrating bank scammers"
   });
 
   assert.equal(windowState.defaultClassification, NEUTRAL_FRAMING_ID);
   assert.equal(windowState.selectedClassification, NEUTRAL_FRAMING_ID);
   assert.equal(windowState.isDefaultSelection, true);
-  assert.equal(windowState.videoTitle, "Infiltrating bank scammefs");
+  assert.equal(windowState.videoTitle, "Infiltrating bank scammers");
 });
 
 test("explicit user selection can override the neutral default", () => {
   const windowState = buildFramingClassificationWindow(
-    { title: "Infiltrating bank scammefs" },
+    { title: "Infiltrating bank scammers" },
     { selectedClassification: "investigative" }
   );
 
@@ -37,14 +37,14 @@ test("explicit user selection can override the neutral default", () => {
 });
 
 test("title normalization trims and collapses whitespace", () => {
-  assert.equal(normalizeTitle("  Infiltrating   bank\t scammefs  "), "Infiltrating bank scammefs");
+  assert.equal(normalizeTitle("  Infiltrating   bank\t scammers  "), "Infiltrating bank scammers");
 });
 
 test("unknown selected classifications are rejected", () => {
   assert.throws(
     () =>
       buildFramingClassificationWindow(
-        { title: "Infiltrating bank scammefs" },
+        { title: "Infiltrating bank scammers" },
         { selectedClassification: "unknown" }
       ),
     /Unknown framing classification: unknown/
