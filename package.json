@@ -1,0 +1,12 @@
+{
+  "name": "personalabs",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cognitive observability and intentionality support platform.",
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
