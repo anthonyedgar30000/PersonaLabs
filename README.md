@@ -1,39 +1,30 @@
-# PersonaLabs
+# LineAlert Analysis Engine
 
 > **Status: Archived / Paused**
 >
-> PersonaLabs is no longer the active project focus. This repository is retained as a historical prototype exploring intentional media consumption, cognitive observability, and human-centered AI design.
->
-> Active development efforts have shifted to other projects, including ContextOS and related governance-focused work.
+> LineAlert is not currently under active development. This repository is retained as a historical research and portfolio artifact.
 
 ## Historical Project Summary
 
-PersonaLabs was conceived as a cognitive observability and intentionality support platform.
+LineAlert explored deterministic observability, timing analysis, event correlation, drift detection, and troubleshooting workflows for industrial and operational technology environments.
 
-The goal was to help users notice when digital media consumption patterns drifted away from their stated goals, modes, schedules, or values using explainable AI, behavioral telemetry, and human-centered observability principles.
+Key concepts explored included:
 
-## Core Principles
+- Event detection and timestamp extraction
+- Timing and lag analysis
+- Drift and rhythm analysis
+- Sequence validation
+- Deterministic troubleshooting workflows
+- Explainable operational diagnostics
 
-- Flag, do not block
-- User agency first
-- Explainable AI outputs
-- Human-in-the-loop control
-- Calm, non-judgmental interaction design
-- Privacy-aware architecture
-- Behavioral observability over coercive filtering
-- Bare Metal mode always available
+## Historical Vision
 
-## Historical MVP Goals
-
-- Chrome extension overlay for YouTube
-- Persona modes (Study, Chill, Research, Bare Metal)
-- Color-coded alignment indicators
-- Lightweight telemetry signals
-- Explainable scoring summaries
-- Adaptive schedule renegotiation prompts
+The project investigated whether machine behavior could be understood through context, sequence, and timing rather than relying solely on fault codes or alarms.
 
 ## Repository Status
 
-This repository is preserved for reference and portfolio purposes.
+This repository is preserved for reference, learning, and portfolio purposes.
 
 No active feature development is currently planned.
+
+Current focus has shifted toward governance, assurance, and AI-assisted development workflow concepts.
