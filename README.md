@@ -1,8 +1,16 @@
 # PersonaLabs
 
-PersonaLabs is a cognitive observability and intentionality support platform.
+> **Status: Archived / Paused**
+>
+> PersonaLabs is no longer the active project focus. This repository is retained as a historical prototype exploring intentional media consumption, cognitive observability, and human-centered AI design.
+>
+> Active development efforts have shifted to other projects, including ContextOS and related governance-focused work.
 
-The system helps users notice when digital media consumption patterns drift away from their stated goals, modes, schedules, or values using explainable AI, behavioral telemetry, and human-centered observability principles.
+## Historical Project Summary
+
+PersonaLabs was conceived as a cognitive observability and intentionality support platform.
+
+The goal was to help users notice when digital media consumption patterns drifted away from their stated goals, modes, schedules, or values using explainable AI, behavioral telemetry, and human-centered observability principles.
 
 ## Core Principles
 
@@ -15,46 +23,17 @@ The system helps users notice when digital media consumption patterns drift away
 - Behavioral observability over coercive filtering
 - Bare Metal mode always available
 
-## MVP Goals
+## Historical MVP Goals
 
 - Chrome extension overlay for YouTube
-- Persona modes:
-  - Study
-  - Chill
-  - Research
-  - Bare Metal
-- Color-coded alignment borders
+- Persona modes (Study, Chill, Research, Bare Metal)
+- Color-coded alignment indicators
 - Lightweight telemetry signals
 - Explainable scoring summaries
 - Adaptive schedule renegotiation prompts
 
-## Example Prompt
+## Repository Status
 
-"Looks like your activity drifted away from Study Mode.
-Would you like to:
-- Continue Study Mode
-- Switch to Chill Mode
-- Enter Bare Metal Mode
-- Snooze prompts for 30 mins"
+This repository is preserved for reference and portfolio purposes.
 
-## Development Model
-
-PersonaLabs is being developed using governed AI-assisted iterative development.
-
-Agent roles include:
-- Product Architect
-- Frontend Builder
-- AI Scoring Engineer
-- Security/Governance Reviewer
-- QA/Test Agent
-- Documentation Agent
-
-All AI-generated outputs require:
-- feature validation
-- governance review
-- hallucination mitigation review
-- human approval
-
-## Vision
-
-AI helping people notice when they are no longer acting intentionally.
+No active feature development is currently planned.
