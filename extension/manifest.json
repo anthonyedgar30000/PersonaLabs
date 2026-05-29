@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Persona Labs YouTube Overlay",
+  "description": "Local-only MVP that color-codes YouTube video cards with mock Persona mode scores.",
+  "version": "0.1.0",
+  "permissions": ["storage"],
+  "host_permissions": ["https://www.youtube.com/*"],
+  "action": {
+    "default_title": "Persona Labs",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "css": ["content.css"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
